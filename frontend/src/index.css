@@ -1,0 +1,16 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-slate-900 text-slate-100 antialiased;
+    margin: 0;
+    min-width: 320px;
+    min-height: 100vh;
+  }
+
+  #root {
+    @apply w-full min-h-screen;
+  }
+}
