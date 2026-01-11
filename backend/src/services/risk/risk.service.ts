@@ -8,6 +8,7 @@ import { ethers } from 'ethers';
 import { analyzeRisk } from './risk-analyzer';
 import { FacilitatorService } from '../../lib/x402/facilitator.service';
 import { recordPayment } from '../../lib/x402/require-x402.middleware';
+import { logRiskAnalysis, logPayment } from '../../lib/utils/logger.util';
 import type { 
   RiskAnalysisRequest, 
   RiskAnalysisResponse, 
@@ -81,6 +82,14 @@ export class RiskService {
       }
     }
 
+    // Log risk analysis
+    logRiskAnalysis('risk-oracle', {
+      contract: request.contract,
+      score: analysis.score,
+      proof,
+      verified: false,
+    });
+
     return {
       ...analysis,
       proof,
@@ -93,6 +102,13 @@ export class RiskService {
 
     if (result.ok && result.txHash) {
       recordPayment(request.paymentId, result.txHash);
+      
+      // Log payment
+      logPayment('risk-oracle', {
+        paymentId: request.paymentId,
+        txHash: result.txHash,
+        reason: 'risk_analysis',
+      });
     }
 
     return result;

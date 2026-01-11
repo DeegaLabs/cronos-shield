@@ -6,6 +6,7 @@ import { ethers } from 'ethers';
 import type { DivergenceRequest, DivergenceResponse } from '../../types/divergence.types';
 import { CryptoComService } from './crypto-com.service';
 import { DexService } from './dex.service';
+import { logDivergenceAnalysis } from '../../lib/utils/logger.util';
 
 export class DivergenceService {
   private cexService: CryptoComService;
@@ -35,6 +36,17 @@ export class DivergenceService {
 
     const liquidity = await this.dexService.getLiquidity(pair);
     const recommendation = this.generateRecommendation(Math.abs(percentage), liquidity);
+
+    const divergencePercent = parseFloat(percentage.toFixed(4));
+
+    // Log divergence analysis
+    logDivergenceAnalysis('cex-dex-synergy', {
+      token,
+      pair,
+      divergence: divergencePercent,
+      recommendation,
+      action: recommendation === 'no_arbitrage' ? 'ALLOW' : 'WARN',
+    });
 
     return {
       token,
