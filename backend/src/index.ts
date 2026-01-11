@@ -36,7 +36,15 @@ const PORT = process.env.PORT || 3000;
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
 
 // Middleware
-app.use(cors({ origin: FRONTEND_URL }));
+// CORS: Allow frontend URL or all origins in development
+const corsOptions = {
+  origin: process.env.NODE_ENV === 'production' 
+    ? FRONTEND_URL 
+    : process.env.CORS_ORIGIN || FRONTEND_URL,
+  credentials: true,
+  optionsSuccessStatus: 200
+};
+app.use(cors(corsOptions));
 app.use(express.json());
 
 // Swagger Configuration
@@ -54,8 +62,10 @@ const swaggerOptions = {
     },
     servers: [
       {
-        url: `http://localhost:${PORT}`,
-        description: 'Development server',
+        url: process.env.NODE_ENV === 'production' 
+          ? (process.env.PUBLIC_RESOURCE_URL || `https://${process.env.RAILWAY_PUBLIC_DOMAIN || 'localhost'}`)
+          : `http://localhost:${PORT}`,
+        description: process.env.NODE_ENV === 'production' ? 'Production server' : 'Development server',
       },
     ],
     tags: [
