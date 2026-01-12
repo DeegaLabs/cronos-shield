@@ -15,7 +15,7 @@ const router = express.Router();
 export function createDivergenceRoutes(divergenceController: DivergenceController) {
   /**
    * @swagger
-   * /api/divergence/divergence:
+   * /api/divergence/analyze:
    *   get:
    *     summary: Analyze CEX-DEX price divergence
    *     description: Returns price divergence between centralized and decentralized exchanges. Requires x402 payment.
@@ -71,7 +71,7 @@ export function createDivergenceRoutes(divergenceController: DivergenceControlle
    *               $ref: '#/components/schemas/Error'
    */
   router.get(
-    '/divergence',
+    '/analyze',
     requirePaidAccess({
       description: 'CEX-DEX price divergence analysis',
       serviceMetadata: {
