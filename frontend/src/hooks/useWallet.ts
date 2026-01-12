@@ -17,12 +17,51 @@ export function useWallet() {
   const [isConnecting, setIsConnecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Check for existing connection on mount
+  // Check for existing connection on mount and reconnect to get signer
   useEffect(() => {
-    const savedAddress = getWalletAddress();
-    if (savedAddress) {
-      setWallet((prev) => ({ ...prev, address: savedAddress }));
-    }
+    const reconnectWallet = async () => {
+      const savedAddress = getWalletAddress();
+      if (savedAddress && typeof window !== 'undefined' && (window as any).ethereum) {
+        try {
+          // Reconnect to get provider and signer
+          const ethereum = (window as any).ethereum;
+          const provider = new ethers.BrowserProvider(ethereum);
+          const signer = await provider.getSigner();
+          const currentAddress = await signer.getAddress();
+          
+          // Verify it's the same address
+          if (currentAddress.toLowerCase() === savedAddress.toLowerCase()) {
+            setWallet({
+              address: currentAddress,
+              isConnected: true,
+              provider,
+              signer,
+            });
+          } else {
+            // Address changed, clear saved address
+            localStorage.removeItem('wallet-address');
+            setWallet({
+              address: null,
+              isConnected: false,
+              provider: null,
+              signer: null,
+            });
+          }
+        } catch (error) {
+          // Failed to reconnect, clear saved address
+          console.warn('Failed to reconnect wallet:', error);
+          localStorage.removeItem('wallet-address');
+          setWallet({
+            address: null,
+            isConnected: false,
+            provider: null,
+            signer: null,
+          });
+        }
+      }
+    };
+    
+    reconnectWallet();
   }, []);
 
   const connect = useCallback(async () => {
