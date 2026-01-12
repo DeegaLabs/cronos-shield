@@ -25,11 +25,18 @@ export class CryptoComService {
     try {
       const normalizedPair = pair.replace('-', '_').toUpperCase();
       
+      // Prepare headers with API key if available
+      const headers: Record<string, string> = {};
+      if (this.apiKey) {
+        headers['X-API-KEY'] = this.apiKey;
+      }
+      
       // Retry logic for API calls
       const response = await retry(
         async () => {
           return await axios.get(`${this.apiUrl}/public/get-ticker`, {
             params: { instrument_name: normalizedPair },
+            headers,
             timeout: 5000,
           });
         },

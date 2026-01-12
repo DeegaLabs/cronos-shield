@@ -273,8 +273,18 @@ PRIVATE_KEY=0x...
 PRICE_BASE_UNITS=1000000
 RISK_ORACLE_CONTRACT_ADDRESS=0x...
 DEX_ROUTER_ADDRESS=0x...
+
+# CEX-DEX Integration (Optional - uses mock data if not set)
+CRYPTO_COM_API_URL=https://api.crypto.com/v2
+CRYPTO_COM_API_KEY=your_api_key_here
+CRO_TOKEN_ADDRESS=0x...  # Optional: override token addresses
+USDC_TOKEN_ADDRESS=0x...
+USDT_TOKEN_ADDRESS=0x...
+
 FRONTEND_URL=http://localhost:5173
 ```
+
+> **Note:** For production setup, see [Production Guide](./docs/PRODUCTION.md)
 
 ### Frontend (.env)
 

@@ -19,10 +19,12 @@ const VVS_ROUTER_ABI = [
 export class DexService {
   private provider: ethers.JsonRpcProvider;
   private router: ethers.Contract;
+  // Token addresses - can be overridden via environment variables
+  // Testnet addresses (default)
   private tokenAddresses: Record<string, string> = {
-    'CRO': '0x5C7F8A570d578ED84E63fdFA7b1eE72dEae1AE23',
-    'USDC': '0xc01efAaF7C5C61bEbFAeb358E1161b537b8bC0e0',
-    'USDT': '0x66e428c3f67a68878562e79A0234c1F83c208770',
+    'CRO': process.env.CRO_TOKEN_ADDRESS || '0x5C7F8A570d578ED84E63fdFA7b1eE72dEae1AE23',
+    'USDC': process.env.USDC_TOKEN_ADDRESS || '0xc01efAaF7C5C61bEbFAeb358E1161b537b8bC0e0',
+    'USDT': process.env.USDT_TOKEN_ADDRESS || '0x66e428c3f67a68878562e79A0234c1F83c208770',
   };
 
   constructor(rpcUrl: string, routerAddress: string) {
