@@ -3,7 +3,6 @@
  */
 
 import { useState } from 'react';
-import toast from 'react-hot-toast';
 import apiClient from '../../lib/api/client';
 import PaymentModal from '../common/PaymentModal';
 import { useWallet } from '../../contexts/WalletContext';
