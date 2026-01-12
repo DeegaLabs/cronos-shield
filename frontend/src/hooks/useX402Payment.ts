@@ -106,6 +106,8 @@ export function useX402Payment() {
       
       let paymentHeader: string;
       try {
+        // The Facilitator SDK may throw "Unexpected error" from evmAsk.js
+        // This is often related to wallet detection. We'll try to handle it gracefully.
         paymentHeader = await facilitator.generatePaymentHeader({
           to: accept.payTo,
           value: accept.maxAmountRequired,
@@ -114,8 +116,23 @@ export function useX402Payment() {
           validBefore,
           validAfter: 0,
         });
-      } catch (headerError) {
-        const errorMsg = headerError instanceof Error ? headerError.message : String(headerError);
+      } catch (headerError: any) {
+        // Check if it's the specific "Unexpected error" from evmAsk.js
+        const errorMsg = headerError?.message || String(headerError);
+        const isUnexpectedError = errorMsg.includes('Unexpected error') || 
+                                  errorMsg.includes('evmAsk') ||
+                                  errorMsg.includes('selectExtension');
+        
+        if (isUnexpectedError) {
+          throw new Error(
+            'MetaMask connection error. Please try:\n' +
+            '1. Refresh the page\n' +
+            '2. Ensure MetaMask is unlocked\n' +
+            '3. Disable other wallet extensions temporarily\n' +
+            '4. Try again'
+          );
+        }
+        
         throw new Error(`Failed to generate payment header: ${errorMsg}. Please ensure MetaMask is unlocked and you have sufficient balance.`);
       }
 
