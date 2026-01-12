@@ -111,22 +111,34 @@ export default function VaultManagement() {
     }
   };
 
-  const handleDeposit = async () => {
+  const handleDeposit = () => {
     if (!wallet.signer || !wallet.address) {
-      setError('Please connect your wallet first');
+      toast.error('Please connect your wallet first');
       return;
     }
 
     if (!depositAmount || parseFloat(depositAmount) <= 0) {
-      setError('Please enter a valid amount');
+      toast.error('Please enter a valid amount');
       return;
     }
 
+    setConfirmModal({
+      isOpen: true,
+      action: 'deposit',
+      data: { amount: depositAmount },
+    });
+  };
+
+  const executeDeposit = async () => {
     setIsLoading(true);
     setError(null);
     setSuccess(null);
+    setConfirmModal({ isOpen: false, action: null });
 
     try {
+      const amount = confirmModal.data?.amount || depositAmount;
+      const loadingToast = toast.loading('Preparing deposit transaction...');
+
       // Direct contract interaction via frontend
       const vaultContract = new ethers.Contract(
         VAULT_CONTRACT_ADDRESS,
@@ -134,16 +146,22 @@ export default function VaultManagement() {
         wallet.signer
       );
 
-      const amountWei = ethers.parseEther(depositAmount);
+      toast.loading('Waiting for MetaMask confirmation...', { id: loadingToast });
+
+      const amountWei = ethers.parseEther(amount);
       const tx = await vaultContract.deposit({ value: amountWei });
-      setSuccess(`Transaction sent: ${tx.hash}`);
       
+      toast.loading('Transaction pending...', { id: loadingToast });
       const receipt = await tx.wait();
+      
+      toast.success(`Deposit successful! Tx: ${receipt.hash.slice(0, 10)}...`, { id: loadingToast });
       setSuccess(`Deposit successful! Tx: ${receipt.hash}`);
       setDepositAmount('');
       await loadBalance();
     } catch (err: any) {
-      setError(err.message || 'Deposit failed');
+      const errorMsg = err.message || 'Deposit failed';
+      toast.error(errorMsg);
+      setError(errorMsg);
     } finally {
       setIsLoading(false);
     }
