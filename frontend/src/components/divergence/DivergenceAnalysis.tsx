@@ -11,6 +11,14 @@ import type { PaymentChallenge } from '../../types/x402.types';
 
 export default function DivergenceAnalysis() {
   const { wallet } = useWallet();
+  
+  // Debug: log wallet state
+  console.log('DivergenceAnalysis wallet state:', {
+    address: wallet.address,
+    hasProvider: !!wallet.provider,
+    hasSigner: !!wallet.signer,
+    isConnected: wallet.isConnected
+  });
   const [token, setToken] = useState('CRO');
   const [analysis, setAnalysis] = useState<DivergenceAnalysis | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -106,6 +114,13 @@ export default function DivergenceAnalysis() {
         onClose={() => setPaymentChallenge(null)}
         onSuccess={handlePaymentSuccess}
       />
+      {/* Debug: log what we're passing to PaymentModal */}
+      {paymentChallenge && console.log('DivergenceAnalysis passing to PaymentModal:', {
+        challenge: !!paymentChallenge,
+        walletAddress: wallet.address,
+        signer: !!wallet.signer,
+        signerType: wallet.signer ? typeof wallet.signer : 'null'
+      })}
 
       {/* Results */}
       {analysis && (

@@ -26,6 +26,15 @@ export default function PaymentModal({
   onSuccess,
 }: PaymentModalProps) {
   const { isProcessing, error, txHash, processPayment, reset } = useX402Payment();
+  
+  // Debug: log props received
+  console.log('PaymentModal received props:', {
+    challenge: !!challenge,
+    walletAddress,
+    signer: !!signer,
+    signerType: signer ? typeof signer : 'null',
+    isOpen
+  });
 
   useEffect(() => {
     if (!isOpen) {
