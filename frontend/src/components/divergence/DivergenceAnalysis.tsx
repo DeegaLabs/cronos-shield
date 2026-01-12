@@ -2,7 +2,7 @@
  * Divergence Analysis Component
  */
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import apiClient from '../../lib/api/client';
 import PaymentModal from '../common/PaymentModal';
 import { useWallet } from '../../hooks/useWallet';
