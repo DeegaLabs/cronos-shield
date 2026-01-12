@@ -38,6 +38,27 @@ export default function PaymentModal({
     return null;
   }
   
+  // Check if signer is missing
+  if (!signer) {
+    console.error('PaymentModal: signer is null!', { walletAddress, challenge: !!challenge });
+    return (
+      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+        <div className="bg-slate-800 rounded-lg border border-red-500 max-w-md w-full p-6">
+          <h3 className="text-xl font-bold text-red-400 mb-4">⚠️ Wallet Not Connected</h3>
+          <p className="text-slate-300 mb-4">
+            Please connect your wallet first to make payments.
+          </p>
+          <button
+            onClick={onClose}
+            className="w-full px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg transition-colors"
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    );
+  }
+  
   console.log('PaymentModal rendering with:', { 
     hasChallenge: !!challenge, 
     walletAddress, 
