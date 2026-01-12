@@ -158,11 +158,29 @@ cronos-shield/
 
 ## 📚 API Documentation
 
+### For Developers
+
+**👉 [Complete Developer Documentation](./docs/DEVELOPER.md)**
+
+Includes:
+- Quick start guide
+- x402 payment flow
+- Complete API reference
+- SDK integration examples
+- Error handling
+- Best practices
+
 ### Base URL
 
 ```
-http://localhost:3000/api
+Production: https://cronos-shield-backend-production.up.railway.app
+Local:      http://localhost:3000/api
 ```
+
+### Interactive Documentation
+
+- **Swagger UI**: http://localhost:3000/api-docs
+- **Postman Collection**: `postman/Cronos-Shield-API.postman_collection.json`
 
 ### Endpoints
 

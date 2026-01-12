@@ -1,0 +1,308 @@
+{
+  "info": {
+    "name": "Cronos Shield API",
+    "description": "Complete API collection for Cronos Shield - Risk Oracle, Shielded Vaults, CEX-DEX Synergy, and Observability",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "version": "1.0.0"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000",
+      "type": "string"
+    },
+    {
+      "key": "backendUrl",
+      "value": "https://cronos-shield-backend-production.up.railway.app",
+      "type": "string"
+    },
+    {
+      "key": "paymentId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "paymentHeader",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Health Check",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/health",
+              "host": ["{{baseUrl}}"],
+              "path": ["health"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Risk Oracle",
+      "item": [
+        {
+          "name": "Analyze Risk (x402)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 402) {",
+                  "    const body = pm.response.json();",
+                  "    pm.collectionVariables.set('paymentId', body.accepts[0].extra.paymentId);",
+                  "    pm.test('Payment required', function () {",
+                  "        pm.expect(body.error).to.eql('payment_required');",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/risk/risk-analysis?contract=0x1234567890123456789012345678901234567890",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "risk", "risk-analysis"],
+              "query": [
+                {
+                  "key": "contract",
+                  "value": "0x1234567890123456789012345678901234567890"
+                }
+              ]
+            },
+            "description": "Analyzes risk for a smart contract. Returns 402 Payment Required if no payment header is provided."
+          },
+          "response": []
+        },
+        {
+          "name": "Settle Payment",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"paymentId\": \"{{paymentId}}\",\n  \"paymentHeader\": \"{{paymentHeader}}\",\n  \"paymentRequirements\": {}\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/risk/pay",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "risk", "pay"]
+            },
+            "description": "Settles x402 payment for risk analysis"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "CEX-DEX Synergy",
+      "item": [
+        {
+          "name": "Analyze Divergence (x402)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 402) {",
+                  "    const body = pm.response.json();",
+                  "    pm.collectionVariables.set('paymentId', body.accepts[0].extra.paymentId);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/divergence/analyze?token=CRO",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "divergence", "analyze"],
+              "query": [
+                {
+                  "key": "token",
+                  "value": "CRO"
+                }
+              ]
+            },
+            "description": "Analyzes price divergence between CEX and DEX. Returns 402 Payment Required if no payment header is provided."
+          },
+          "response": []
+        },
+        {
+          "name": "Settle Payment",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"paymentId\": \"{{paymentId}}\",\n  \"paymentHeader\": \"{{paymentHeader}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/divergence/pay",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "divergence", "pay"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Shielded Vault",
+      "item": [
+        {
+          "name": "Get Vault Info",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/vault/info",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "vault", "info"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Balance",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/vault/balance?address=0x1234567890123456789012345678901234567890",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "vault", "balance"],
+              "query": [
+                {
+                  "key": "address",
+                  "value": "0x1234567890123456789012345678901234567890"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Blocked Transactions",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/vault/blocked-transactions?limit=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "vault", "blocked-transactions"],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Observability",
+      "item": [
+        {
+          "name": "Get Metrics",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/observability/metrics",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "observability", "metrics"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Logs",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/observability/logs?limit=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "observability", "logs"],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "20"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Add Log",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"risk_analysis\",\n  \"service\": \"risk-oracle\",\n  \"data\": {\n    \"contract\": \"0x1234567890123456789012345678901234567890\",\n    \"score\": 50\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/observability/logs",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "observability", "logs"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Blocked Transactions",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/observability/blocked-transactions?limit=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "observability", "blocked-transactions"],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "20"
+                }
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}

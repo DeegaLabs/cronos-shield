@@ -5,6 +5,7 @@
 import type { Request, Response, NextFunction } from 'express';
 import { DivergenceService } from '../services/divergence/divergence.service';
 import { FacilitatorService } from '../lib/x402/facilitator.service';
+import { validateTokenSymbol } from '../lib/utils/validation.util';
 import { logPayment } from '../lib/utils/logger.util';
 import { recordPayment } from '../lib/x402/require-x402.middleware';
 import type { DivergenceRequest } from '../types/divergence.types';

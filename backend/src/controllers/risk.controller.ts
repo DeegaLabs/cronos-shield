@@ -4,6 +4,7 @@
 
 import type { Request, Response, NextFunction } from 'express';
 import { RiskService } from '../services/risk/risk.service';
+import { validateAddress } from '../lib/utils/validation.util';
 import type { RiskAnalysisRequest } from '../types/risk.types';
 
 export class RiskController {
@@ -13,12 +14,10 @@ export class RiskController {
     try {
       const { contract, amount, tokenAddress, verify } = req.query;
 
-      if (!contract || typeof contract !== 'string') {
-        res.status(400).json({ 
-          error: 'missing_contract',
-          message: 'Contract address is required' 
-        });
-        return;
+      validateAddress(contract as string, 'contract');
+      
+      if (tokenAddress) {
+        validateAddress(tokenAddress as string, 'tokenAddress');
       }
 
       const request: RiskAnalysisRequest = {

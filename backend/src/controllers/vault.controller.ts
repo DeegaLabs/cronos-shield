@@ -7,6 +7,7 @@
 import { Request, Response } from 'express';
 import { VaultService } from '../services/vault/vault.service';
 import { store } from '../lib/storage/in-memory.store';
+import { validateAddress, validateAmount, validateHexString, validatePagination } from '../lib/utils/validation.util';
 import type {
   DepositRequest,
   WithdrawRequest,
@@ -39,17 +40,13 @@ export class VaultController {
   async getBalance(req: Request, res: Response): Promise<void> {
     try {
       const address = req.query.address as string;
-      if (!address) {
-        res.status(400).json({
-          error: 'Missing address parameter',
-        });
-        return;
-      }
+      validateAddress(address, 'address');
 
       const balance = await this.vaultService.getBalance(address);
       res.json(balance);
     } catch (error: any) {
-      res.status(500).json({
+      const statusCode = error.message?.includes('required') || error.message?.includes('valid') ? 400 : 500;
+      res.status(statusCode).json({
         error: 'Failed to get balance',
         message: error.message,
       });
@@ -64,25 +61,16 @@ export class VaultController {
   async deposit(req: Request, res: Response): Promise<void> {
     try {
       const userAddress = req.body.userAddress || req.headers['x-user-address'] as string;
-      if (!userAddress) {
-        res.status(400).json({
-          error: 'Missing user address',
-        });
-        return;
-      }
+      validateAddress(userAddress, 'userAddress');
 
       const request: DepositRequest = req.body;
-      if (!request.amount) {
-        res.status(400).json({
-          error: 'Missing amount',
-        });
-        return;
-      }
+      validateAmount(request.amount, 'amount');
 
       const result = await this.vaultService.deposit(userAddress, request);
       res.json(result);
     } catch (error: any) {
-      res.status(500).json({
+      const statusCode = error.message?.includes('required') || error.message?.includes('valid') || error.message?.includes('positive') ? 400 : 500;
+      res.status(statusCode).json({
         error: 'Deposit failed',
         message: error.message,
       });
@@ -97,25 +85,16 @@ export class VaultController {
   async withdraw(req: Request, res: Response): Promise<void> {
     try {
       const userAddress = req.body.userAddress || req.headers['x-user-address'] as string;
-      if (!userAddress) {
-        res.status(400).json({
-          error: 'Missing user address',
-        });
-        return;
-      }
+      validateAddress(userAddress, 'userAddress');
 
       const request: WithdrawRequest = req.body;
-      if (!request.amount) {
-        res.status(400).json({
-          error: 'Missing amount',
-        });
-        return;
-      }
+      validateAmount(request.amount, 'amount');
 
       const result = await this.vaultService.withdraw(userAddress, request);
       res.json(result);
     } catch (error: any) {
-      res.status(500).json({
+      const statusCode = error.message?.includes('required') || error.message?.includes('valid') || error.message?.includes('positive') ? 400 : 500;
+      res.status(statusCode).json({
         error: 'Withdraw failed',
         message: error.message,
       });
@@ -130,25 +109,24 @@ export class VaultController {
   async executeTransaction(req: Request, res: Response): Promise<void> {
     try {
       const userAddress = req.body.userAddress || req.headers['x-user-address'] as string;
-      if (!userAddress) {
-        res.status(400).json({
-          error: 'Missing user address',
-        });
-        return;
-      }
+      validateAddress(userAddress, 'userAddress');
 
       const request: ExecuteTransactionRequest = req.body;
-      if (!request.target) {
-        res.status(400).json({
-          error: 'Missing target address',
-        });
-        return;
+      validateAddress(request.target, 'target');
+      
+      if (request.callData) {
+        validateHexString(request.callData, 'callData');
+      }
+      
+      if (request.value) {
+        validateAmount(request.value, 'value');
       }
 
       const result = await this.vaultService.executeTransaction(userAddress, request);
       res.json(result);
     } catch (error: any) {
-      res.status(500).json({
+      const statusCode = error.message?.includes('required') || error.message?.includes('valid') ? 400 : 500;
+      res.status(statusCode).json({
         error: 'Transaction execution failed',
         message: error.message,
       });
@@ -161,11 +139,17 @@ export class VaultController {
    */
   async getBlockedTransactions(req: Request, res: Response): Promise<void> {
     try {
-      const limit = req.query.limit ? parseInt(req.query.limit as string) : undefined;
+      const { limit: validatedLimit } = validatePagination(
+        req.query.limit ? parseInt(req.query.limit as string) : undefined
+      );
+      
       const userAddress = req.query.userAddress as string | undefined;
+      if (userAddress) {
+        validateAddress(userAddress, 'userAddress');
+      }
       
       // Get all blocked transactions
-      let transactions = store.getBlockedTransactions(limit);
+      let transactions = store.getBlockedTransactions(validatedLimit);
       
       // Filter by service (shielded-vault)
       transactions = transactions.filter(tx => tx.service === 'shielded-vault');
@@ -179,7 +163,8 @@ export class VaultController {
       
       res.json(transactions);
     } catch (error: any) {
-      res.status(500).json({
+      const statusCode = error.message?.includes('required') || error.message?.includes('valid') ? 400 : 500;
+      res.status(statusCode).json({
         error: 'Failed to get blocked transactions',
         message: error.message,
       });

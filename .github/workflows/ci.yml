@@ -1,0 +1,144 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  backend-test:
+    name: Backend Tests
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'pnpm'
+      
+      - name: Install pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 8
+      
+      - name: Install dependencies
+        working-directory: ./backend
+        run: pnpm install
+      
+      - name: Build
+        working-directory: ./backend
+        run: pnpm build
+      
+      - name: Run tests
+        working-directory: ./backend
+        run: pnpm test
+      
+      - name: Generate coverage
+        working-directory: ./backend
+        run: pnpm test:coverage
+      
+      - name: Upload coverage
+        uses: codecov/codecov-action@v3
+        with:
+          file: ./backend/coverage/lcov.info
+          flags: backend
+          name: backend-coverage
+
+  frontend-test:
+    name: Frontend Tests
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'pnpm'
+      
+      - name: Install pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 8
+      
+      - name: Install dependencies
+        working-directory: ./frontend
+        run: pnpm install
+      
+      - name: Build
+        working-directory: ./frontend
+        run: pnpm build
+      
+      - name: Check bundle size
+        working-directory: ./frontend
+        run: |
+          SIZE=$(du -sh dist | cut -f1)
+          echo "Bundle size: $SIZE"
+          if [ "$(du -sm dist | cut -f1)" -gt 5 ]; then
+            echo "⚠️ Bundle size is larger than 5MB"
+          fi
+
+  contracts-test:
+    name: Smart Contracts Tests
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'pnpm'
+      
+      - name: Install pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 8
+      
+      - name: Install dependencies
+        working-directory: ./contracts
+        run: pnpm install
+      
+      - name: Compile contracts
+        working-directory: ./contracts
+        run: pnpm compile
+      
+      - name: Run tests
+        working-directory: ./contracts
+        run: pnpm test
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'pnpm'
+      
+      - name: Install pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 8
+      
+      - name: Lint backend
+        working-directory: ./backend
+        run: |
+          pnpm install
+          pnpm lint || true
+      
+      - name: Lint frontend
+        working-directory: ./frontend
+        run: |
+          pnpm install
+          pnpm lint || true
