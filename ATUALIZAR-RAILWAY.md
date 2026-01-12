@@ -26,7 +26,7 @@ O Railway ainda está usando `npm install && npm run build`, mas precisamos usar
    
    **Por:**
    ```
-   npm install -g pnpm && pnpm install && pnpm run build
+   npm install -g pnpm@8.15.0 && pnpm install && pnpm run build
    ```
 
 3. Clique em **"Save"** ou **"Update"**
@@ -69,7 +69,7 @@ Após o redeploy, verifique os logs:
 
 **Build Command:**
 ```bash
-npm install -g pnpm && pnpm install && pnpm run build
+npm install -g pnpm@8.15.0 && pnpm install && pnpm run build
 ```
 
 **Start Command:**
@@ -79,6 +79,27 @@ pnpm start
 
 ## 📝 Nota
 
-- `npm install -g pnpm` instala pnpm globalmente antes de usar (mais confiável que corepack no Railway)
+- `npm install -g pnpm@8.15.0` instala uma versão específica do pnpm globalmente (mais confiável que corepack no Railway)
+- O `package.json` agora inclui `"packageManager": "pnpm@8.15.0"` para garantir consistência
+- O arquivo `.npmrc` foi adicionado para configurações do pnpm
 - O arquivo `railway.json` já está atualizado, mas o Railway pode estar usando configuração manual do dashboard
 - Após atualizar, o Railway usará pnpm em todos os próximos deploys
+
+## 🔄 Alternativas se ainda houver erro
+
+Se o erro persistir, tente estas alternativas no Build Command:
+
+**Opção 1 (recomendada):**
+```bash
+npm install -g pnpm@8.15.0 && pnpm install && pnpm run build
+```
+
+**Opção 2 (usando npx):**
+```bash
+npx pnpm@8.15.0 install && npx pnpm@8.15.0 run build
+```
+
+**Opção 3 (curl direto):**
+```bash
+curl -fsSL https://get.pnpm.io/install.sh | sh - && export PNPM_HOME="/root/.local/share/pnpm" && export PATH="$PNPM_HOME:$PATH" && pnpm install && pnpm run build
+```
