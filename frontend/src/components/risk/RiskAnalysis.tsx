@@ -107,6 +107,7 @@ export default function RiskAnalysis() {
       <PaymentModal
         challenge={paymentChallenge}
         walletAddress={wallet.address}
+        signer={wallet.signer}
         isOpen={!!paymentChallenge}
         onClose={() => setPaymentChallenge(null)}
         onSuccess={handlePaymentSuccess}

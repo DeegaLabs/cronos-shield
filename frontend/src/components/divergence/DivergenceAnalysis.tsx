@@ -101,6 +101,7 @@ export default function DivergenceAnalysis() {
       <PaymentModal
         challenge={paymentChallenge}
         walletAddress={wallet.address}
+        signer={wallet.signer}
         isOpen={!!paymentChallenge}
         onClose={() => setPaymentChallenge(null)}
         onSuccess={handlePaymentSuccess}

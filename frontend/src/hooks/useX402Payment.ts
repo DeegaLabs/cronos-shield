@@ -18,7 +18,8 @@ export function useX402Payment() {
   });
 
   const processPayment = useCallback(async (
-    challenge: PaymentChallenge
+    challenge: PaymentChallenge,
+    signer: ethers.JsonRpcSigner | null
   ): Promise<{ success: boolean; paymentId?: string; txHash?: string; error?: string }> => {
     setState({
       isProcessing: true,
@@ -39,56 +40,46 @@ export function useX402Payment() {
         throw new Error('No payment method available');
       }
 
-      // CRITICAL: Ensure network is correct BEFORE creating BrowserProvider
-      // BrowserProvider auto-detects network on creation, which causes the error
-      const ethereum = (window as any).ethereum;
-      if (!ethereum) {
-        throw new Error('MetaMask not found');
+      // Use the signer passed from useWallet hook (already connected)
+      // This avoids creating a new BrowserProvider which causes _detectNetwork errors
+      if (!signer) {
+        throw new Error('Wallet not connected. Please connect your wallet first.');
       }
 
-      // 1. Ensure correct network FIRST (before creating provider)
-      const chainIdHex = accept.network === 'cronos-mainnet' ? '0x19' : '0x152';
-      try {
-        await ethereum.request({
-          method: 'wallet_switchEthereumChain',
-          params: [{ chainId: chainIdHex }],
-        });
-        // Wait for network switch to complete
-        await new Promise(resolve => setTimeout(resolve, 500));
-      } catch (e: any) {
-        if (e?.code === 4902 && accept.network === 'cronos-testnet') {
+      // Verify we're on the correct network
+      const expectedChainId = accept.network === 'cronos-mainnet' ? 25n : 338n;
+      const network = await signer.provider.getNetwork();
+      if (network.chainId !== expectedChainId) {
+        const ethereum = (window as any).ethereum;
+        if (!ethereum) {
+          throw new Error('MetaMask not found');
+        }
+        
+        const chainIdHex = accept.network === 'cronos-mainnet' ? '0x19' : '0x152';
+        try {
           await ethereum.request({
-            method: 'wallet_addEthereumChain',
-            params: [{
-              chainId: '0x152',
-              chainName: 'Cronos Testnet',
-              nativeCurrency: { name: 'tCRO', symbol: 'tCRO', decimals: 18 },
-              rpcUrls: ['https://evm-t3.cronos.org'],
-              blockExplorerUrls: ['https://testnet.cronoscan.com'],
-            }],
+            method: 'wallet_switchEthereumChain',
+            params: [{ chainId: chainIdHex }],
           });
-          // Wait for network to be added
-          await new Promise(resolve => setTimeout(resolve, 500));
-        } else {
-          throw e;
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        } catch (e: any) {
+          if (e?.code === 4902 && accept.network === 'cronos-testnet') {
+            await ethereum.request({
+              method: 'wallet_addEthereumChain',
+              params: [{
+                chainId: '0x152',
+                chainName: 'Cronos Testnet',
+                nativeCurrency: { name: 'tCRO', symbol: 'tCRO', decimals: 18 },
+                rpcUrls: ['https://evm-t3.cronos.org'],
+                blockExplorerUrls: ['https://testnet.cronoscan.com'],
+              }],
+            });
+            await new Promise(resolve => setTimeout(resolve, 1000));
+          } else {
+            throw new Error(`Please switch to Cronos ${accept.network === 'cronos-mainnet' ? 'Mainnet' : 'Testnet'}`);
+          }
         }
       }
-
-      // 2. Now create provider with network already set
-      // Specify network explicitly to avoid auto-detection issues
-      const provider = new ethers.BrowserProvider(ethereum, {
-        name: accept.network === 'cronos-mainnet' ? 'Cronos Mainnet' : 'Cronos Testnet',
-        chainId: accept.network === 'cronos-mainnet' ? 25 : 338,
-      });
-
-      // 3. Request account access
-      await provider.send('eth_requestAccounts', []);
-      
-      // 4. Wait a bit for provider to be ready
-      await new Promise(resolve => setTimeout(resolve, 300));
-
-      // 5. getSigner() - get signer after wallet and network are ready
-      const signer = await provider.getSigner();
 
       // 4. Initialize Facilitator (exactly like examples, no 'as any')
       const facilitator = new Facilitator({ network: accept.network });

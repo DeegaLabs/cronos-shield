@@ -11,6 +11,7 @@ import type { PaymentChallenge } from '../../types/x402.types';
 interface PaymentModalProps {
   challenge: PaymentChallenge | null;
   walletAddress: string | null;
+  signer: any; // ethers.JsonRpcSigner | null
   isOpen: boolean;
   onClose: () => void;
   onSuccess: (paymentId: string) => void;
@@ -19,6 +20,7 @@ interface PaymentModalProps {
 export default function PaymentModal({
   challenge,
   walletAddress,
+  signer,
   isOpen,
   onClose,
   onSuccess,
@@ -41,10 +43,10 @@ export default function PaymentModal({
     : '1.0';
 
   const handlePay = async () => {
-    if (!walletAddress) {
+    if (!walletAddress || !signer || !challenge) {
       return;
     }
-    const result = await processPayment(challenge);
+    const result = await processPayment(challenge, signer);
     if (result.success && result.paymentId) {
       onSuccess(result.paymentId);
     }
