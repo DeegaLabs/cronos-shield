@@ -3,9 +3,11 @@
  */
 
 import { useState } from 'react';
+import toast from 'react-hot-toast';
 import apiClient from '../../lib/api/client';
 import PaymentModal from '../common/PaymentModal';
 import { useWallet } from '../../contexts/WalletContext';
+import { InfoTooltip } from '../common/Tooltip';
 import type { RiskAnalysis } from '../../types';
 import type { PaymentChallenge } from '../../types/x402.types';
 
@@ -80,7 +82,10 @@ export default function RiskAnalysis() {
     <div className="space-y-6">
       {/* Input Form */}
       <div className="bg-slate-800 p-6 rounded-lg border border-slate-700">
-        <h3 className="text-xl font-bold mb-4">Analyze Contract Risk</h3>
+        <div className="flex items-center gap-2 mb-4">
+          <h3 className="text-xl font-bold">Analyze Contract Risk</h3>
+          <InfoTooltip content="Analyze the risk score of a smart contract. This service uses x402 payment protocol - you'll need to pay a small fee to access the analysis." />
+        </div>
         <div className="flex gap-4">
           <input
             type="text"

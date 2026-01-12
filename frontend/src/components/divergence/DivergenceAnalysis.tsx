@@ -3,9 +3,11 @@
  */
 
 import { useState } from 'react';
+import toast from 'react-hot-toast';
 import apiClient from '../../lib/api/client';
 import PaymentModal from '../common/PaymentModal';
 import { useWallet } from '../../contexts/WalletContext';
+import { InfoTooltip } from '../common/Tooltip';
 import type { DivergenceAnalysis } from '../../types';
 import type { PaymentChallenge } from '../../types/x402.types';
 
@@ -39,16 +41,20 @@ export default function DivergenceAnalysis() {
         headers,
       });
       setAnalysis(response.data);
-      setPaymentId(null); // Reset after successful request
+      setPaymentId(null);
+      toast.success('Divergence analysis completed!');
     } catch (err: any) {
       if (err.response?.status === 402) {
         const paymentData = err.response?.data as PaymentChallenge;
         setPaymentChallenge(paymentData);
         if (!wallet.isConnected || !wallet.address) {
+          toast.error('Please connect your wallet first to make payments');
           setError('Please connect your wallet first to make payments');
         }
       } else {
-        setError(err.response?.data?.message || 'Failed to analyze divergence');
+        const errorMsg = err.response?.data?.message || 'Failed to analyze divergence';
+        toast.error(errorMsg);
+        setError(errorMsg);
       }
     } finally {
       setIsAnalyzing(false);
@@ -74,7 +80,10 @@ export default function DivergenceAnalysis() {
     <div className="space-y-6">
       {/* Input Form */}
       <div className="bg-slate-800 p-6 rounded-lg border border-slate-700">
-        <h3 className="text-xl font-bold mb-4">Analyze CEX-DEX Divergence</h3>
+        <div className="flex items-center gap-2 mb-4">
+          <h3 className="text-xl font-bold">Analyze CEX-DEX Divergence</h3>
+          <InfoTooltip content="Compare prices between centralized exchanges (CEX) and decentralized exchanges (DEX). This service uses x402 payment protocol." />
+        </div>
         <div className="flex gap-4">
           <input
             type="text"

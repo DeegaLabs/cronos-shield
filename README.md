@@ -179,7 +179,8 @@ Local:      http://localhost:3000/api
 
 ### Interactive Documentation
 
-- **Swagger UI**: http://localhost:3000/api-docs
+- **Swagger UI** (Interactive Testing): http://localhost:3000/api-docs
+- **Redoc** (Visual Documentation): http://localhost:3000/api-docs/redoc
 - **Postman Collection**: `postman/Cronos-Shield-API.postman_collection.json`
 
 ### Endpoints

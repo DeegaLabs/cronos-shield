@@ -9,6 +9,7 @@ import apiClient from '../lib/api/client';
 import Metrics from '../components/dashboard/Metrics';
 import DecisionLog from '../components/dashboard/DecisionLog';
 import BlockedTransactions from '../components/dashboard/BlockedTransactions';
+import { CardSkeleton } from '../components/common/Skeleton';
 import type { Metrics as MetricsType } from '../types';
 
 export default function DashboardPage() {
@@ -29,7 +30,12 @@ export default function DashboardPage() {
       </div>
 
       {isLoading ? (
-        <div className="text-center py-8">Loading metrics...</div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <CardSkeleton />
+          <CardSkeleton />
+          <CardSkeleton />
+          <CardSkeleton />
+        </div>
       ) : metrics ? (
         <>
           <Metrics metrics={metrics} />

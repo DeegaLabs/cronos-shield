@@ -111,8 +111,34 @@ if (process.env.SWAGGER_ENABLED !== 'false') {
     res.send(swaggerSpec);
   });
   
-  // Serve Swagger UI
+  // Serve Swagger UI (interactive testing)
   app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+  
+  // Serve Redocly (visual documentation)
+  app.get('/api-docs/redoc', (_req, res) => {
+    const redocHtml = `
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Cronos Shield API - Redoc</title>
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link href="https://fonts.googleapis.com/css?family=Montserrat:300,400,700|Roboto:300,400,700" rel="stylesheet">
+    <style>
+      body {
+        margin: 0;
+        padding: 0;
+      }
+    </style>
+  </head>
+  <body>
+    <redoc spec-url='/api-docs/swagger.json'></redoc>
+    <script src="https://cdn.redoc.ly/redoc/latest/bundles/redoc.standalone.js"></script>
+  </body>
+</html>
+    `;
+    res.send(redocHtml);
+  });
 }
 
 // Initialize Services

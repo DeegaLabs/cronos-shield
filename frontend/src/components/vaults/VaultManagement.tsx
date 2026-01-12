@@ -39,6 +39,11 @@ export default function VaultManagement() {
   const [transactionResult, setTransactionResult] = useState<TransactionResult | null>(null);
   const [blockedTransactions, setBlockedTransactions] = useState<BlockedTransaction[]>([]);
   const [isLoadingBlocked, setIsLoadingBlocked] = useState(false);
+  const [confirmModal, setConfirmModal] = useState<{
+    isOpen: boolean;
+    action: 'deposit' | 'withdraw' | 'execute' | null;
+    data?: any;
+  }>({ isOpen: false, action: null });
 
   // Load vault info and balance
   useEffect(() => {
@@ -141,20 +146,29 @@ export default function VaultManagement() {
     }
   };
 
-  const handleWithdraw = async () => {
+  const handleWithdraw = () => {
     if (!wallet.signer || !wallet.address) {
-      setError('Please connect your wallet first');
+      toast.error('Please connect your wallet first');
       return;
     }
 
     if (!withdrawAmount || parseFloat(withdrawAmount) <= 0) {
-      setError('Please enter a valid amount');
+      toast.error('Please enter a valid amount');
       return;
     }
 
+    setConfirmModal({
+      isOpen: true,
+      action: 'withdraw',
+      data: { amount: withdrawAmount },
+    });
+  };
+
+  const executeWithdraw = async () => {
     setIsLoading(true);
     setError(null);
     setSuccess(null);
+    setConfirmModal({ isOpen: false, action: null });
 
     try {
       // Direct contract interaction via frontend
@@ -179,21 +193,30 @@ export default function VaultManagement() {
     }
   };
 
-  const handleExecuteTransaction = async () => {
+  const handleExecuteTransaction = () => {
     if (!wallet.signer || !wallet.address) {
-      setError('Please connect your wallet first');
+      toast.error('Please connect your wallet first');
       return;
     }
 
     if (!targetAddress) {
-      setError('Please enter a target contract address');
+      toast.error('Please enter a target contract address');
       return;
     }
 
+    setConfirmModal({
+      isOpen: true,
+      action: 'execute',
+      data: { target: targetAddress, value: transactionValue },
+    });
+  };
+
+  const executeTransaction = async () => {
     setIsLoading(true);
     setError(null);
     setSuccess(null);
     setTransactionResult(null);
+    setConfirmModal({ isOpen: false, action: null });
 
     try {
       // Risk analysis will be done by the backend
@@ -324,7 +347,10 @@ export default function VaultManagement() {
 
       {/* Execute Transaction */}
       <div className="bg-slate-800 p-6 rounded-lg border border-slate-700">
-        <h3 className="text-xl font-bold mb-4">Execute Transaction with Risk Check</h3>
+          <div className="flex items-center gap-2 mb-4">
+            <h3 className="text-xl font-bold">Execute Transaction with Risk Check</h3>
+            <InfoTooltip content="Execute a transaction from the vault. The system will automatically analyze the risk before allowing execution. High-risk transactions will be blocked." />
+          </div>
         <div className="space-y-4">
           <div>
             <label className="block text-slate-400 text-sm mb-2">Target Contract Address</label>

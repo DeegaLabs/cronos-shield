@@ -4,6 +4,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import apiClient from '../../lib/api/client';
+import { TableRowSkeleton } from '../common/Skeleton';
 import type { BlockedTransaction } from '../../types';
 
 export default function BlockedTransactions() {

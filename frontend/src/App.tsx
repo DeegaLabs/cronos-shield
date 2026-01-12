@@ -26,6 +26,7 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <WalletProvider>
+        <ToastProvider />
         <BrowserRouter>
           <Layout>
             <Routes>
