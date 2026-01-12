@@ -22,7 +22,7 @@ export default function DivergenceAnalysis() {
     setError(null);
 
     try {
-      const response = await apiClient.get('/api/divergence/divergence', {
+      const response = await apiClient.get('/api/divergence/analyze', {
         params: { token: token.trim() },
       });
       setAnalysis(response.data);
