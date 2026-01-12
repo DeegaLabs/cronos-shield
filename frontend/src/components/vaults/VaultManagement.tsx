@@ -6,8 +6,11 @@
 
 import { useState, useEffect } from 'react';
 import { ethers } from 'ethers';
+import toast from 'react-hot-toast';
 import apiClient from '../../lib/api/client';
 import { useWallet } from '../../contexts/WalletContext';
+import ConfirmModal from '../common/ConfirmModal';
+import { InfoTooltip } from '../common/Tooltip';
 import type { VaultInfo, VaultBalance, TransactionResult } from '../../types/vault.types';
 import type { BlockedTransaction } from '../../types';
 
@@ -248,6 +251,16 @@ export default function VaultManagement() {
     }
   };
 
+  const handleConfirm = () => {
+    if (confirmModal.action === 'deposit') {
+      executeDeposit();
+    } else if (confirmModal.action === 'withdraw') {
+      executeWithdraw();
+    } else if (confirmModal.action === 'execute') {
+      executeTransaction();
+    }
+  };
+
   if (!VAULT_CONTRACT_ADDRESS) {
     return (
       <div className="bg-slate-800 p-6 rounded-lg border border-yellow-500">
@@ -261,6 +274,31 @@ export default function VaultManagement() {
 
   return (
     <div className="space-y-6">
+      {/* Confirmation Modal */}
+      <ConfirmModal
+        isOpen={confirmModal.isOpen}
+        onClose={() => setConfirmModal({ isOpen: false, action: null })}
+        onConfirm={handleConfirm}
+        title={
+          confirmModal.action === 'deposit' ? 'Confirm Deposit' :
+          confirmModal.action === 'withdraw' ? 'Confirm Withdrawal' :
+          'Confirm Transaction Execution'
+        }
+        message={
+          confirmModal.action === 'deposit' 
+            ? `Are you sure you want to deposit ${confirmModal.data?.amount} tokens?`
+            : confirmModal.action === 'withdraw'
+            ? `Are you sure you want to withdraw ${confirmModal.data?.amount} tokens?`
+            : `This will execute a transaction to ${confirmModal.data?.target}. Risk analysis will be performed automatically.`
+        }
+        confirmText={
+          confirmModal.action === 'deposit' ? 'Deposit' :
+          confirmModal.action === 'withdraw' ? 'Withdraw' :
+          'Execute'
+        }
+        variant={confirmModal.action === 'execute' ? 'warning' : 'info'}
+        isLoading={isLoading}
+      />
       {/* Vault Info */}
       {vaultInfo && (
         <div className="bg-slate-800 p-6 rounded-lg border border-slate-700">

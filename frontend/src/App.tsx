@@ -7,6 +7,7 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { WalletProvider } from './contexts/WalletContext';
+import { ToastProvider } from './components/common/Toast';
 import Layout from './components/common/Layout';
 import DashboardPage from './pages/Dashboard';
 import RiskPage from './pages/Risk';

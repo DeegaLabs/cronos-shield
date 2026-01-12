@@ -4,7 +4,6 @@
 
 import { useQuery } from '@tanstack/react-query';
 import apiClient from '../../lib/api/client';
-import { ListItemSkeleton } from '../common/Skeleton';
 import type { LogEntry } from '../../types';
 
 export default function DecisionLog() {

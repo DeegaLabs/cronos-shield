@@ -2,7 +2,6 @@
  * Metrics Component
  */
 
-import { CardSkeleton } from '../common/Skeleton';
 import type { Metrics } from '../../types';
 
 interface MetricsProps {
