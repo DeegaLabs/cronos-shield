@@ -192,6 +192,9 @@ export default function VaultManagement() {
     setConfirmModal({ isOpen: false, action: null });
 
     try {
+      const amount = confirmModal.data?.amount || withdrawAmount;
+      const loadingToast = toast.loading('Preparing withdrawal transaction...');
+
       // Direct contract interaction via frontend
       const vaultContract = new ethers.Contract(
         VAULT_CONTRACT_ADDRESS,
@@ -199,16 +202,22 @@ export default function VaultManagement() {
         wallet.signer
       );
 
-      const amountWei = ethers.parseEther(withdrawAmount);
+      toast.loading('Waiting for MetaMask confirmation...', { id: loadingToast });
+
+      const amountWei = ethers.parseEther(amount);
       const tx = await vaultContract.withdraw(amountWei);
-      setSuccess(`Transaction sent: ${tx.hash}`);
       
+      toast.loading('Transaction pending...', { id: loadingToast });
       const receipt = await tx.wait();
+      
+      toast.success(`Withdrawal successful! Tx: ${receipt.hash.slice(0, 10)}...`, { id: loadingToast });
       setSuccess(`Withdraw successful! Tx: ${receipt.hash}`);
       setWithdrawAmount('');
       await loadBalance();
     } catch (err: any) {
-      setError(err.message || 'Withdraw failed');
+      const errorMsg = err.message || 'Withdraw failed';
+      toast.error(errorMsg);
+      setError(errorMsg);
     } finally {
       setIsLoading(false);
     }
@@ -240,30 +249,35 @@ export default function VaultManagement() {
     setConfirmModal({ isOpen: false, action: null });
 
     try {
-      // Risk analysis will be done by the backend
-      // We just need to pass the target address
+      const data = confirmModal.data || { target: targetAddress, value: transactionValue };
+      const loadingToast = toast.loading('Analyzing risk and preparing transaction...');
 
+      // Risk analysis will be done by the backend
       // Execute transaction via backend
       const response = await apiClient.post('/api/vault/execute', {
         userAddress: wallet.address,
-        target: targetAddress,
+        target: data.target,
         callData: '0x',
-        value: transactionValue || '0',
-        contractAddress: targetAddress,
+        value: data.value || '0',
+        contractAddress: data.target,
       });
 
       setTransactionResult(response.data);
       
       if (response.data.success) {
+        toast.success(`Transaction executed! Tx: ${response.data.txHash?.slice(0, 10)}...`, { id: loadingToast });
         setSuccess(`Transaction executed! Tx: ${response.data.txHash}`);
         await loadBalance();
-        await loadBlockedTransactions(); // Refresh blocked transactions
+        await loadBlockedTransactions();
       } else if (response.data.blocked) {
+        toast.error(`Transaction blocked: ${response.data.reason}`, { id: loadingToast });
         setError(`Transaction blocked: ${response.data.reason}`);
-        await loadBlockedTransactions(); // Refresh blocked transactions
+        await loadBlockedTransactions();
       }
     } catch (err: any) {
-      setError(err.response?.data?.message || err.message || 'Transaction execution failed');
+      const errorMsg = err.response?.data?.message || err.message || 'Transaction execution failed';
+      toast.error(errorMsg);
+      setError(errorMsg);
     } finally {
       setIsLoading(false);
     }
