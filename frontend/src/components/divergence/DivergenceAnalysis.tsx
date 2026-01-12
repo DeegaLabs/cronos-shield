@@ -4,13 +4,19 @@
 
 import { useState } from 'react';
 import apiClient from '../../lib/api/client';
+import PaymentModal from '../common/PaymentModal';
+import { useWallet } from '../../hooks/useWallet';
 import type { DivergenceAnalysis } from '../../types';
+import type { PaymentChallenge } from '../../types/x402.types';
 
 export default function DivergenceAnalysis() {
+  const { wallet } = useWallet();
   const [token, setToken] = useState('CRO');
   const [analysis, setAnalysis] = useState<DivergenceAnalysis | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [paymentChallenge, setPaymentChallenge] = useState<PaymentChallenge | null>(null);
+  const [paymentId, setPaymentId] = useState<string | null>(null);
 
   const handleAnalyze = async () => {
     if (!token.trim()) {
@@ -20,37 +26,42 @@ export default function DivergenceAnalysis() {
 
     setIsAnalyzing(true);
     setError(null);
+    setPaymentChallenge(null);
 
     try {
+      const headers: Record<string, string> = {};
+      if (paymentId) {
+        headers['x-payment-id'] = paymentId;
+      }
+
       const response = await apiClient.get('/api/divergence/analyze', {
         params: { token: token.trim() },
+        headers,
       });
       setAnalysis(response.data);
+      setPaymentId(null); // Reset after successful request
     } catch (err: any) {
       if (err.response?.status === 402) {
-        const paymentData = err.response?.data;
-        const message = paymentData?.message || 'Payment required to access CEX-DEX Synergy';
-        // Extract amount from description or calculate from maxAmountRequired
-        let amount = '1.0 devUSDC.e';
-        if (paymentData?.accepts?.[0]) {
-          const accept = paymentData.accepts[0];
-          // Try to extract from description first (more reliable)
-          const descMatch = accept.description?.match(/💰 Payment: ([\d.]+ [\w.]+)/);
-          if (descMatch) {
-            amount = descMatch[1];
-          } else if (accept.maxAmountRequired) {
-            // Fallback: calculate from maxAmountRequired (1000000 = 1.0 with 6 decimals)
-            const amountValue = parseInt(accept.maxAmountRequired) / 1000000;
-            amount = `${amountValue.toFixed(1)} devUSDC.e`;
-          }
+        const paymentData = err.response?.data as PaymentChallenge;
+        setPaymentChallenge(paymentData);
+        if (!wallet.isConnected || !wallet.address) {
+          setError('Please connect your wallet first to make payments');
         }
-        setError(`${message}\n\n💰 Payment Required: ${amount}\n\nThis service uses x402 protocol for micropayments. Please complete the payment to access the analysis.`);
       } else {
         setError(err.response?.data?.message || 'Failed to analyze divergence');
       }
     } finally {
       setIsAnalyzing(false);
     }
+  };
+
+  const handlePaymentSuccess = (newPaymentId: string) => {
+    setPaymentId(newPaymentId);
+    setPaymentChallenge(null);
+    // Retry the request automatically
+    setTimeout(() => {
+      handleAnalyze();
+    }, 500);
   };
 
   const getRecommendationColor = (rec: string) => {
@@ -80,16 +91,20 @@ export default function DivergenceAnalysis() {
             {isAnalyzing ? 'Analyzing...' : 'Analyze'}
           </button>
         </div>
-        {error && (
-          <div className="mt-4 p-4 bg-yellow-900/30 border border-yellow-500 rounded-lg">
-            <div className="text-yellow-400 font-semibold mb-2">⚠️ Payment Required (x402)</div>
-            <div className="text-yellow-300 whitespace-pre-line text-sm">{error}</div>
-            <div className="mt-3 text-xs text-yellow-400/80">
-              💡 This is expected behavior. The x402 protocol requires payment before accessing the service.
-            </div>
+        {error && !paymentChallenge && (
+          <div className="mt-4 p-3 bg-red-900/50 border border-red-500 rounded-lg text-red-400">
+            {error}
           </div>
         )}
       </div>
+
+      <PaymentModal
+        challenge={paymentChallenge}
+        walletAddress={wallet.address}
+        isOpen={!!paymentChallenge}
+        onClose={() => setPaymentChallenge(null)}
+        onSuccess={handlePaymentSuccess}
+      />
 
       {/* Results */}
       {analysis && (

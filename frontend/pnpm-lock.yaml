@@ -8,6 +8,9 @@ importers:
 
   .:
     dependencies:
+      '@crypto.com/facilitator-client':
+        specifier: ^1.0.4
+        version: 1.0.4(tslib@2.7.0)
       '@tanstack/react-query':
         specifier: ^5.90.16
         version: 5.90.16(react@19.2.3)
@@ -164,6 +167,11 @@ packages:
   '@babel/types@7.28.5':
     resolution: {integrity: sha512-qQ5m48eI/MFLQ5PxQj4PFaprjyCTLI37ElWMmNs0K8Lk3dVeOdNpB3ks8jc7yM5CDmVC73eMVk/trk3fgmrUpA==}
     engines: {node: '>=6.9.0'}
+
+  '@crypto.com/facilitator-client@1.0.4':
+    resolution: {integrity: sha512-cHqy/8femcAdv44DdAvxCTCHfFDTrg7hp9sYwjhkmZo8TigEEDFjjYHibCp0RzocBcfYD/n6KNsCNQ86UwUZ9A==}
+    peerDependencies:
+      tslib: ^2.6.2
 
   '@esbuild/aix-ppc64@0.27.2':
     resolution: {integrity: sha512-GZMB+a0mOMZs4MpDbj8RJp4cw+w1WV5NYD6xzgvzUJ5Ek2jerwfO2eADyI6ExDSUED+1X8aMbegahsJi+8mgpw==}
@@ -1641,6 +1649,14 @@ snapshots:
     dependencies:
       '@babel/helper-string-parser': 7.27.1
       '@babel/helper-validator-identifier': 7.28.5
+
+  '@crypto.com/facilitator-client@1.0.4(tslib@2.7.0)':
+    dependencies:
+      ethers: 6.16.0
+      tslib: 2.7.0
+    transitivePeerDependencies:
+      - bufferutil
+      - utf-8-validate
 
   '@esbuild/aix-ppc64@0.27.2':
     optional: true

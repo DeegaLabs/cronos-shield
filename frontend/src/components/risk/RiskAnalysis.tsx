@@ -4,13 +4,19 @@
 
 import { useState } from 'react';
 import apiClient from '../../lib/api/client';
+import PaymentModal from '../common/PaymentModal';
+import { useWallet } from '../../hooks/useWallet';
 import type { RiskAnalysis } from '../../types';
+import type { PaymentChallenge } from '../../types/x402.types';
 
 export default function RiskAnalysis() {
+  const { wallet } = useWallet();
   const [contract, setContract] = useState('');
   const [analysis, setAnalysis] = useState<RiskAnalysis | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [paymentChallenge, setPaymentChallenge] = useState<PaymentChallenge | null>(null);
+  const [paymentId, setPaymentId] = useState<string | null>(null);
 
   const handleAnalyze = async () => {
     if (!contract.trim()) {
@@ -20,21 +26,42 @@ export default function RiskAnalysis() {
 
     setIsAnalyzing(true);
     setError(null);
+    setPaymentChallenge(null);
 
     try {
+      const headers: Record<string, string> = {};
+      if (paymentId) {
+        headers['x-payment-id'] = paymentId;
+      }
+
       const response = await apiClient.get('/api/risk/risk-analysis', {
         params: { contract: contract.trim() },
+        headers,
       });
       setAnalysis(response.data);
+      setPaymentId(null); // Reset after successful request
     } catch (err: any) {
       if (err.response?.status === 402) {
-        setError('Payment required. Please complete x402 payment first.');
+        const paymentData = err.response?.data as PaymentChallenge;
+        setPaymentChallenge(paymentData);
+        if (!wallet.isConnected || !wallet.address) {
+          setError('Please connect your wallet first to make payments');
+        }
       } else {
         setError(err.response?.data?.message || 'Failed to analyze contract');
       }
     } finally {
       setIsAnalyzing(false);
     }
+  };
+
+  const handlePaymentSuccess = (newPaymentId: string) => {
+    setPaymentId(newPaymentId);
+    setPaymentChallenge(null);
+    // Retry the request automatically
+    setTimeout(() => {
+      handleAnalyze();
+    }, 500);
   };
 
   const getRiskColor = (score: number) => {
@@ -70,12 +97,20 @@ export default function RiskAnalysis() {
             {isAnalyzing ? 'Analyzing...' : 'Analyze'}
           </button>
         </div>
-        {error && (
+        {error && !paymentChallenge && (
           <div className="mt-4 p-3 bg-red-900/50 border border-red-500 rounded-lg text-red-400">
             {error}
           </div>
         )}
       </div>
+
+      <PaymentModal
+        challenge={paymentChallenge}
+        walletAddress={wallet.address}
+        isOpen={!!paymentChallenge}
+        onClose={() => setPaymentChallenge(null)}
+        onSuccess={handlePaymentSuccess}
+      />
 
       {/* Results */}
       {analysis && (
