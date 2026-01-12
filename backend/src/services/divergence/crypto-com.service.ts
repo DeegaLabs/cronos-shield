@@ -2,7 +2,8 @@
  * Crypto.com Exchange Service
  */
 
-import axios from 'axios';
+import axios, { AxiosError } from 'axios';
+import { retry, isRetryableError } from '../../lib/utils/retry.util';
 
 export interface PriceData {
   price: string;
@@ -23,10 +24,21 @@ export class CryptoComService {
   async getPrice(pair: string): Promise<PriceData> {
     try {
       const normalizedPair = pair.replace('-', '_').toUpperCase();
-      const response = await axios.get(`${this.apiUrl}/public/get-ticker`, {
-        params: { instrument_name: normalizedPair },
-        timeout: 5000,
-      });
+      
+      // Retry logic for API calls
+      const response = await retry(
+        async () => {
+          return await axios.get(`${this.apiUrl}/public/get-ticker`, {
+            params: { instrument_name: normalizedPair },
+            timeout: 5000,
+          });
+        },
+        {
+          maxRetries: 2,
+          delay: 1000,
+          retryCondition: (error) => isRetryableError(error),
+        }
+      );
 
       if (response.data?.result?.data) {
         const ticker = response.data.result.data;
@@ -46,7 +58,7 @@ export class CryptoComService {
 
       throw new Error('Invalid response format');
     } catch (error: any) {
-      console.warn(`⚠️  Crypto.com API error: ${error.message}. Using mock data.`);
+      // If retry failed, use mock data
       return this.getMockPrice(pair);
     }
   }

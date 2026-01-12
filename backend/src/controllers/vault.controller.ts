@@ -6,6 +6,7 @@
 
 import { Request, Response } from 'express';
 import { VaultService } from '../services/vault/vault.service';
+import { store } from '../lib/storage/in-memory.store';
 import type {
   DepositRequest,
   WithdrawRequest,
@@ -149,6 +150,37 @@ export class VaultController {
     } catch (error: any) {
       res.status(500).json({
         error: 'Transaction execution failed',
+        message: error.message,
+      });
+    }
+  }
+
+  /**
+   * Get blocked transactions for vault
+   * GET /api/vault/blocked-transactions?limit=10
+   */
+  async getBlockedTransactions(req: Request, res: Response): Promise<void> {
+    try {
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : undefined;
+      const userAddress = req.query.userAddress as string | undefined;
+      
+      // Get all blocked transactions
+      let transactions = store.getBlockedTransactions(limit);
+      
+      // Filter by service (shielded-vault)
+      transactions = transactions.filter(tx => tx.service === 'shielded-vault');
+      
+      // Filter by user if provided
+      if (userAddress) {
+        transactions = transactions.filter(tx => 
+          tx.user.toLowerCase() === userAddress.toLowerCase()
+        );
+      }
+      
+      res.json(transactions);
+    } catch (error: any) {
+      res.status(500).json({
+        error: 'Failed to get blocked transactions',
         message: error.message,
       });
     }

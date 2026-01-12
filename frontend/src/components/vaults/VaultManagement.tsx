@@ -9,6 +9,7 @@ import { ethers } from 'ethers';
 import apiClient from '../../lib/api/client';
 import { useWallet } from '../../contexts/WalletContext';
 import type { VaultInfo, VaultBalance, TransactionResult } from '../../types/vault.types';
+import type { BlockedTransaction } from '../../types';
 
 const SHIELDED_VAULT_ABI = [
   'function deposit() payable',
@@ -36,6 +37,8 @@ export default function VaultManagement() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [transactionResult, setTransactionResult] = useState<TransactionResult | null>(null);
+  const [blockedTransactions, setBlockedTransactions] = useState<BlockedTransaction[]>([]);
+  const [isLoadingBlocked, setIsLoadingBlocked] = useState(false);
 
   // Load vault info and balance
   useEffect(() => {
@@ -44,7 +47,19 @@ export default function VaultManagement() {
     }
     if (wallet.address) {
       loadBalance();
+      loadBlockedTransactions();
     }
+  }, [wallet.address]);
+
+  // Auto-refresh blocked transactions every 10 seconds
+  useEffect(() => {
+    if (!wallet.address) return;
+    
+    const interval = setInterval(() => {
+      loadBlockedTransactions();
+    }, 10000);
+    
+    return () => clearInterval(interval);
   }, [wallet.address]);
 
   const loadVaultInfo = async () => {
@@ -66,6 +81,25 @@ export default function VaultManagement() {
       setBalance(response.data);
     } catch (err: any) {
       console.error('Failed to load balance:', err);
+    }
+  };
+
+  const loadBlockedTransactions = async () => {
+    if (!wallet.address) return;
+    
+    setIsLoadingBlocked(true);
+    try {
+      const response = await apiClient.get('/api/vault/blocked-transactions', {
+        params: { 
+          limit: 20,
+          userAddress: wallet.address,
+        },
+      });
+      setBlockedTransactions(response.data || []);
+    } catch (err: any) {
+      console.error('Failed to load blocked transactions:', err);
+    } finally {
+      setIsLoadingBlocked(false);
     }
   };
 
@@ -179,8 +213,10 @@ export default function VaultManagement() {
       if (response.data.success) {
         setSuccess(`Transaction executed! Tx: ${response.data.txHash}`);
         await loadBalance();
+        await loadBlockedTransactions(); // Refresh blocked transactions
       } else if (response.data.blocked) {
         setError(`Transaction blocked: ${response.data.reason}`);
+        await loadBlockedTransactions(); // Refresh blocked transactions
       }
     } catch (err: any) {
       setError(err.response?.data?.message || err.message || 'Transaction execution failed');
@@ -371,6 +407,72 @@ export default function VaultManagement() {
           <p className="text-green-400">{success}</p>
         </div>
       )}
+
+      {/* Blocked Transactions History */}
+      <div className="bg-slate-800 p-6 rounded-lg border border-slate-700">
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-xl font-bold">🚫 Blocked Transactions History</h3>
+          <button
+            onClick={loadBlockedTransactions}
+            disabled={isLoadingBlocked}
+            className="px-4 py-2 bg-slate-700 hover:bg-slate-600 disabled:bg-slate-600 disabled:cursor-not-allowed rounded-lg transition-colors text-sm"
+          >
+            {isLoadingBlocked ? 'Loading...' : 'Refresh'}
+          </button>
+        </div>
+        
+        {blockedTransactions.length === 0 ? (
+          <div className="text-slate-400 text-center py-8">
+            <p>No blocked transactions found</p>
+            <p className="text-sm mt-2">Transactions blocked by risk checks will appear here</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {blockedTransactions.map((tx) => (
+              <div
+                key={tx.id}
+                className="bg-slate-700/50 p-4 rounded-lg border border-red-500/30"
+              >
+                <div className="flex justify-between items-start mb-2">
+                  <div>
+                    <div className="text-red-400 font-semibold">Blocked</div>
+                    <div className="text-slate-300 text-sm mt-1">
+                      {new Date(tx.timestamp).toLocaleString()}
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className={`text-lg font-bold ${
+                      tx.riskScore < 30 ? 'text-green-400' :
+                      tx.riskScore < 70 ? 'text-yellow-400' : 'text-red-400'
+                    }`}>
+                      {tx.riskScore}/100
+                    </div>
+                    <div className="text-slate-400 text-xs">Risk Score</div>
+                  </div>
+                </div>
+                <div className="mt-3 space-y-1 text-sm">
+                  <div>
+                    <span className="text-slate-400">Target:</span>
+                    <span className="text-slate-200 font-mono ml-2">
+                      {tx.target.slice(0, 10)}...{tx.target.slice(-8)}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400">User:</span>
+                    <span className="text-slate-200 font-mono ml-2">
+                      {tx.user.slice(0, 10)}...{tx.user.slice(-8)}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400">Reason:</span>
+                    <span className="text-red-300 ml-2">{tx.reason}</span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
 
       {!wallet.signer && (
         <div className="bg-yellow-900/50 border border-yellow-500 p-4 rounded-lg">

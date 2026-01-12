@@ -200,5 +200,50 @@ export function createVaultRoutes(vaultController: VaultController) {
    */
   router.post('/execute', vaultController.executeTransaction.bind(vaultController));
 
+  /**
+   * @swagger
+   * /api/vault/blocked-transactions:
+   *   get:
+   *     summary: Get blocked transactions for vault
+   *     description: Returns list of transactions blocked by the vault
+   *     tags: [Shielded Vault]
+   *     parameters:
+   *       - in: query
+   *         name: limit
+   *         schema:
+   *           type: integer
+   *         description: Maximum number of transactions to return
+   *       - in: query
+   *         name: userAddress
+   *         schema:
+   *           type: string
+   *         description: Filter by user address
+   *     responses:
+   *       200:
+   *         description: List of blocked transactions
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: array
+   *               items:
+   *                 type: object
+   *                 properties:
+   *                   id:
+   *                     type: string
+   *                   timestamp:
+   *                     type: number
+   *                   user:
+   *                     type: string
+   *                   target:
+   *                     type: string
+   *                   riskScore:
+   *                     type: number
+   *                   reason:
+   *                     type: string
+   *                   service:
+   *                     type: string
+   */
+  router.get('/blocked-transactions', vaultController.getBlockedTransactions.bind(vaultController));
+
   return router;
 }

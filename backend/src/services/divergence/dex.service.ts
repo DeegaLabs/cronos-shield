@@ -3,6 +3,7 @@
  */
 
 import { ethers } from 'ethers';
+import { retry } from '../../lib/utils/retry.util';
 
 export interface PriceData {
   price: string;
@@ -38,7 +39,24 @@ export class DexService {
 
       const amount = amountIn || ethers.parseEther('1');
       const path = [this.getTokenAddress(tokenIn), this.getTokenAddress(tokenOut)];
-      const amounts = await this.router.getAmountsOut(amount, path);
+      
+      // Retry logic for blockchain calls
+      const amounts = await retry(
+        async () => {
+          return await this.router.getAmountsOut(amount, path);
+        },
+        {
+          maxRetries: 2,
+          delay: 1000,
+          retryCondition: (error) => {
+            // Retry on network errors or RPC errors
+            return error?.message?.includes('network') || 
+                   error?.message?.includes('timeout') ||
+                   error?.code === 'NETWORK_ERROR';
+          },
+        }
+      );
+      
       const price = ethers.formatEther(amounts[1]);
 
       return {
@@ -48,7 +66,7 @@ export class DexService {
         pair: pair,
       };
     } catch (error: any) {
-      console.warn(`⚠️  DEX query error: ${error.message}. Using mock data.`);
+      // If retry failed, use mock data
       return this.getMockPrice(pair);
     }
   }
