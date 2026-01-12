@@ -34,8 +34,16 @@ export default function PaymentModal({
   }, [isOpen, reset]);
 
   if (!isOpen || !challenge || !walletAddress) {
+    console.log('PaymentModal not rendering:', { isOpen, challenge: !!challenge, walletAddress: !!walletAddress, signer: !!signer });
     return null;
   }
+  
+  console.log('PaymentModal rendering with:', { 
+    hasChallenge: !!challenge, 
+    walletAddress, 
+    hasSigner: !!signer,
+    signerType: signer ? typeof signer : 'null'
+  });
 
   const accept = challenge.accepts[0];
   const amount = accept
@@ -43,12 +51,25 @@ export default function PaymentModal({
     : '1.0';
 
   const handlePay = async () => {
+    console.log('handlePay called', { walletAddress, signer: !!signer, challenge: !!challenge });
+    
     if (!walletAddress || !signer || !challenge) {
+      console.error('Missing required data:', { walletAddress: !!walletAddress, signer: !!signer, challenge: !!challenge });
       return;
     }
-    const result = await processPayment(challenge, signer);
-    if (result.success && result.paymentId) {
-      onSuccess(result.paymentId);
+    
+    try {
+      console.log('Calling processPayment...');
+      const result = await processPayment(challenge, signer);
+      console.log('processPayment result:', result);
+      
+      if (result.success && result.paymentId) {
+        onSuccess(result.paymentId);
+      } else {
+        console.error('Payment failed:', result.error);
+      }
+    } catch (error) {
+      console.error('Error in handlePay:', error);
     }
   };
 
