@@ -17,16 +17,19 @@ import { DexService } from './services/divergence/dex.service';
 import { DivergenceService } from './services/divergence/divergence.service';
 import { LogService } from './services/observability/log.service';
 import { MetricsService } from './services/observability/metrics.service';
+import { VaultService } from './services/vault/vault.service';
 
 // Controllers
 import { RiskController } from './controllers/risk.controller';
 import { DivergenceController } from './controllers/divergence.controller';
 import { ObservabilityController } from './controllers/observability.controller';
+import { VaultController } from './controllers/vault.controller';
 
 // Routes
 import { createRiskRoutes } from './routes/risk.routes';
 import { createDivergenceRoutes } from './routes/divergence.routes';
 import { createObservabilityRoutes } from './routes/observability.routes';
+import { createVaultRoutes } from './routes/vault.routes';
 
 // x402
 import { FacilitatorService } from './lib/x402/facilitator.service';
@@ -72,6 +75,7 @@ const swaggerOptions = {
       { name: 'Health', description: 'Health check endpoints' },
       { name: 'Risk Oracle', description: 'Risk analysis endpoints with x402 payment' },
       { name: 'CEX-DEX Synergy', description: 'Price divergence analysis endpoints with x402 payment' },
+      { name: 'Shielded Vault', description: 'Shielded Vault operations' },
       { name: 'Observability', description: 'Logging and metrics endpoints' },
     ],
     components: {
@@ -140,14 +144,24 @@ const divergenceService = new DivergenceService(cexService, dexService);
 const logService = new LogService();
 const metricsService = new MetricsService();
 
+// Vault Service
+const vaultService = new VaultService(
+  process.env.SHIELDED_VAULT_CONTRACT_ADDRESS || '',
+  process.env.PRIVATE_KEY,
+  process.env.RPC_URL || 'https://evm-t3.cronos.org',
+  riskService
+);
+
 // Initialize Controllers
 const riskController = new RiskController(riskService);
 const divergenceController = new DivergenceController(divergenceService, facilitatorService);
 const observabilityController = new ObservabilityController(logService, metricsService);
+const vaultController = new VaultController(vaultService);
 
 // Routes
 app.use('/api/risk', createRiskRoutes(riskController));
 app.use('/api/divergence', createDivergenceRoutes(divergenceController));
+app.use('/api/vault', createVaultRoutes(vaultController));
 app.use('/api/observability', createObservabilityRoutes(observabilityController));
 
 /**

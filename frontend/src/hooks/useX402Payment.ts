@@ -95,7 +95,6 @@ export function useX402Payment() {
       
       let paymentHeader: string;
       try {
-        // Generate payment header (exactly like examples, no 'as any')
         paymentHeader = await facilitator.generatePaymentHeader({
           to: accept.payTo,
           value: accept.maxAmountRequired,
@@ -105,7 +104,6 @@ export function useX402Payment() {
           validAfter: 0,
         });
       } catch (headerError: any) {
-        // Check if it's the specific "Unexpected error" from evmAsk.js
         const errorMsg = headerError?.message || String(headerError);
         const isUnexpectedError = errorMsg.includes('Unexpected error') || 
                                   errorMsg.includes('evmAsk') ||
@@ -113,11 +111,7 @@ export function useX402Payment() {
         
         if (isUnexpectedError) {
           throw new Error(
-            'MetaMask connection error. Please try:\n' +
-            '1. Refresh the page\n' +
-            '2. Ensure MetaMask is unlocked\n' +
-            '3. Disable other wallet extensions temporarily\n' +
-            '4. Try again'
+            'MetaMask connection error. Please try: 1) Refresh the page, 2) Ensure MetaMask is unlocked, 3) Disable other wallet extensions temporarily, 4) Try again'
           );
         }
         

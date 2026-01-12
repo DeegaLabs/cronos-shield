@@ -32,10 +32,8 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   // User must click "Connect Wallet" to establish full connection
   useEffect(() => {
     const savedAddress = getWalletAddress();
-    console.log('WalletContext: Mount effect - savedAddress:', savedAddress, 'current wallet.address:', wallet.address);
     if (savedAddress && !wallet.address) {
       // Only set address if wallet is not already connected
-      console.log('WalletContext: Restoring address from localStorage');
       setWallet((prev) => ({ 
         ...prev, 
         address: savedAddress,
@@ -50,28 +48,14 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     setIsConnecting(true);
     setError(null);
     try {
-      console.log('WalletContext: Connecting wallet...');
       const walletState = await connectWallet();
-      console.log('WalletContext: Wallet connected:', { 
-        address: walletState.address, 
-        hasProvider: !!walletState.provider, 
-        hasSigner: !!walletState.signer 
-      });
-      console.log('WalletContext: Setting wallet state...');
       setWallet(walletState);
-      console.log('WalletContext: Wallet state set. New state:', {
-        address: walletState.address,
-        isConnected: walletState.isConnected,
-        hasProvider: !!walletState.provider,
-        hasSigner: !!walletState.signer
-      });
       if (walletState.address) {
         saveWalletAddress(walletState.address);
       }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to connect wallet';
       setError(errorMessage);
-      console.error('WalletContext: Connection error:', err);
       setWallet({
         address: null,
         isConnected: false,

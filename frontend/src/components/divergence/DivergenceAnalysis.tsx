@@ -2,7 +2,7 @@
  * Divergence Analysis Component
  */
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import apiClient from '../../lib/api/client';
 import PaymentModal from '../common/PaymentModal';
 import { useWallet } from '../../contexts/WalletContext';
@@ -11,42 +11,12 @@ import type { PaymentChallenge } from '../../types/x402.types';
 
 export default function DivergenceAnalysis() {
   const { wallet } = useWallet();
-  
-  // Debug: log wallet state
-  console.log('DivergenceAnalysis wallet state:', {
-    address: wallet.address,
-    hasProvider: !!wallet.provider,
-    hasSigner: !!wallet.signer,
-    isConnected: wallet.isConnected
-  });
   const [token, setToken] = useState('CRO');
   const [analysis, setAnalysis] = useState<DivergenceAnalysis | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [paymentChallenge, setPaymentChallenge] = useState<PaymentChallenge | null>(null);
   const [paymentId, setPaymentId] = useState<string | null>(null);
-
-  // Debug: log wallet state when it changes
-  useEffect(() => {
-    console.log('DivergenceAnalysis wallet state:', {
-      address: wallet.address,
-      hasProvider: !!wallet.provider,
-      hasSigner: !!wallet.signer,
-      isConnected: wallet.isConnected
-    });
-  }, [wallet]);
-
-  // Debug: log what we're passing to PaymentModal
-  useEffect(() => {
-    if (paymentChallenge) {
-      console.log('DivergenceAnalysis passing to PaymentModal:', {
-        challenge: !!paymentChallenge,
-        walletAddress: wallet.address,
-        signer: !!wallet.signer,
-        signerType: wallet.signer ? typeof wallet.signer : 'null'
-      });
-    }
-  }, [paymentChallenge, wallet]);
 
   const handleAnalyze = async () => {
     if (!token.trim()) {

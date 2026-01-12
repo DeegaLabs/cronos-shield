@@ -26,15 +26,6 @@ export default function PaymentModal({
   onSuccess,
 }: PaymentModalProps) {
   const { isProcessing, error, txHash, processPayment, reset } = useX402Payment();
-  
-  // Debug: log props received
-  console.log('PaymentModal received props:', {
-    challenge: !!challenge,
-    walletAddress,
-    signer: !!signer,
-    signerType: signer ? typeof signer : 'null',
-    isOpen
-  });
 
   useEffect(() => {
     if (!isOpen) {
@@ -49,17 +40,8 @@ export default function PaymentModal({
   // Check if wallet is ready
   const isWalletReady = !!(walletAddress && signer);
   
-  console.log('PaymentModal render:', { 
-    isOpen, 
-    hasChallenge: !!challenge, 
-    walletAddress, 
-    hasSigner: !!signer,
-    isWalletReady 
-  });
-  
   // Show modal even if wallet not connected, but show warning
   if (!walletAddress || !signer) {
-    console.warn('PaymentModal: Wallet not ready', { walletAddress, signer: !!signer });
     return (
       <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
         <div className="bg-slate-800 rounded-lg border border-yellow-500 max-w-md w-full p-6">
@@ -87,25 +69,18 @@ export default function PaymentModal({
     : '1.0';
 
   const handlePay = async () => {
-    console.log('handlePay called', { walletAddress, signer: !!signer, challenge: !!challenge });
-    
     if (!walletAddress || !signer || !challenge) {
-      console.error('Missing required data:', { walletAddress: !!walletAddress, signer: !!signer, challenge: !!challenge });
       return;
     }
     
     try {
-      console.log('Calling processPayment...');
       const result = await processPayment(challenge, signer);
-      console.log('processPayment result:', result);
       
       if (result.success && result.paymentId) {
         onSuccess(result.paymentId);
-      } else {
-        console.error('Payment failed:', result.error);
       }
     } catch (error) {
-      console.error('Error in handlePay:', error);
+      // Error is handled by useX402Payment hook
     }
   };
 
