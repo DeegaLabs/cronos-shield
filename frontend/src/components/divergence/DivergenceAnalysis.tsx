@@ -30,9 +30,20 @@ export default function DivergenceAnalysis() {
       if (err.response?.status === 402) {
         const paymentData = err.response?.data;
         const message = paymentData?.message || 'Payment required to access CEX-DEX Synergy';
-        const amount = paymentData?.accepts?.[0]?.maxAmountRequired 
-          ? `${parseInt(paymentData.accepts[0].maxAmountRequired) / 1000000} ${paymentData.accepts[0].asset?.slice(0, 4) || 'devUSDC.e'}`
-          : '1.0 devUSDC.e';
+        // Extract amount from description or calculate from maxAmountRequired
+        let amount = '1.0 devUSDC.e';
+        if (paymentData?.accepts?.[0]) {
+          const accept = paymentData.accepts[0];
+          // Try to extract from description first (more reliable)
+          const descMatch = accept.description?.match(/💰 Payment: ([\d.]+ [\w.]+)/);
+          if (descMatch) {
+            amount = descMatch[1];
+          } else if (accept.maxAmountRequired) {
+            // Fallback: calculate from maxAmountRequired (1000000 = 1.0 with 6 decimals)
+            const amountValue = parseInt(accept.maxAmountRequired) / 1000000;
+            amount = `${amountValue.toFixed(1)} devUSDC.e`;
+          }
+        }
         setError(`${message}\n\n💰 Payment Required: ${amount}\n\nThis service uses x402 protocol for micropayments. Please complete the payment to access the analysis.`);
       } else {
         setError(err.response?.data?.message || 'Failed to analyze divergence');
