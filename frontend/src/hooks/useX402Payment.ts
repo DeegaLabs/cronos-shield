@@ -5,11 +5,9 @@
  */
 
 import { useState, useCallback } from 'react';
-import { Facilitator, CronosNetwork } from '@crypto.com/facilitator-client';
+import { Facilitator } from '@crypto.com/facilitator-client';
 import { ethers } from 'ethers';
 import type { PaymentChallenge, PaymentState } from '../types/x402.types';
-
-const NETWORK = import.meta.env.VITE_NETWORK || 'cronos-testnet';
 
 export function useX402Payment() {
   const [state, setState] = useState<PaymentState>({
@@ -37,12 +35,43 @@ export function useX402Payment() {
 
       const ethereum = (window as any).ethereum;
       
-      // Ensure we're on the correct network
+      // Get payment requirements first to know which network we need
+      const accept = challenge.accepts[0];
+      if (!accept) {
+        throw new Error('No payment method available');
+      }
+
+      // Ensure we're on the correct network based on challenge
+      const expectedChainId = accept.network === 'cronos-mainnet' ? '0x19' : '0x152';
       try {
         const chainId = await ethereum.request({ method: 'eth_chainId' });
-        const expectedChainId = NETWORK === 'cronos-mainnet' ? '0x19' : '0x152';
         if (chainId !== expectedChainId) {
-          throw new Error(`Please switch to Cronos ${NETWORK === 'cronos-mainnet' ? 'Mainnet' : 'Testnet'}`);
+          // Try to switch network
+          try {
+            await ethereum.request({
+              method: 'wallet_switchEthereumChain',
+              params: [{ chainId: expectedChainId }],
+            });
+            // Wait a bit for network switch
+            await new Promise(resolve => setTimeout(resolve, 1000));
+          } catch (switchError: any) {
+            if (switchError.code === 4902 && accept.network === 'cronos-testnet') {
+              // Add network if not present
+              await ethereum.request({
+                method: 'wallet_addEthereumChain',
+                params: [{
+                  chainId: '0x152',
+                  chainName: 'Cronos Testnet',
+                  nativeCurrency: { name: 'tCRO', symbol: 'tCRO', decimals: 18 },
+                  rpcUrls: ['https://evm-t3.cronos.org'],
+                  blockExplorerUrls: ['https://testnet.cronoscan.com'],
+                }],
+              });
+              await new Promise(resolve => setTimeout(resolve, 1000));
+            } else {
+              throw new Error(`Please switch to Cronos ${accept.network === 'cronos-mainnet' ? 'Mainnet' : 'Testnet'}`);
+            }
+          }
         }
       } catch (networkError) {
         throw new Error('Failed to verify network. Please ensure you are on Cronos Testnet.');
@@ -57,18 +86,8 @@ export function useX402Payment() {
         throw new Error('Failed to get wallet address');
       }
 
-      // Initialize Facilitator with explicit network
-      const cronosNetwork = NETWORK === 'cronos-mainnet'
-        ? CronosNetwork.CronosMainnet
-        : CronosNetwork.CronosTestnet;
-      
-      const facilitator = new Facilitator({ network: cronosNetwork });
-
-      // Get payment requirements from challenge
-      const accept = challenge.accepts[0];
-      if (!accept) {
-        throw new Error('No payment method available');
-      }
+      // Initialize Facilitator with network from challenge
+      const facilitator = new Facilitator({ network: accept.network as any });
 
       // Get payment ID from challenge
       const paymentId = accept.extra?.paymentId;
