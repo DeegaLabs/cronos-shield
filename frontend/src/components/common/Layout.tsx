@@ -29,7 +29,7 @@ export default function Layout({ children }: LayoutProps) {
               <p className="text-slate-400 text-sm">AI-powered security layer for Cronos</p>
             </div>
             <div className="flex items-center gap-4">
-              {wallet.address ? (
+              {wallet.address && wallet.isConnected && wallet.signer ? (
                 <>
                   <div className="text-sm">
                     <span className="text-slate-400">Connected:</span>{' '}
@@ -46,12 +46,17 @@ export default function Layout({ children }: LayoutProps) {
                 </>
               ) : (
                 <div className="flex flex-col items-end gap-2">
+                  {wallet.address && !wallet.isConnected && (
+                    <span className="text-xs text-yellow-400 max-w-xs text-right">
+                      Address saved, click to reconnect
+                    </span>
+                  )}
                   <button
                     onClick={connect}
                     disabled={isConnecting}
                     className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-600 disabled:cursor-not-allowed rounded-lg transition-colors"
                   >
-                    {isConnecting ? 'Connecting...' : 'Connect Wallet'}
+                    {isConnecting ? 'Connecting...' : wallet.address ? 'Reconnect Wallet' : 'Connect Wallet'}
                   </button>
                   {error && (
                     <span className="text-xs text-red-400 max-w-xs text-right">
