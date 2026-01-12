@@ -33,67 +33,50 @@ export function useX402Payment() {
         throw new Error('MetaMask is not installed');
       }
 
-      const ethereum = (window as any).ethereum;
-      
       // Get payment requirements first to know which network we need
       const accept = challenge.accepts[0];
       if (!accept) {
         throw new Error('No payment method available');
       }
 
-      // Ensure we're on the correct network based on challenge
-      const expectedChainId = accept.network === 'cronos-mainnet' ? '0x19' : '0x152';
-      try {
-        const chainId = await ethereum.request({ method: 'eth_chainId' });
-        if (chainId !== expectedChainId) {
-          // Try to switch network
-          try {
-            await ethereum.request({
-              method: 'wallet_switchEthereumChain',
-              params: [{ chainId: expectedChainId }],
-            });
-            // Wait a bit for network switch
-            await new Promise(resolve => setTimeout(resolve, 1000));
-          } catch (switchError: any) {
-            if (switchError.code === 4902 && accept.network === 'cronos-testnet') {
-              // Add network if not present
-              await ethereum.request({
-                method: 'wallet_addEthereumChain',
-                params: [{
-                  chainId: '0x152',
-                  chainName: 'Cronos Testnet',
-                  nativeCurrency: { name: 'tCRO', symbol: 'tCRO', decimals: 18 },
-                  rpcUrls: ['https://evm-t3.cronos.org'],
-                  blockExplorerUrls: ['https://testnet.cronoscan.com'],
-                }],
-              });
-              await new Promise(resolve => setTimeout(resolve, 1000));
-            } else {
-              throw new Error(`Please switch to Cronos ${accept.network === 'cronos-mainnet' ? 'Mainnet' : 'Testnet'}`);
-            }
-          }
-        }
-      } catch (networkError) {
-        throw new Error('Failed to verify network. Please ensure you are on Cronos Testnet.');
+      // Follow exact order from official examples:
+      // 1. ensureWallet() - authorize account access
+      const ethereum = (window as any).ethereum;
+      if (!ethereum) {
+        throw new Error('MetaMask not found');
       }
-
-      // Ensure wallet is authorized (like ensureWallet in examples)
       const provider = new ethers.BrowserProvider(ethereum);
       await provider.send('eth_requestAccounts', []);
-      
-      // Wait a bit for MetaMask to process
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      const signer = await provider.getSigner();
 
-      // Verify signer address
-      const signerAddress = await signer.getAddress();
-      if (!signerAddress) {
-        throw new Error('Failed to get wallet address');
+      // 2. ensureCronosChain() - ensure correct network
+      const chainIdHex = accept.network === 'cronos-mainnet' ? '0x19' : '0x152';
+      try {
+        await ethereum.request({
+          method: 'wallet_switchEthereumChain',
+          params: [{ chainId: chainIdHex }],
+        });
+      } catch (e: any) {
+        if (e?.code === 4902 && accept.network === 'cronos-testnet') {
+          await ethereum.request({
+            method: 'wallet_addEthereumChain',
+            params: [{
+              chainId: '0x152',
+              chainName: 'Cronos Testnet',
+              nativeCurrency: { name: 'tCRO', symbol: 'tCRO', decimals: 18 },
+              rpcUrls: ['https://evm-t3.cronos.org'],
+              blockExplorerUrls: ['https://testnet.cronoscan.com'],
+            }],
+          });
+        } else {
+          throw e;
+        }
       }
 
-      // Initialize Facilitator with network from challenge
-      const facilitator = new Facilitator({ network: accept.network as any });
+      // 3. getSigner() - get signer after wallet and network are ready
+      const signer = await provider.getSigner();
+
+      // 4. Initialize Facilitator (exactly like examples, no 'as any')
+      const facilitator = new Facilitator({ network: accept.network });
 
       // Get payment ID from challenge
       const paymentId = accept.extra?.paymentId;
@@ -106,13 +89,12 @@ export function useX402Payment() {
       
       let paymentHeader: string;
       try {
-        // The Facilitator SDK may throw "Unexpected error" from evmAsk.js
-        // This is often related to wallet detection. We'll try to handle it gracefully.
+        // Generate payment header (exactly like examples, no 'as any')
         paymentHeader = await facilitator.generatePaymentHeader({
           to: accept.payTo,
           value: accept.maxAmountRequired,
-          asset: accept.asset as any,
-          signer: signer as any,
+          asset: accept.asset,
+          signer,
           validBefore,
           validAfter: 0,
         });

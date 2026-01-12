@@ -2,6 +2,8 @@
  * x402 Payment Protocol Types
  */
 
+import type { CronosNetwork, Contract } from '@crypto.com/facilitator-client';
+
 export interface PaymentChallenge {
   x402Version: number;
   error: string;
@@ -12,8 +14,8 @@ export interface PaymentChallenge {
 
 export interface PaymentAccept {
   scheme: string;
-  network: string;
-  asset: string;
+  network: CronosNetwork; // Use correct type from SDK
+  asset: Contract; // Use correct type from SDK
   payTo: string;
   maxAmountRequired: string;
   maxTimeoutSeconds: number;
