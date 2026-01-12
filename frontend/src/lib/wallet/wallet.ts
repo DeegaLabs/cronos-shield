@@ -100,12 +100,33 @@ export async function connectWallet(): Promise<WalletState> {
 
     // Create provider and signer
     // Specify network explicitly to avoid _detectNetwork error
-    const provider = new ethers.BrowserProvider(ethereum, {
-      name: 'Cronos Testnet',
-      chainId: 338,
-    });
-    const signer = await provider.getSigner();
-    const address = await signer.getAddress();
+    let provider: ethers.BrowserProvider;
+    let signer: ethers.JsonRpcSigner;
+    let address: string;
+    
+    try {
+      console.log('Creating BrowserProvider with explicit network...');
+      provider = new ethers.BrowserProvider(ethereum, {
+        name: 'Cronos Testnet',
+        chainId: 338,
+      });
+      console.log('BrowserProvider created, getting signer...');
+      signer = await provider.getSigner();
+      console.log('Signer obtained, getting address...');
+      address = await signer.getAddress();
+      console.log('Wallet connection successful:', { address, hasSigner: !!signer });
+    } catch (providerError: any) {
+      console.error('Error creating provider/signer:', providerError);
+      // If _detectNetwork error, try without explicit network (fallback)
+      if (providerError?.message?.includes('_detectNetwork') || providerError?.message?.includes('Unexpected error')) {
+        console.warn('_detectNetwork error detected, trying without explicit network config...');
+        provider = new ethers.BrowserProvider(ethereum);
+        signer = await provider.getSigner();
+        address = await signer.getAddress();
+      } else {
+        throw providerError;
+      }
+    }
 
     return {
       address,

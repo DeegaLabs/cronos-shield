@@ -25,10 +25,13 @@ export function useWallet() {
     if (savedAddress) {
       // Only restore address, don't create provider/signer automatically
       // This avoids the _detectNetwork error on page load
+      // User must click "Connect Wallet" to get provider and signer
       setWallet((prev) => ({ 
         ...prev, 
         address: savedAddress,
-        // Keep provider and signer as null until user explicitly connects
+        isConnected: false, // Not fully connected until user clicks connect
+        provider: null,
+        signer: null,
       }));
     }
   }, []);
