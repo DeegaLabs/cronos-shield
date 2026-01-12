@@ -5,7 +5,6 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import { ethers } from 'ethers';
 import { connectWallet, disconnectWallet, getWalletAddress, saveWalletAddress, type WalletState } from '../lib/wallet/wallet';
 
 export function useWallet() {
@@ -18,51 +17,20 @@ export function useWallet() {
   const [isConnecting, setIsConnecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Check for existing connection on mount and reconnect to get signer
+  // Check for existing connection on mount
+  // Note: We don't auto-reconnect to avoid _detectNetwork errors
+  // User must click "Connect Wallet" to establish connection
   useEffect(() => {
-    const reconnectWallet = async () => {
-      const savedAddress = getWalletAddress();
-      if (savedAddress && typeof window !== 'undefined' && (window as any).ethereum) {
-        try {
-          // Reconnect to get provider and signer
-          const ethereum = (window as any).ethereum;
-          const provider = new ethers.BrowserProvider(ethereum);
-          const signer = await provider.getSigner();
-          const currentAddress = await signer.getAddress();
-          
-          // Verify it's the same address
-          if (currentAddress.toLowerCase() === savedAddress.toLowerCase()) {
-            setWallet({
-              address: currentAddress,
-              isConnected: true,
-              provider,
-              signer,
-            });
-          } else {
-            // Address changed, clear saved address
-            localStorage.removeItem('wallet-address');
-            setWallet({
-              address: null,
-              isConnected: false,
-              provider: null,
-              signer: null,
-            });
-          }
-        } catch (error) {
-          // Failed to reconnect, clear saved address
-          console.warn('Failed to reconnect wallet:', error);
-          localStorage.removeItem('wallet-address');
-          setWallet({
-            address: null,
-            isConnected: false,
-            provider: null,
-            signer: null,
-          });
-        }
-      }
-    };
-    
-    reconnectWallet();
+    const savedAddress = getWalletAddress();
+    if (savedAddress) {
+      // Only restore address, don't create provider/signer automatically
+      // This avoids the _detectNetwork error on page load
+      setWallet((prev) => ({ 
+        ...prev, 
+        address: savedAddress,
+        // Keep provider and signer as null until user explicitly connects
+      }));
+    }
   }, []);
 
   const connect = useCallback(async () => {

@@ -33,20 +33,18 @@ export default function PaymentModal({
     }
   }, [isOpen, reset]);
 
-  if (!isOpen || !challenge || !walletAddress) {
-    console.log('PaymentModal not rendering:', { isOpen, challenge: !!challenge, walletAddress: !!walletAddress, signer: !!signer });
+  if (!isOpen || !challenge) {
     return null;
   }
   
-  // Check if signer is missing
-  if (!signer) {
-    console.error('PaymentModal: signer is null!', { walletAddress, challenge: !!challenge });
+  // Show modal even if wallet not connected, but show warning
+  if (!walletAddress || !signer) {
     return (
       <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-        <div className="bg-slate-800 rounded-lg border border-red-500 max-w-md w-full p-6">
-          <h3 className="text-xl font-bold text-red-400 mb-4">⚠️ Wallet Not Connected</h3>
+        <div className="bg-slate-800 rounded-lg border border-yellow-500 max-w-md w-full p-6">
+          <h3 className="text-xl font-bold text-yellow-400 mb-4">⚠️ Wallet Not Connected</h3>
           <p className="text-slate-300 mb-4">
-            Please connect your wallet first to make payments.
+            Please connect your wallet first to make payments. Click "Connect Wallet" in the header.
           </p>
           <button
             onClick={onClose}
@@ -58,13 +56,6 @@ export default function PaymentModal({
       </div>
     );
   }
-  
-  console.log('PaymentModal rendering with:', { 
-    hasChallenge: !!challenge, 
-    walletAddress, 
-    hasSigner: !!signer,
-    signerType: signer ? typeof signer : 'null'
-  });
 
   const accept = challenge.accepts[0];
   const amount = accept
@@ -144,10 +135,18 @@ export default function PaymentModal({
             </div>
           )}
 
+          {!isWalletReady && (
+            <div className="bg-yellow-900/50 border border-yellow-500 p-3 rounded-lg mb-4">
+              <p className="text-yellow-400 text-sm">
+                ⚠️ Please connect your wallet first to make payments. Click "Connect Wallet" in the header.
+              </p>
+            </div>
+          )}
+
           <div className="flex gap-3">
             <button
               onClick={handlePay}
-              disabled={isProcessing || !!txHash}
+              disabled={isProcessing || !!txHash || !isWalletReady}
               className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-600 disabled:cursor-not-allowed rounded-lg transition-colors"
             >
               {isProcessing ? 'Processing...' : txHash ? 'Paid' : 'Pay with x402'}
