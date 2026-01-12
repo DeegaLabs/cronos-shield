@@ -26,6 +26,28 @@ export default function DivergenceAnalysis() {
   const [paymentChallenge, setPaymentChallenge] = useState<PaymentChallenge | null>(null);
   const [paymentId, setPaymentId] = useState<string | null>(null);
 
+  // Debug: log wallet state when it changes
+  useEffect(() => {
+    console.log('DivergenceAnalysis wallet state:', {
+      address: wallet.address,
+      hasProvider: !!wallet.provider,
+      hasSigner: !!wallet.signer,
+      isConnected: wallet.isConnected
+    });
+  }, [wallet]);
+
+  // Debug: log what we're passing to PaymentModal
+  useEffect(() => {
+    if (paymentChallenge) {
+      console.log('DivergenceAnalysis passing to PaymentModal:', {
+        challenge: !!paymentChallenge,
+        walletAddress: wallet.address,
+        signer: !!wallet.signer,
+        signerType: wallet.signer ? typeof wallet.signer : 'null'
+      });
+    }
+  }, [paymentChallenge, wallet]);
+
   const handleAnalyze = async () => {
     if (!token.trim()) {
       setError('Please enter a token symbol');
@@ -114,13 +136,6 @@ export default function DivergenceAnalysis() {
         onClose={() => setPaymentChallenge(null)}
         onSuccess={handlePaymentSuccess}
       />
-      {/* Debug: log what we're passing to PaymentModal */}
-      {paymentChallenge && console.log('DivergenceAnalysis passing to PaymentModal:', {
-        challenge: !!paymentChallenge,
-        walletAddress: wallet.address,
-        signer: !!wallet.signer,
-        signerType: wallet.signer ? typeof wallet.signer : 'null'
-      })}
 
       {/* Results */}
       {analysis && (
