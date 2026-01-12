@@ -57,6 +57,11 @@ export class DexService {
         }
       );
       
+      // Check if amounts array is valid and has at least 2 elements
+      if (!amounts || amounts.length < 2 || amounts[1] === 0n) {
+        throw new Error(`No liquidity available for pair ${pair} or invalid response`);
+      }
+
       const price = ethers.formatEther(amounts[1]);
 
       return {
@@ -66,6 +71,24 @@ export class DexService {
         pair: pair,
       };
     } catch (error: any) {
+      // Log error details for debugging (only for non-expected errors)
+      const errorMessage = error.reason || error.message || 'Unknown error';
+      const errorCode = error.code || 'UNKNOWN';
+      
+      // Only log if it's not a common testnet issue (no liquidity, contract not found)
+      const isExpectedError = 
+        errorMessage.includes('0x') || 
+        errorMessage.includes('BAD_DATA') ||
+        errorMessage.includes('No liquidity') ||
+        errorMessage.includes('execution reverted');
+      
+      if (!isExpectedError) {
+        console.warn(`⚠️  DEX query error: ${errorMessage} (code: ${errorCode}). Using mock data.`);
+      } else {
+        // Silent fallback to mock data for expected testnet limitations
+        console.debug(`ℹ️  DEX query for ${pair} unavailable, using mock data (expected in testnet).`);
+      }
+      
       // If retry failed, use mock data
       return this.getMockPrice(pair);
     }

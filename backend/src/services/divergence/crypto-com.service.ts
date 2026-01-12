@@ -58,7 +58,17 @@ export class CryptoComService {
 
       throw new Error('Invalid response format');
     } catch (error: any) {
-      // If retry failed, use mock data
+      // Log error but don't expose sensitive details
+      const errorMessage = error.response?.data 
+        ? `API returned unexpected format for pair ${pair}`
+        : error.message || 'Unknown error';
+      
+      // Only log if it's not a network timeout (common in testnet)
+      if (!errorMessage.includes('timeout') && !errorMessage.includes('ECONNREFUSED')) {
+        console.warn(`⚠️  Crypto.com API error: ${errorMessage}. Using mock data.`);
+      }
+      
+      // If retry failed, use mock data (expected behavior for POC)
       return this.getMockPrice(pair);
     }
   }
