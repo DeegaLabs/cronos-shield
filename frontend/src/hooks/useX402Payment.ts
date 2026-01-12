@@ -77,7 +77,13 @@ export function useX402Payment() {
         throw new Error('Failed to verify network. Please ensure you are on Cronos Testnet.');
       }
 
+      // Ensure wallet is authorized (like ensureWallet in examples)
       const provider = new ethers.BrowserProvider(ethereum);
+      await provider.send('eth_requestAccounts', []);
+      
+      // Wait a bit for MetaMask to process
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
       const signer = await provider.getSigner();
 
       // Verify signer address
