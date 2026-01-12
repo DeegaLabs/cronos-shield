@@ -37,6 +37,9 @@ export default function PaymentModal({
     return null;
   }
   
+  // Check if wallet is ready
+  const isWalletReady = !!(walletAddress && signer);
+  
   // Show modal even if wallet not connected, but show warning
   if (!walletAddress || !signer) {
     return (
