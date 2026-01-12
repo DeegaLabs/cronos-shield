@@ -39,22 +39,22 @@ export function useX402Payment() {
         throw new Error('No payment method available');
       }
 
-      // Follow exact order from official examples:
-      // 1. ensureWallet() - authorize account access
+      // CRITICAL: Ensure network is correct BEFORE creating BrowserProvider
+      // BrowserProvider auto-detects network on creation, which causes the error
       const ethereum = (window as any).ethereum;
       if (!ethereum) {
         throw new Error('MetaMask not found');
       }
-      const provider = new ethers.BrowserProvider(ethereum);
-      await provider.send('eth_requestAccounts', []);
 
-      // 2. ensureCronosChain() - ensure correct network
+      // 1. Ensure correct network FIRST (before creating provider)
       const chainIdHex = accept.network === 'cronos-mainnet' ? '0x19' : '0x152';
       try {
         await ethereum.request({
           method: 'wallet_switchEthereumChain',
           params: [{ chainId: chainIdHex }],
         });
+        // Wait for network switch to complete
+        await new Promise(resolve => setTimeout(resolve, 500));
       } catch (e: any) {
         if (e?.code === 4902 && accept.network === 'cronos-testnet') {
           await ethereum.request({
@@ -67,12 +67,27 @@ export function useX402Payment() {
               blockExplorerUrls: ['https://testnet.cronoscan.com'],
             }],
           });
+          // Wait for network to be added
+          await new Promise(resolve => setTimeout(resolve, 500));
         } else {
           throw e;
         }
       }
 
-      // 3. getSigner() - get signer after wallet and network are ready
+      // 2. Now create provider with network already set
+      // Specify network explicitly to avoid auto-detection issues
+      const provider = new ethers.BrowserProvider(ethereum, {
+        name: accept.network === 'cronos-mainnet' ? 'Cronos Mainnet' : 'Cronos Testnet',
+        chainId: accept.network === 'cronos-mainnet' ? 25 : 338,
+      });
+
+      // 3. Request account access
+      await provider.send('eth_requestAccounts', []);
+      
+      // 4. Wait a bit for provider to be ready
+      await new Promise(resolve => setTimeout(resolve, 300));
+
+      // 5. getSigner() - get signer after wallet and network are ready
       const signer = await provider.getSigner();
 
       // 4. Initialize Facilitator (exactly like examples, no 'as any')
