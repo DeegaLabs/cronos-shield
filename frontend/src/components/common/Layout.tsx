@@ -29,7 +29,7 @@ export default function Layout({ children }: LayoutProps) {
               <p className="text-slate-400 text-sm">AI-powered security layer for Cronos</p>
             </div>
             <div className="flex items-center gap-4">
-              {wallet.isConnected && wallet.address ? (
+              {wallet.address ? (
                 <>
                   <div className="text-sm">
                     <span className="text-slate-400">Connected:</span>{' '}

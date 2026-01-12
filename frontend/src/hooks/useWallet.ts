@@ -37,7 +37,13 @@ export function useWallet() {
     setIsConnecting(true);
     setError(null);
     try {
+      console.log('useWallet: Connecting wallet...');
       const walletState = await connectWallet();
+      console.log('useWallet: Wallet connected:', { 
+        address: walletState.address, 
+        hasProvider: !!walletState.provider, 
+        hasSigner: !!walletState.signer 
+      });
       setWallet(walletState);
       if (walletState.address) {
         saveWalletAddress(walletState.address);
