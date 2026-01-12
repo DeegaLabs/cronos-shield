@@ -28,7 +28,12 @@ export default function DivergenceAnalysis() {
       setAnalysis(response.data);
     } catch (err: any) {
       if (err.response?.status === 402) {
-        setError('Payment required. Please complete x402 payment first.');
+        const paymentData = err.response?.data;
+        const message = paymentData?.message || 'Payment required to access CEX-DEX Synergy';
+        const amount = paymentData?.accepts?.[0]?.maxAmountRequired 
+          ? `${parseInt(paymentData.accepts[0].maxAmountRequired) / 1000000} ${paymentData.accepts[0].asset?.slice(0, 4) || 'devUSDC.e'}`
+          : '1.0 devUSDC.e';
+        setError(`${message}\n\n💰 Payment Required: ${amount}\n\nThis service uses x402 protocol for micropayments. Please complete the payment to access the analysis.`);
       } else {
         setError(err.response?.data?.message || 'Failed to analyze divergence');
       }
@@ -65,8 +70,12 @@ export default function DivergenceAnalysis() {
           </button>
         </div>
         {error && (
-          <div className="mt-4 p-3 bg-red-900/50 border border-red-500 rounded-lg text-red-400">
-            {error}
+          <div className="mt-4 p-4 bg-yellow-900/30 border border-yellow-500 rounded-lg">
+            <div className="text-yellow-400 font-semibold mb-2">⚠️ Payment Required (x402)</div>
+            <div className="text-yellow-300 whitespace-pre-line text-sm">{error}</div>
+            <div className="mt-3 text-xs text-yellow-400/80">
+              💡 This is expected behavior. The x402 protocol requires payment before accessing the service.
+            </div>
           </div>
         )}
       </div>
