@@ -40,14 +40,26 @@ export default function PaymentModal({
   // Check if wallet is ready
   const isWalletReady = !!(walletAddress && signer);
   
+  console.log('PaymentModal render:', { 
+    isOpen, 
+    hasChallenge: !!challenge, 
+    walletAddress, 
+    hasSigner: !!signer,
+    isWalletReady 
+  });
+  
   // Show modal even if wallet not connected, but show warning
   if (!walletAddress || !signer) {
+    console.warn('PaymentModal: Wallet not ready', { walletAddress, signer: !!signer });
     return (
       <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
         <div className="bg-slate-800 rounded-lg border border-yellow-500 max-w-md w-full p-6">
           <h3 className="text-xl font-bold text-yellow-400 mb-4">⚠️ Wallet Not Connected</h3>
           <p className="text-slate-300 mb-4">
             Please connect your wallet first to make payments. Click "Connect Wallet" in the header.
+          </p>
+          <p className="text-xs text-slate-400 mb-4">
+            Debug: address={walletAddress ? 'present' : 'null'}, signer={signer ? 'present' : 'null'}
           </p>
           <button
             onClick={onClose}

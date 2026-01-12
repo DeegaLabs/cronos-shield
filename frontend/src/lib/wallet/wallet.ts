@@ -99,7 +99,11 @@ export async function connectWallet(): Promise<WalletState> {
     }
 
     // Create provider and signer
-    const provider = new ethers.BrowserProvider(ethereum);
+    // Specify network explicitly to avoid _detectNetwork error
+    const provider = new ethers.BrowserProvider(ethereum, {
+      name: 'Cronos Testnet',
+      chainId: 338,
+    });
     const signer = await provider.getSigner();
     const address = await signer.getAddress();
 
