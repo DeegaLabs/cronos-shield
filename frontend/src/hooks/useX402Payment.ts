@@ -36,10 +36,28 @@ export function useX402Payment() {
       }
 
       const ethereum = (window as any).ethereum;
+      
+      // Ensure we're on the correct network
+      try {
+        const chainId = await ethereum.request({ method: 'eth_chainId' });
+        const expectedChainId = NETWORK === 'cronos-mainnet' ? '0x19' : '0x152';
+        if (chainId !== expectedChainId) {
+          throw new Error(`Please switch to Cronos ${NETWORK === 'cronos-mainnet' ? 'Mainnet' : 'Testnet'}`);
+        }
+      } catch (networkError) {
+        throw new Error('Failed to verify network. Please ensure you are on Cronos Testnet.');
+      }
+
       const provider = new ethers.BrowserProvider(ethereum);
       const signer = await provider.getSigner();
 
-      // Initialize Facilitator
+      // Verify signer address
+      const signerAddress = await signer.getAddress();
+      if (!signerAddress) {
+        throw new Error('Failed to get wallet address');
+      }
+
+      // Initialize Facilitator with explicit network
       const cronosNetwork = NETWORK === 'cronos-mainnet'
         ? CronosNetwork.CronosMainnet
         : CronosNetwork.CronosTestnet;
@@ -60,14 +78,21 @@ export function useX402Payment() {
 
       // Generate payment header
       const validBefore = Math.floor(Date.now() / 1000) + accept.maxTimeoutSeconds;
-      const paymentHeader = await facilitator.generatePaymentHeader({
-        to: accept.payTo,
-        value: accept.maxAmountRequired,
-        asset: accept.asset as any,
-        signer: signer as any,
-        validBefore,
-        validAfter: 0,
-      });
+      
+      let paymentHeader: string;
+      try {
+        paymentHeader = await facilitator.generatePaymentHeader({
+          to: accept.payTo,
+          value: accept.maxAmountRequired,
+          asset: accept.asset as any,
+          signer: signer as any,
+          validBefore,
+          validAfter: 0,
+        });
+      } catch (headerError) {
+        const errorMsg = headerError instanceof Error ? headerError.message : String(headerError);
+        throw new Error(`Failed to generate payment header: ${errorMsg}. Please ensure MetaMask is unlocked and you have sufficient balance.`);
+      }
 
       // Determine endpoint based on service name or resource URL
       const serviceName = challenge.service?.name?.toLowerCase() || '';
