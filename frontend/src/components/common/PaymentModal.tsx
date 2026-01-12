@@ -49,9 +49,6 @@ export default function PaymentModal({
           <p className="text-slate-300 mb-4">
             Please connect your wallet first to make payments. Click "Connect Wallet" in the header.
           </p>
-          <p className="text-xs text-slate-400 mb-4">
-            Debug: address={walletAddress ? 'present' : 'null'}, signer={signer ? 'present' : 'null'}
-          </p>
           <button
             onClick={onClose}
             className="w-full px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg transition-colors"
