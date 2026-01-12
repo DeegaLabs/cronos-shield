@@ -14,6 +14,10 @@ dist/
 *.log
 npm-debug.log*
 
+# Coverage
+coverage/
+*.lcov
+
 # IDE
 .vscode/
 .idea/

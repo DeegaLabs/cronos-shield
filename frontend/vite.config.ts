@@ -13,4 +13,16 @@ export default defineConfig({
       },
     },
   },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'vendor-react': ['react', 'react-dom', 'react-router-dom'],
+          'vendor-ethers': ['ethers'],
+          'vendor-facilitator': ['@crypto.com/facilitator-client'],
+        },
+      },
+    },
+    chunkSizeWarningLimit: 1000,
+  },
 })

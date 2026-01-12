@@ -20,13 +20,7 @@ export class DivergenceController {
     try {
       const { token, amount } = req.query;
 
-      if (!token || typeof token !== 'string') {
-        res.status(400).json({ 
-          error: 'missing_token',
-          message: 'Token symbol is required (e.g., "CRO")' 
-        });
-        return;
-      }
+      validateTokenSymbol(token as string);
 
       const request: DivergenceRequest = {
         token: token as string,
