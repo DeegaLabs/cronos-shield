@@ -5,7 +5,7 @@
 import { useState, useEffect } from 'react';
 import apiClient from '../../lib/api/client';
 import PaymentModal from '../common/PaymentModal';
-import { useWallet } from '../../hooks/useWallet';
+import { useWallet } from '../../contexts/WalletContext';
 import type { DivergenceAnalysis } from '../../types';
 import type { PaymentChallenge } from '../../types/x402.types';
 

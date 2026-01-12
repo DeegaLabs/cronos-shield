@@ -1,13 +1,23 @@
 /**
- * useWallet Hook
+ * Wallet Context
  * 
- * React hook for wallet connection management
+ * Provides wallet state to all components via React Context
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react';
 import { connectWallet, disconnectWallet, getWalletAddress, saveWalletAddress, type WalletState } from '../lib/wallet/wallet';
 
-export function useWallet() {
+interface WalletContextType {
+  wallet: WalletState;
+  isConnecting: boolean;
+  error: string | null;
+  connect: () => Promise<void>;
+  disconnect: () => Promise<void>;
+}
+
+const WalletContext = createContext<WalletContextType | undefined>(undefined);
+
+export function WalletProvider({ children }: { children: ReactNode }) {
   const [wallet, setWallet] = useState<WalletState>({
     address: null,
     isConnected: false,
@@ -18,14 +28,12 @@ export function useWallet() {
   const [error, setError] = useState<string | null>(null);
 
   // Check for existing connection on mount
-  // Note: We don't auto-reconnect to avoid _detectNetwork errors
-  // User must click "Connect Wallet" to establish connection
+  // Only restore address, don't create provider/signer automatically
+  // User must click "Connect Wallet" to establish full connection
   useEffect(() => {
     const savedAddress = getWalletAddress();
-    if (savedAddress) {
-      // Only restore address, don't create provider/signer automatically
-      // This avoids the _detectNetwork error on page load
-      // User must click "Connect Wallet" to get provider and signer
+    if (savedAddress && !wallet.address) {
+      // Only set address if wallet is not already connected
       setWallet((prev) => ({ 
         ...prev, 
         address: savedAddress,
@@ -34,15 +42,15 @@ export function useWallet() {
         signer: null,
       }));
     }
-  }, []);
+  }, []); // Only run once on mount
 
   const connect = useCallback(async () => {
     setIsConnecting(true);
     setError(null);
     try {
-      console.log('useWallet: Connecting wallet...');
+      console.log('WalletContext: Connecting wallet...');
       const walletState = await connectWallet();
-      console.log('useWallet: Wallet connected:', { 
+      console.log('WalletContext: Wallet connected:', { 
         address: walletState.address, 
         hasProvider: !!walletState.provider, 
         hasSigner: !!walletState.signer 
@@ -54,7 +62,7 @@ export function useWallet() {
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to connect wallet';
       setError(errorMessage);
-      console.error('Wallet connection error:', err);
+      console.error('WalletContext: Connection error:', err);
       setWallet({
         address: null,
         isConnected: false,
@@ -79,11 +87,17 @@ export function useWallet() {
     setError(null);
   }, []);
 
-  return {
-    wallet,
-    isConnecting,
-    error,
-    connect,
-    disconnect,
-  };
+  return (
+    <WalletContext.Provider value={{ wallet, isConnecting, error, connect, disconnect }}>
+      {children}
+    </WalletContext.Provider>
+  );
+}
+
+export function useWallet() {
+  const context = useContext(WalletContext);
+  if (context === undefined) {
+    throw new Error('useWallet must be used within a WalletProvider');
+  }
+  return context;
 }
