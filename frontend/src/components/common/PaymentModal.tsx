@@ -173,19 +173,26 @@ export default function PaymentModal({
       }
 
       // Verify we can get the address from the signer (this validates it's working)
+      let signerAddress: string;
       try {
-        await currentSigner.getAddress();
+        signerAddress = await currentSigner.getAddress();
+        console.log('✅ Signer validated, address:', signerAddress);
       } catch (addressError: any) {
+        console.error('❌ Signer validation failed:', addressError);
         throw new Error('Wallet signer is not valid. Please reconnect your wallet.');
       }
 
       // CRITICAL: Import Facilitator dynamically ONLY when needed (inside handlePay)
       // This prevents the SDK from loading on page load, which causes evmAsk error
+      console.log('📦 Importing Facilitator SDK...');
       const { Facilitator } = await import('@crypto.com/facilitator-client');
+      console.log('✅ Facilitator SDK imported');
+      
       // Cast network to SDK's CronosNetwork type (they're compatible string literals)
       const facilitator = new Facilitator({ 
         network: accept.network as any 
       });
+      console.log('✅ Facilitator instance created for network:', accept.network);
 
       // Get payment ID from challenge
       const paymentId = accept.extra?.paymentId;
@@ -195,6 +202,13 @@ export default function PaymentModal({
 
       // Generate payment header with retry logic
       const validBefore = Math.floor(Date.now() / 1000) + accept.maxTimeoutSeconds;
+      console.log('💰 Payment parameters:', {
+        to: accept.payTo,
+        value: accept.maxAmountRequired,
+        asset: accept.asset,
+        validBefore,
+        signerAddress,
+      });
       
       let paymentHeader: string | null = null;
       let retries = 2;
@@ -205,6 +219,15 @@ export default function PaymentModal({
           // Small delay before attempting to generate header
           await new Promise(resolve => setTimeout(resolve, 200));
           
+          console.log(`🔄 Attempting to generate payment header (attempt ${3 - retries}/2)...`);
+          console.log('🔍 Signer check:', {
+            hasSigner: !!currentSigner,
+            hasProvider: !!(currentSigner?.provider),
+            signerAddress: await currentSigner.getAddress(),
+          });
+          
+          // This should trigger MetaMask to open for signing
+          console.log('⏳ Calling facilitator.generatePaymentHeader() - MetaMask should open now...');
           paymentHeader = await facilitator.generatePaymentHeader({
             to: accept.payTo,
             value: accept.maxAmountRequired,
@@ -213,6 +236,8 @@ export default function PaymentModal({
             validBefore,
             validAfter: 0,
           });
+          
+          console.log('✅ Payment header generated successfully, length:', paymentHeader.length);
           
           // Success, break out of retry loop
           break;
