@@ -4,8 +4,9 @@
  * Modal for x402 payment flow
  */
 
-import { useEffect } from 'react';
-import { useX402Payment } from '../../hooks/useX402Payment';
+import { useEffect, useState, useCallback } from 'react';
+import { Facilitator } from '@crypto.com/facilitator-client';
+import { ethers } from 'ethers';
 import type { PaymentChallenge } from '../../types/x402.types';
 
 interface PaymentModalProps {
@@ -25,14 +26,12 @@ export default function PaymentModal({
   onClose,
   onSuccess,
 }: PaymentModalProps) {
-  const { isProcessing, error, txHash, processPayment, reset } = useX402Payment();
+  // Only initialize state when modal is open to avoid importing Facilitator SDK unnecessarily
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [txHash, setTxHash] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (!isOpen) {
-      reset();
-    }
-  }, [isOpen, reset]);
-
+  // Early return BEFORE any hooks or SDK imports are used
   if (!isOpen || !challenge) {
     return null;
   }
@@ -65,19 +64,171 @@ export default function PaymentModal({
     ? (parseInt(accept.maxAmountRequired) / 1000000).toFixed(1)
     : '1.0';
 
+  // Reset state when modal closes
+  useEffect(() => {
+    if (!isOpen) {
+      setIsProcessing(false);
+      setError(null);
+      setTxHash(null);
+    }
+  }, [isOpen]);
+
   const handlePay = async () => {
     if (!walletAddress || !signer || !challenge) {
       return;
     }
     
+    setIsProcessing(true);
+    setError(null);
+    setTxHash(null);
+
     try {
-      const result = await processPayment(challenge, signer);
-      
-      if (result.success && result.paymentId) {
-        onSuccess(result.paymentId);
+      // Get payment requirements first to know which network we need
+      const accept = challenge.accepts[0];
+      if (!accept) {
+        throw new Error('No payment method available');
       }
-    } catch (error) {
-      // Error is handled by useX402Payment hook
+
+      // Use the signer passed from useWallet hook (already connected)
+      if (!signer || !signer.provider) {
+        throw new Error('Wallet not connected. Please connect your wallet first.');
+      }
+
+      // Verify we're on the correct network using eth_chainId directly
+      const ethereum = (window as any).ethereum;
+      if (!ethereum) {
+        throw new Error('MetaMask not found');
+      }
+
+      let chainId: string;
+      try {
+        chainId = await ethereum.request({ method: 'eth_chainId' });
+      } catch (error: any) {
+        throw new Error('Failed to get chain ID. Please check MetaMask.');
+      }
+
+      const chainIdNum = parseInt(chainId, 16);
+      const currentChainId = BigInt(chainIdNum);
+      const expectedChainId = accept.network === 'cronos-mainnet' ? 25n : 338n;
+      
+      if (currentChainId !== expectedChainId) {
+        const chainIdHex = accept.network === 'cronos-mainnet' ? '0x19' : '0x152';
+        try {
+          await ethereum.request({
+            method: 'wallet_switchEthereumChain',
+            params: [{ chainId: chainIdHex }],
+          });
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        } catch (e: any) {
+          if (e?.code === 4902 && accept.network === 'cronos-testnet') {
+            await ethereum.request({
+              method: 'wallet_addEthereumChain',
+              params: [{
+                chainId: '0x152',
+                chainName: 'Cronos Testnet',
+                nativeCurrency: { name: 'tCRO', symbol: 'tCRO', decimals: 18 },
+                rpcUrls: ['https://evm-t3.cronos.org'],
+                blockExplorerUrls: ['https://testnet.cronoscan.com'],
+              }],
+            });
+            await new Promise(resolve => setTimeout(resolve, 1000));
+          } else {
+            throw new Error(`Please switch to Cronos ${accept.network === 'cronos-mainnet' ? 'Mainnet' : 'Testnet'}`);
+          }
+        }
+      }
+
+      // Wait a bit to ensure network switch is complete
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      // Initialize Facilitator only when needed (when modal is open and user clicks pay)
+      const facilitator = new Facilitator({ network: accept.network });
+
+      // Get payment ID from challenge
+      const paymentId = accept.extra?.paymentId;
+      if (!paymentId) {
+        throw new Error('Payment ID not found in challenge');
+      }
+
+      // Generate payment header
+      const validBefore = Math.floor(Date.now() / 1000) + accept.maxTimeoutSeconds;
+      
+      let paymentHeader: string;
+      try {
+        if (!signer || !signer.provider) {
+          throw new Error('Signer is no longer valid. Please reconnect your wallet.');
+        }
+
+        paymentHeader = await facilitator.generatePaymentHeader({
+          to: accept.payTo,
+          value: accept.maxAmountRequired,
+          asset: accept.asset,
+          signer,
+          validBefore,
+          validAfter: 0,
+        });
+      } catch (headerError: any) {
+        const errorMsg = headerError?.message || String(headerError);
+        const isUnexpectedError = errorMsg.includes('Unexpected error') || 
+                                  errorMsg.includes('evmAsk') ||
+                                  errorMsg.includes('selectExtension') ||
+                                  errorMsg.includes('_detectNetwork');
+        
+        if (isUnexpectedError) {
+          throw new Error(
+            'MetaMask connection error. Please: 1) Refresh the page, 2) Reconnect your wallet, 3) Ensure MetaMask is unlocked, 4) Try again'
+          );
+        }
+        
+        throw new Error(`Failed to generate payment header: ${errorMsg}. Please ensure MetaMask is unlocked and you have sufficient balance.`);
+      }
+
+      // Determine endpoint based on service name or resource URL
+      const serviceName = challenge.service?.name?.toLowerCase() || '';
+      const resourceUrl = accept.resource || '';
+      let endpoint = 'risk'; // default
+      
+      if (serviceName.includes('divergence') || serviceName.includes('cex-dex') || resourceUrl.includes('divergence')) {
+        endpoint = 'divergence';
+      } else if (serviceName.includes('risk') || resourceUrl.includes('risk')) {
+        endpoint = 'risk';
+      }
+
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000';
+      const settleResponse = await fetch(`${backendUrl}/api/${endpoint}/pay`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          paymentId,
+          paymentHeader,
+          paymentRequirements: accept,
+        }),
+      });
+
+      if (!settleResponse.ok) {
+        const error = await settleResponse.json();
+        throw new Error(`Settlement failed: ${JSON.stringify(error)}`);
+      }
+
+      const settleResult = await settleResponse.json();
+
+      setIsProcessing(false);
+      setError(null);
+      setTxHash(settleResult.txHash || null);
+
+      // Store payment ID for retry
+      localStorage.setItem('x-payment-id', paymentId);
+
+      if (paymentId) {
+        onSuccess(paymentId);
+      }
+    } catch (error: any) {
+      const errorMessage = error instanceof Error ? error.message : 'Payment failed';
+      setIsProcessing(false);
+      setError(errorMessage);
+      setTxHash(null);
     }
   };
 
