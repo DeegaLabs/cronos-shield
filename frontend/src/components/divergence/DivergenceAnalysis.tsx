@@ -141,10 +141,13 @@ export default function DivergenceAnalysis() {
       )}
 
       {/* Lazy load PaymentModal ONLY when user clicks "Pay with x402" */}
-      {showPaymentModal && paymentChallenge && (async () => {
-        const { default: PaymentModal } = await import('../common/PaymentModal');
-        return (
-          <PaymentModal
+      {showPaymentModal && paymentChallenge && (
+        <Suspense fallback={
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+            <div className="bg-slate-800 p-6 rounded-lg">Loading payment modal...</div>
+          </div>
+        }>
+          <PaymentModalLazy
             challenge={paymentChallenge}
             walletAddress={wallet.address}
             signer={wallet.signer}
@@ -155,8 +158,8 @@ export default function DivergenceAnalysis() {
             }}
             onSuccess={handlePaymentSuccess}
           />
-        );
-      })()}
+        </Suspense>
+      )}
 
       {/* Results */}
       {analysis && (
