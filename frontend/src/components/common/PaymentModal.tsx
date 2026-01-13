@@ -177,7 +177,10 @@ export default function PaymentModal({
       // CRITICAL: Import Facilitator dynamically ONLY when needed (inside handlePay)
       // This prevents the SDK from loading on page load, which causes evmAsk error
       const { Facilitator } = await import('@crypto.com/facilitator-client');
-      const facilitator = new Facilitator({ network: accept.network });
+      // Cast network to SDK's CronosNetwork type (they're compatible string literals)
+      const facilitator = new Facilitator({ 
+        network: accept.network as 'cronos-mainnet' | 'cronos-testnet' 
+      });
 
       // Get payment ID from challenge
       const paymentId = accept.extra?.paymentId;
@@ -200,7 +203,7 @@ export default function PaymentModal({
           paymentHeader = await facilitator.generatePaymentHeader({
             to: accept.payTo,
             value: accept.maxAmountRequired,
-            asset: accept.asset,
+            asset: accept.asset as any, // Cast to SDK's Contract type (compatible structure)
             signer: currentSigner,
             validBefore,
             validAfter: 0,
