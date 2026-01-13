@@ -182,10 +182,11 @@ export default function PaymentModal({
       // Generate payment header with retry logic
       const validBefore = Math.floor(Date.now() / 1000) + accept.maxTimeoutSeconds;
       
-      let paymentHeader: string;
+      let paymentHeader: string | null = null;
       let retries = 2;
+      let lastError: Error | null = null;
       
-      while (retries > 0) {
+      while (retries > 0 && !paymentHeader) {
         try {
           // Small delay before attempting to generate header
           await new Promise(resolve => setTimeout(resolve, 200));
@@ -225,21 +226,22 @@ export default function PaymentModal({
               // If we can't refresh, fail
               retries = 0;
             }
+            lastError = headerError;
             continue;
           }
           
           if (isUnexpectedError) {
-            throw new Error(
+            lastError = new Error(
               'MetaMask connection error. Please: 1) Refresh the page, 2) Reconnect your wallet, 3) Ensure MetaMask is unlocked, 4) Try again'
             );
+          } else {
+            lastError = new Error(`Failed to generate payment header: ${errorMsg}. Please ensure MetaMask is unlocked and you have sufficient balance.`);
           }
-          
-          throw new Error(`Failed to generate payment header: ${errorMsg}. Please ensure MetaMask is unlocked and you have sufficient balance.`);
         }
       }
       
       if (!paymentHeader) {
-        throw new Error('Failed to generate payment header after retries. Please try again.');
+        throw lastError || new Error('Failed to generate payment header after retries. Please try again.');
       }
 
       // Determine endpoint based on service name or resource URL
