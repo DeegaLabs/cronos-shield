@@ -4,7 +4,12 @@
 
 import * as crypto from 'node:crypto';
 import { store } from '../../lib/storage/in-memory.store';
+import { PostgresStore } from '../../lib/storage/postgres.store';
 import type { LogEntry } from '../../types/observability.types';
+
+// Use PostgreSQL if DATABASE_URL is set, otherwise fallback to in-memory
+const usePostgres = !!process.env.DATABASE_URL;
+const postgresStore = usePostgres ? new PostgresStore() : null;
 
 type LogType = 'x402_payment' | 'risk_analysis' | 'transaction_blocked' | 'transaction_allowed' | 'divergence_analysis' | 'error';
 type ServiceName = 'risk-oracle' | 'shielded-vault' | 'cex-dex-synergy' | 'observability';
@@ -39,11 +44,11 @@ export class LogService {
     return names[source] || source;
   }
 
-  addLog(
+  async addLog(
     type: LogType,
     service: ServiceName,
     data: Record<string, any>
-  ): LogEntry {
+  ): Promise<LogEntry> {
     const log: LogEntry = {
       id: crypto.randomUUID(),
       timestamp: Date.now(),
@@ -53,28 +58,51 @@ export class LogService {
       humanReadable: this.createHumanReadable(type, data, service),
     };
 
-    store.addLog(log);
-
-    if (type === 'transaction_blocked') {
-      store.addBlockedTransaction({
-        id: log.id,
-        timestamp: log.timestamp,
-        user: data.user || 'unknown',
-        target: data.target || data.contract || 'unknown',
-        riskScore: data.score || 0,
-        reason: data.reason || 'Risk detected',
-        service: service as 'risk-oracle' | 'shielded-vault',
-      });
+    // Store log (async for PostgreSQL)
+    if (usePostgres && postgresStore) {
+      await postgresStore.addLog(log);
+      
+      if (type === 'transaction_blocked') {
+        await postgresStore.addBlockedTransaction({
+          id: log.id,
+          timestamp: log.timestamp,
+          user: data.user || 'unknown',
+          target: data.target || data.contract || 'unknown',
+          riskScore: data.score || 0,
+          reason: data.reason || 'Risk detected',
+          service: service as 'risk-oracle' | 'shielded-vault',
+        });
+      }
+    } else {
+      store.addLog(log);
+      
+      if (type === 'transaction_blocked') {
+        store.addBlockedTransaction({
+          id: log.id,
+          timestamp: log.timestamp,
+          user: data.user || 'unknown',
+          target: data.target || data.contract || 'unknown',
+          riskScore: data.score || 0,
+          reason: data.reason || 'Risk detected',
+          service: service as 'risk-oracle' | 'shielded-vault',
+        });
+      }
     }
 
     return log;
   }
 
-  getLogs(limit?: number, type?: string, service?: string): LogEntry[] {
+  async getLogs(limit?: number, type?: string, service?: string): Promise<LogEntry[]> {
+    if (usePostgres && postgresStore) {
+      return await postgresStore.getLogs(limit, type, service);
+    }
     return store.getLogs(limit, type, service);
   }
 
-  getLogById(id: string): LogEntry | undefined {
+  async getLogById(id: string): Promise<LogEntry | undefined> {
+    if (usePostgres && postgresStore) {
+      return await postgresStore.getLogById(id);
+    }
     return store.getLogById(id);
   }
 }

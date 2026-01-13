@@ -9,6 +9,7 @@ import express from 'express';
 import cors from 'cors';
 import swaggerJsdoc from 'swagger-jsdoc';
 import swaggerUi from 'swagger-ui-express';
+import { runMigrations } from './lib/database/migrations';
 
 // Services
 import { RiskService } from './services/risk/risk.service';
