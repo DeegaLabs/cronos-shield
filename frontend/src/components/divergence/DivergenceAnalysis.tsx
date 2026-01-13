@@ -119,14 +119,18 @@ export default function DivergenceAnalysis() {
         )}
       </div>
 
-      <PaymentModal
-        challenge={paymentChallenge}
-        walletAddress={wallet.address}
-        signer={wallet.signer}
-        isOpen={!!paymentChallenge}
-        onClose={() => setPaymentChallenge(null)}
-        onSuccess={handlePaymentSuccess}
-      />
+      {paymentChallenge && (
+        <Suspense fallback={null}>
+          <PaymentModal
+            challenge={paymentChallenge}
+            walletAddress={wallet.address}
+            signer={wallet.signer}
+            isOpen={!!paymentChallenge}
+            onClose={() => setPaymentChallenge(null)}
+            onSuccess={handlePaymentSuccess}
+          />
+        </Suspense>
+      )}
 
       {/* Results */}
       {analysis && (
