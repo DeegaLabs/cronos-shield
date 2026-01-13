@@ -5,7 +5,7 @@
  */
 
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react';
-import { connectWallet, disconnectWallet, saveWalletAddress, checkWalletAvailability, type WalletState } from '../lib/wallet/wallet';
+import { connectWallet, disconnectWallet, getWalletAddress, saveWalletAddress, type WalletState } from '../lib/wallet/wallet';
 
 interface WalletContextType {
   wallet: WalletState;
@@ -27,95 +27,21 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   const [isConnecting, setIsConnecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Check wallet availability on mount (only identify, don't connect)
+  // Check for existing connection on mount
+  // Only restore address, don't create provider/signer automatically
+  // User must click "Connect Wallet" to establish full connection
   useEffect(() => {
-    let mounted = true;
-    
-    const checkWallet = async () => {
-      // Only check if ethereum provider exists and is ready
-      if (typeof window === 'undefined') {
-        return;
-      }
-
-      const ethereum = (window as any).ethereum;
-      if (!ethereum || typeof ethereum.request !== 'function') {
-        return;
-      }
-
-      try {
-        const availableAddress = await checkWalletAvailability();
-        if (mounted && availableAddress) {
-          // Only set address, don't create provider/signer
-          // User must click "Connect Wallet" to establish full connection
-          setWallet((prev) => ({
-            ...prev,
-            address: availableAddress,
-            isConnected: false, // Not fully connected until user clicks
-            provider: null,
-            signer: null,
-          }));
-        } else if (mounted && !availableAddress) {
-          // No wallet available or no permission
-          setWallet({
-            address: null,
-            isConnected: false,
-            provider: null,
-            signer: null,
-          });
-        }
-      } catch (error) {
-        // Silently fail - don't log to avoid console noise
-        // This prevents errors from appearing when wallet is not connected
-      }
-    };
-
-    // Delay check slightly to ensure page is fully loaded
-    const timeoutId = setTimeout(() => {
-      checkWallet();
-    }, 100);
-
-    // Listen for account changes (only to update address, not to reconnect)
-    if (typeof window !== 'undefined' && (window as any).ethereum) {
-      const ethereum = (window as any).ethereum;
-      
-      // Only set up listeners if ethereum provider is valid
-      if (ethereum && typeof ethereum.on === 'function') {
-        const handleAccountsChanged = (accounts: string[]) => {
-          if (mounted) {
-            if (accounts.length === 0) {
-              // User disconnected
-              disconnect();
-            } else {
-              // Account changed, just check availability again
-              checkWallet();
-            }
-          }
-        };
-
-        const handleChainChanged = () => {
-          if (mounted) {
-            // Network changed, just check availability again
-            checkWallet();
-          }
-        };
-
-        ethereum.on('accountsChanged', handleAccountsChanged);
-        ethereum.on('chainChanged', handleChainChanged);
-
-        return () => {
-          mounted = false;
-          if (ethereum && typeof ethereum.removeListener === 'function') {
-            ethereum.removeListener('accountsChanged', handleAccountsChanged);
-            ethereum.removeListener('chainChanged', handleChainChanged);
-          }
-        };
-      }
+    const savedAddress = getWalletAddress();
+    if (savedAddress && !wallet.address) {
+      // Only set address if wallet is not already connected
+      setWallet((prev) => ({ 
+        ...prev, 
+        address: savedAddress,
+        isConnected: false, // Not fully connected until user clicks connect
+        provider: null,
+        signer: null,
+      }));
     }
-
-    return () => {
-      mounted = false;
-      clearTimeout(timeoutId);
-    };
   }, []); // Only run once on mount
 
   const connect = useCallback(async () => {
