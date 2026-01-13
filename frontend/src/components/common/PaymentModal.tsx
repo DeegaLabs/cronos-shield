@@ -217,6 +217,14 @@ export default function PaymentModal({
           // Success, break out of retry loop
           break;
         } catch (headerError: any) {
+          console.error('Payment header generation failed:', headerError);
+          console.error('Error details:', {
+            message: headerError?.message,
+            stack: headerError?.stack,
+            code: headerError?.code,
+            name: headerError?.name,
+          });
+          
           retries--;
           const errorMsg = headerError?.message || String(headerError);
           const isUnexpectedError = errorMsg.includes('Unexpected error') || 
@@ -225,6 +233,7 @@ export default function PaymentModal({
                                     errorMsg.includes('_detectNetwork');
           
           if (isUnexpectedError && retries > 0) {
+            console.log('Retrying with fresh signer...');
             // Wait a bit longer before retry
             await new Promise(resolve => setTimeout(resolve, 1000));
             // Try to get a fresh signer (without network config to avoid _detectNetwork error)
@@ -235,7 +244,9 @@ export default function PaymentModal({
               const provider = new ethers.BrowserProvider(ethereum);
               await provider.send('eth_requestAccounts', []);
               currentSigner = await provider.getSigner();
+              console.log('Fresh signer obtained:', await currentSigner.getAddress());
             } catch (refreshError) {
+              console.error('Failed to refresh signer:', refreshError);
               // If we can't refresh, fail
               retries = 0;
             }
