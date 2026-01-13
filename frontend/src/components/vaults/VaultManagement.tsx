@@ -140,6 +140,11 @@ export default function VaultManagement() {
       const loadingToast = toast.loading('Preparing deposit transaction...');
 
       // Direct contract interaction via frontend
+      // Ensure signer is valid and provider doesn't try to resolve ENS
+      if (!wallet.signer || !wallet.signer.provider) {
+        throw new Error('Wallet signer is not available. Please reconnect your wallet.');
+      }
+
       const vaultContract = new ethers.Contract(
         VAULT_CONTRACT_ADDRESS,
         SHIELDED_VAULT_ABI,

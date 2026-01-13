@@ -32,8 +32,13 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     let mounted = true;
     
     const checkWallet = async () => {
-      // Only check if ethereum provider exists
-      if (typeof window === 'undefined' || !(window as any).ethereum) {
+      // Only check if ethereum provider exists and is ready
+      if (typeof window === 'undefined') {
+        return;
+      }
+
+      const ethereum = (window as any).ethereum;
+      if (!ethereum || typeof ethereum.request !== 'function') {
         return;
       }
 

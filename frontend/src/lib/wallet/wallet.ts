@@ -118,23 +118,31 @@ export async function connectWallet(): Promise<WalletState> {
     let address: string;
     
     try {
-      // Create provider without explicit network to avoid _detectNetwork error
-      // Network is already verified and correct at this point
-      provider = new ethers.BrowserProvider(ethereum);
+      // Create provider with explicit network config to disable ENS
+      // Cronos Testnet doesn't support ENS, so we disable it
+      provider = new ethers.BrowserProvider(ethereum, {
+        name: 'Cronos Testnet',
+        chainId: 338,
+        ensAddress: null, // Disable ENS
+      });
       signer = await provider.getSigner();
       address = await signer.getAddress();
     } catch (providerError: any) {
       const errorMsg = providerError?.message || String(providerError);
       const isNetworkError = errorMsg.includes('_detectNetwork') || 
                             errorMsg.includes('Unexpected error') ||
-                            errorMsg.includes('evmAsk');
+                            errorMsg.includes('evmAsk') ||
+                            errorMsg.includes('ENS');
       
       if (isNetworkError) {
-        // This is the known ethers.js _detectNetwork issue
-        // Try one more time after a longer delay
+        // This is the known ethers.js _detectNetwork issue or ENS issue
+        // Try one more time after a longer delay, without explicit network
         await new Promise(resolve => setTimeout(resolve, 1000));
         try {
+          // Try without explicit network config (ethers will use current network)
           provider = new ethers.BrowserProvider(ethereum);
+          // Disable ENS resolution on the provider
+          (provider as any)._network = { chainId: 338n, name: 'cronos-testnet', ensAddress: null };
           signer = await provider.getSigner();
           address = await signer.getAddress();
         } catch (retryError: any) {
