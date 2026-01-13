@@ -42,13 +42,27 @@ export function useX402Payment() {
 
       // Use the signer passed from useWallet hook (already connected)
       // This avoids creating a new BrowserProvider which causes _detectNetwork errors
-      if (!signer) {
+      if (!signer || !signer.provider) {
         throw new Error('Wallet not connected. Please connect your wallet first.');
       }
 
       // Verify we're on the correct network
+      // Use try-catch to handle potential provider errors gracefully
+      let network;
+      try {
+        network = await signer.provider.getNetwork();
+      } catch (networkError: any) {
+        // If network detection fails, try to get chainId directly from ethereum
+        if (typeof window !== 'undefined' && (window as any).ethereum) {
+          const chainId = await (window as any).ethereum.request({ method: 'eth_chainId' });
+          const chainIdNum = parseInt(chainId, 16);
+          network = { chainId: BigInt(chainIdNum) };
+        } else {
+          throw new Error('Failed to detect network. Please refresh and try again.');
+        }
+      }
+      
       const expectedChainId = accept.network === 'cronos-mainnet' ? 25n : 338n;
-      const network = await signer.provider.getNetwork();
       if (network.chainId !== expectedChainId) {
         const ethereum = (window as any).ethereum;
         if (!ethereum) {

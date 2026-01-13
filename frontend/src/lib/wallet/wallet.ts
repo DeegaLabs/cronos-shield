@@ -43,6 +43,11 @@ export async function connectWallet(): Promise<WalletState> {
     throw new Error('MetaMask is not installed. Please install MetaMask extension.');
   }
 
+  // Validate ethereum provider is ready
+  if (!ethereum || typeof ethereum.request !== 'function') {
+    throw new Error('Invalid wallet provider. Please refresh the page and try again.');
+  }
+
   try {
     // Request account access with better error handling
     let accounts: string[];
@@ -99,24 +104,58 @@ export async function connectWallet(): Promise<WalletState> {
     }
 
     // Create provider and signer
-    // Specify network explicitly to avoid _detectNetwork error
+    // Use a more robust approach to avoid _detectNetwork errors
+    // Wait a bit to ensure network is stable
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
+    // Verify chain ID again after potential switch
+    const finalChainId = await ethereum.request({ method: 'eth_chainId' });
+    if (finalChainId !== CRONOS_TESTNET.chainId) {
+      throw new Error(`Network mismatch. Expected Cronos Testnet (${CRONOS_TESTNET.chainId}), got ${finalChainId}`);
+    }
+
     let provider: ethers.BrowserProvider;
     let signer: ethers.JsonRpcSigner;
     let address: string;
     
+    // Try creating provider with explicit network first
     try {
+      // Create provider with explicit network config to avoid auto-detection
       provider = new ethers.BrowserProvider(ethereum, {
         name: 'Cronos Testnet',
         chainId: 338,
       });
+      
+      // Get signer with error handling
       signer = await provider.getSigner();
       address = await signer.getAddress();
     } catch (providerError: any) {
-      // If _detectNetwork error, try without explicit network (fallback)
-      if (providerError?.message?.includes('_detectNetwork') || providerError?.message?.includes('Unexpected error')) {
-        provider = new ethers.BrowserProvider(ethereum);
-        signer = await provider.getSigner();
-        address = await signer.getAddress();
+      const errorMsg = providerError?.message || String(providerError);
+      const isNetworkError = errorMsg.includes('_detectNetwork') || 
+                            errorMsg.includes('Unexpected error') ||
+                            errorMsg.includes('evmAsk') ||
+                            errorMsg.includes('selectExtension');
+      
+      if (isNetworkError) {
+        // Fallback: Create provider without explicit network, but ensure network is correct first
+        // This is a workaround for the ethers.js _detectNetwork issue
+        try {
+          // Wait a bit more before retry
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          
+          // Verify network is still correct
+          const verifyChainId = await ethereum.request({ method: 'eth_chainId' });
+          if (verifyChainId !== CRONOS_TESTNET.chainId) {
+            throw new Error('Network changed during provider creation');
+          }
+          
+          // Create provider without network spec (ethers will use current network)
+          provider = new ethers.BrowserProvider(ethereum);
+          signer = await provider.getSigner();
+          address = await signer.getAddress();
+        } catch (fallbackError: any) {
+          throw new Error(`Failed to create wallet provider: ${fallbackError.message || 'Unknown error'}. Please refresh the page and try again.`);
+        }
       } else {
         throw providerError;
       }
@@ -171,6 +210,11 @@ export async function tryReconnectWallet(): Promise<WalletState | null> {
   try {
     const ethereum = (window as any).ethereum;
     
+    // Validate ethereum provider
+    if (!ethereum || typeof ethereum.request !== 'function') {
+      return null;
+    }
+    
     // Check if we have permission to access accounts
     let accounts: string[];
     try {
@@ -219,11 +263,22 @@ export async function tryReconnectWallet(): Promise<WalletState | null> {
       }
     }
 
-    // Create provider and signer
+    // Create provider and signer with robust error handling
+    // Wait a bit to ensure network is stable
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
+    // Verify chain ID
+    const finalChainId = await ethereum.request({ method: 'eth_chainId' });
+    if (finalChainId !== CRONOS_TESTNET.chainId) {
+      // Network not correct, but don't throw - just return null
+      return null;
+    }
+
     let provider: ethers.BrowserProvider;
     let signer: ethers.JsonRpcSigner;
     
     try {
+      // Try with explicit network first
       provider = new ethers.BrowserProvider(ethereum, {
         name: 'Cronos Testnet',
         chainId: 338,
@@ -244,23 +299,43 @@ export async function tryReconnectWallet(): Promise<WalletState | null> {
         signer,
       };
     } catch (providerError: any) {
-      // If _detectNetwork error, try without explicit network
-      if (providerError?.message?.includes('_detectNetwork') || providerError?.message?.includes('Unexpected error')) {
-        provider = new ethers.BrowserProvider(ethereum);
-        signer = await provider.getSigner();
-        const address = await signer.getAddress();
-        
-        if (address.toLowerCase() !== savedAddress.toLowerCase()) {
-          saveWalletAddress(address);
-        }
+      const errorMsg = providerError?.message || String(providerError);
+      const isNetworkError = errorMsg.includes('_detectNetwork') || 
+                            errorMsg.includes('Unexpected error') ||
+                            errorMsg.includes('evmAsk') ||
+                            errorMsg.includes('selectExtension');
+      
+      if (isNetworkError) {
+        // Fallback: try without explicit network
+        try {
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          
+          // Verify network is still correct
+          const verifyChainId = await ethereum.request({ method: 'eth_chainId' });
+          if (verifyChainId !== CRONOS_TESTNET.chainId) {
+            return null;
+          }
+          
+          provider = new ethers.BrowserProvider(ethereum);
+          signer = await provider.getSigner();
+          const address = await signer.getAddress();
+          
+          if (address.toLowerCase() !== savedAddress.toLowerCase()) {
+            saveWalletAddress(address);
+          }
 
-        return {
-          address,
-          isConnected: true,
-          provider,
-          signer,
-        };
+          return {
+            address,
+            isConnected: true,
+            provider,
+            signer,
+          };
+        } catch {
+          // Silent fail for auto-reconnect
+          return null;
+        }
       }
+      // For other errors, return null (silent fail for auto-reconnect)
       return null;
     }
   } catch {
@@ -274,9 +349,10 @@ declare global {
   interface Window {
     ethereum?: {
       request: (args: { method: string; params?: any[] }) => Promise<any>;
-      on: (event: string, handler: (...args: any[]) => void) => void;
-      removeListener: (event: string, handler: (...args: any[]) => void) => void;
+      on?: (event: string, handler: (...args: any[]) => void) => void;
+      removeListener?: (event: string, handler: (...args: any[]) => void) => void;
       isMetaMask?: boolean;
+      providers?: any[];
     };
   }
 }
