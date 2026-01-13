@@ -9,8 +9,9 @@ import { InfoTooltip } from '../common/Tooltip';
 import type { RiskAnalysis } from '../../types';
 import type { PaymentChallenge } from '../../types/x402.types';
 
-// Lazy load PaymentModal to prevent Facilitator SDK from loading on page load
-const PaymentModal = lazy(() => import('../common/PaymentModal'));
+// Lazy load PaymentModal ONLY when user clicks "Pay with x402"
+// This prevents SDK from loading when 402 is received
+const PaymentModalLazy = lazy(() => import('../common/PaymentModal'));
 
 export default function RiskAnalysis() {
   const { wallet } = useWallet();
@@ -20,6 +21,7 @@ export default function RiskAnalysis() {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [paymentChallenge, setPaymentChallenge] = useState<PaymentChallenge | null>(null);
   const [paymentId, setPaymentId] = useState<string | null>(null);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
 
   const handleAnalyze = async () => {
     if (!contract.trim()) {
@@ -30,6 +32,7 @@ export default function RiskAnalysis() {
     setIsAnalyzing(true);
     setError(null);
     setPaymentChallenge(null);
+    setShowPaymentModal(false);
 
     try {
       const headers: Record<string, string> = {};
@@ -110,14 +113,40 @@ export default function RiskAnalysis() {
         )}
       </div>
 
-      {paymentChallenge && (
-        <Suspense fallback={null}>
-          <PaymentModal
+      {/* Show payment button when 402 is received */}
+      {paymentChallenge && !showPaymentModal && (
+        <div className="bg-slate-800 p-6 rounded-lg border border-yellow-500">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-xl font-bold text-yellow-400 mb-2">💰 Payment Required</h3>
+              <p className="text-slate-300">{paymentChallenge.message}</p>
+            </div>
+            <button
+              onClick={() => setShowPaymentModal(true)}
+              className="px-6 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
+            >
+              Pay with x402
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Lazy load PaymentModal ONLY when user clicks "Pay with x402" */}
+      {showPaymentModal && paymentChallenge && (
+        <Suspense fallback={
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+            <div className="bg-slate-800 p-6 rounded-lg">Loading payment modal...</div>
+          </div>
+        }>
+          <PaymentModalLazy
             challenge={paymentChallenge}
             walletAddress={wallet.address}
             signer={wallet.signer}
-            isOpen={!!paymentChallenge}
-            onClose={() => setPaymentChallenge(null)}
+            isOpen={showPaymentModal}
+            onClose={() => {
+              setShowPaymentModal(false);
+              setPaymentChallenge(null);
+            }}
             onSuccess={handlePaymentSuccess}
           />
         </Suspense>
