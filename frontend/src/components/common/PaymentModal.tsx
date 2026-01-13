@@ -179,7 +179,7 @@ export default function PaymentModal({
       const { Facilitator } = await import('@crypto.com/facilitator-client');
       // Cast network to SDK's CronosNetwork type (they're compatible string literals)
       const facilitator = new Facilitator({ 
-        network: accept.network as 'cronos-mainnet' | 'cronos-testnet' 
+        network: accept.network as any 
       });
 
       // Get payment ID from challenge
