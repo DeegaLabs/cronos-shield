@@ -106,16 +106,16 @@ const swaggerSpec = swaggerJsdoc(swaggerOptions);
 
 if (process.env.SWAGGER_ENABLED !== 'false') {
   // Serve Swagger JSON
-  app.get('/api-docs/swagger.json', (_req, res) => {
+  app.get('/api-doc/swagger.json', (_req, res) => {
     res.setHeader('Content-Type', 'application/json');
     res.send(swaggerSpec);
   });
   
   // Serve Swagger UI (interactive testing)
-  app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
-  
+  app.use('/api-doc', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+
   // Serve Redocly (visual documentation)
-  app.get('/api-docs/redoc', (_req, res) => {
+  app.get('/docs', (_req, res) => {
     const redocHtml = `
 <!DOCTYPE html>
 <html>
@@ -132,7 +132,7 @@ if (process.env.SWAGGER_ENABLED !== 'false') {
     </style>
   </head>
   <body>
-    <redoc spec-url='/api-docs/swagger.json'></redoc>
+    <redoc spec-url='/api-doc/swagger.json'></redoc>
     <script src="https://cdn.redoc.ly/redoc/latest/bundles/redoc.standalone.js"></script>
   </body>
 </html>

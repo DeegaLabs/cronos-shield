@@ -202,12 +202,11 @@ Local:      http://localhost:3000/api
 - `POST /observability/logs` - Add log entry
 - `GET /observability/blocked-transactions` - Get blocked transactions
 
-### Swagger Documentation
+### API Documentation
 
 Full API documentation is available at:
-```
-http://localhost:3000/api-docs
-```
+- **Swagger UI**: http://localhost:3000/api-doc
+- **Redoc**: http://localhost:3000/docs
 
 ## 🔐 Smart Contracts
 
