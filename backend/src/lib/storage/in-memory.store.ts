@@ -63,7 +63,13 @@ class InMemoryStore {
       totalBlocks: blocks.length,
       totalDivergences: divergences.length,
       averageRiskScore: Math.round(averageRiskScore * 100) / 100,
-      totalRevenue: '0',
+      totalRevenue: payments
+        .filter(p => p.data?.amount)
+        .reduce((sum, p) => {
+          const amount = parseFloat(p.data.amount as string) || 0;
+          return sum + amount;
+        }, 0)
+        .toFixed(6),
       last24Hours: {
         payments: recentLogs.filter(log => log.type === 'x402_payment').length,
         analyses: recentLogs.filter(log => log.type === 'risk_analysis').length,

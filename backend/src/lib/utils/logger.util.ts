@@ -18,13 +18,13 @@ interface LogData {
  * 
  * This is a fire-and-forget operation to avoid blocking the main flow
  */
-// Singleton logger instance
-let loggerInstance: any = null;
+// Singleton logger instance - use direct import to avoid async issues
+import { LogService } from '../../services/observability/log.service';
 
-async function getLogger() {
+let loggerInstance: LogService | null = null;
+
+function getLogger(): LogService {
   if (!loggerInstance) {
-    const logService = await import('../../services/observability/log.service');
-    const { LogService } = logService;
     loggerInstance = new LogService();
   }
   return loggerInstance;
@@ -32,7 +32,7 @@ async function getLogger() {
 
 export async function logEvent(logData: LogData): Promise<void> {
   try {
-    const logger = await getLogger();
+    const logger = getLogger();
     logger.addLog(logData.type, logData.service, logData.data);
   } catch (error) {
     // Silently fail to avoid breaking the main flow
@@ -49,10 +49,13 @@ export function logPayment(service: LogData['service'], data: {
   txHash?: string;
   reason?: string;
 }): void {
+  // Call logEvent synchronously to ensure it's logged immediately
   logEvent({
     type: 'x402_payment',
     service,
     data,
+  }).catch(err => {
+    console.error('Failed to log payment:', err);
   });
 }
 
@@ -65,10 +68,13 @@ export function logRiskAnalysis(service: LogData['service'], data: {
   proof?: string;
   verified?: boolean;
 }): void {
+  // Call logEvent synchronously to ensure it's logged immediately
   logEvent({
     type: 'risk_analysis',
     service,
     data,
+  }).catch(err => {
+    console.error('Failed to log risk analysis:', err);
   });
 }
 
@@ -86,6 +92,8 @@ export function logTransactionBlocked(service: LogData['service'], data: {
     type: 'transaction_blocked',
     service,
     data,
+  }).catch(err => {
+    console.error('Failed to log transaction blocked:', err);
   });
 }
 
@@ -102,6 +110,8 @@ export function logTransactionAllowed(service: LogData['service'], data: {
     type: 'transaction_allowed',
     service,
     data,
+  }).catch(err => {
+    console.error('Failed to log transaction allowed:', err);
   });
 }
 
@@ -119,6 +129,8 @@ export function logDivergenceAnalysis(service: LogData['service'], data: {
     type: 'divergence_analysis',
     service,
     data,
+  }).catch(err => {
+    console.error('Failed to log divergence analysis:', err);
   });
 }
 
