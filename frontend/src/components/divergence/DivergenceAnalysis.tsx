@@ -2,7 +2,7 @@
  * Divergence Analysis Component
  */
 
-import { useState } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import toast from 'react-hot-toast';
 import apiClient from '../../lib/api/client';
 import PaymentModal from '../common/PaymentModal';
@@ -19,10 +19,16 @@ export default function DivergenceAnalysis() {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [paymentChallenge, setPaymentChallenge] = useState<PaymentChallenge | null>(null);
   const [paymentId, setPaymentId] = useState<string | null>(null);
+  const isRetryingRef = useRef(false);
 
-  const handleAnalyze = async () => {
+  const handleAnalyze = useCallback(async (retryPaymentId?: string | null) => {
     if (!token.trim()) {
       setError('Please enter a token symbol');
+      return;
+    }
+
+    // Prevent multiple simultaneous requests
+    if (isAnalyzing && !retryPaymentId) {
       return;
     }
 
@@ -32,8 +38,9 @@ export default function DivergenceAnalysis() {
 
     try {
       const headers: Record<string, string> = {};
-      if (paymentId) {
-        headers['x-payment-id'] = paymentId;
+      const currentPaymentId = retryPaymentId !== undefined ? retryPaymentId : paymentId;
+      if (currentPaymentId) {
+        headers['x-payment-id'] = currentPaymentId;
       }
 
       const response = await apiClient.get('/api/divergence/analyze', {
@@ -42,6 +49,7 @@ export default function DivergenceAnalysis() {
       });
       setAnalysis(response.data);
       setPaymentId(null);
+      isRetryingRef.current = false;
       toast.success('Divergence analysis completed!');
     } catch (err: any) {
       if (err.response?.status === 402) {
@@ -52,23 +60,25 @@ export default function DivergenceAnalysis() {
           setError('Please connect your wallet first to make payments');
         }
       } else {
-        const errorMsg = err.response?.data?.message || 'Failed to analyze divergence';
+        const errorMsg = err.response?.data?.message || err.message || 'Failed to analyze divergence';
         toast.error(errorMsg);
         setError(errorMsg);
       }
+      isRetryingRef.current = false;
     } finally {
       setIsAnalyzing(false);
     }
-  };
+  }, [token, paymentId, wallet.isConnected, wallet.address, wallet.signer, isAnalyzing]);
 
-  const handlePaymentSuccess = (newPaymentId: string) => {
+  const handlePaymentSuccess = useCallback((newPaymentId: string) => {
     setPaymentId(newPaymentId);
     setPaymentChallenge(null);
-    // Retry the request automatically
+    isRetryingRef.current = true;
+    // Retry the request automatically after a short delay
     setTimeout(() => {
-      handleAnalyze();
+      handleAnalyze(newPaymentId);
     }, 500);
-  };
+  }, [handleAnalyze]);
 
   const getRecommendationColor = (rec: string) => {
     if (rec === 'buy_on_cex') return 'text-green-400';
