@@ -176,6 +176,9 @@ export function saveWalletAddress(address: string): void {
  * Check if wallet is available and has permission
  * This ONLY checks, does NOT create provider/signer automatically
  * Returns the saved address if wallet has permission, null otherwise
+ * 
+ * IMPORTANT: This function must NOT trigger any network detection or provider creation
+ * to avoid _detectNetwork errors when wallet is not connected.
  */
 export async function checkWalletAvailability(): Promise<string | null> {
   if (typeof window === 'undefined') {
@@ -188,26 +191,26 @@ export async function checkWalletAvailability(): Promise<string | null> {
   }
 
   // Check if MetaMask is available
-  if (!(window as any).ethereum) {
+  const ethereum = (window as any).ethereum;
+  if (!ethereum) {
     return null;
   }
 
+  // Validate ethereum provider exists and has request method
+  if (!ethereum || typeof ethereum.request !== 'function') {
+    return null;
+  }
+  
+  // IMPORTANT: Only use eth_accounts which doesn't trigger network detection
+  // Wrap in try-catch to silently fail if no permission
   try {
-    const ethereum = (window as any).ethereum;
+    // Use a timeout to prevent hanging if provider is not ready
+    const accountsPromise = ethereum.request({ method: 'eth_accounts' });
+    const timeoutPromise = new Promise<never>((_, reject) => 
+      setTimeout(() => reject(new Error('Timeout')), 1000)
+    );
     
-    // Validate ethereum provider
-    if (!ethereum || typeof ethereum.request !== 'function') {
-      return null;
-    }
-    
-    // Check if we have permission to access accounts (doesn't prompt user)
-    let accounts: string[];
-    try {
-      accounts = await ethereum.request({ method: 'eth_accounts' });
-    } catch {
-      // No permission, user needs to reconnect
-      return null;
-    }
+    const accounts = await Promise.race([accountsPromise, timeoutPromise]) as string[];
 
     // Check if saved address is in the list of connected accounts
     if (!accounts || accounts.length === 0) {
@@ -229,8 +232,9 @@ export async function checkWalletAvailability(): Promise<string | null> {
     // Wallet has permission and address matches - return address
     // But DON'T create provider/signer - user must click "Connect Wallet"
     return savedAddress;
-  } catch {
-    // Any error means we can't verify
+  } catch (error) {
+    // Silently fail - no permission or any other error
+    // Don't log to avoid console noise
     return null;
   }
 }

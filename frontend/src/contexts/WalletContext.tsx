@@ -32,6 +32,11 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     let mounted = true;
     
     const checkWallet = async () => {
+      // Only check if ethereum provider exists
+      if (typeof window === 'undefined' || !(window as any).ethereum) {
+        return;
+      }
+
       try {
         const availableAddress = await checkWalletAvailability();
         if (mounted && availableAddress) {
@@ -54,12 +59,15 @@ export function WalletProvider({ children }: { children: ReactNode }) {
           });
         }
       } catch (error) {
-        // Silently fail
-        console.debug('Wallet check failed:', error);
+        // Silently fail - don't log to avoid console noise
+        // This prevents errors from appearing when wallet is not connected
       }
     };
 
-    checkWallet();
+    // Delay check slightly to ensure page is fully loaded
+    const timeoutId = setTimeout(() => {
+      checkWallet();
+    }, 100);
 
     // Listen for account changes (only to update address, not to reconnect)
     if (typeof window !== 'undefined' && (window as any).ethereum) {
@@ -101,6 +109,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
 
     return () => {
       mounted = false;
+      clearTimeout(timeoutId);
     };
   }, []); // Only run once on mount
 
