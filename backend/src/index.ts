@@ -233,7 +233,8 @@ app.listen(PORT, () => {
   console.log('🚀 Cronos Shield Backend');
   console.log('═══════════════════════════════════════');
   console.log(`📍 Server running on http://localhost:${PORT}`);
-  console.log(`📚 Swagger docs: http://localhost:${PORT}/api-docs`);
+  console.log(`📚 Swagger docs: http://localhost:${PORT}/api-doc`);
+  console.log(`📖 Redoc docs: http://localhost:${PORT}/docs`);
   console.log(`🌐 Network: ${network}`);
   console.log(`✅ Risk Oracle: ${process.env.RISK_ORACLE_CONTRACT_ADDRESS || 'Not configured'}`);
   console.log('═══════════════════════════════════════');
