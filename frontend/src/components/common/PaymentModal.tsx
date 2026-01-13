@@ -25,12 +25,22 @@ export default function PaymentModal({
   onClose,
   onSuccess,
 }: PaymentModalProps) {
-  // Only initialize state when modal is open to avoid importing Facilitator SDK unnecessarily
+  // ALL HOOKS MUST BE CALLED BEFORE ANY EARLY RETURNS
+  // This is a React rule - hooks must be called in the same order every render
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [txHash, setTxHash] = useState<string | null>(null);
 
-  // Early return BEFORE any hooks or SDK imports are used
+  // Reset state when modal closes
+  useEffect(() => {
+    if (!isOpen) {
+      setIsProcessing(false);
+      setError(null);
+      setTxHash(null);
+    }
+  }, [isOpen]);
+
+  // Early return AFTER all hooks
   if (!isOpen || !challenge) {
     return null;
   }
@@ -38,6 +48,11 @@ export default function PaymentModal({
   // Check if wallet is ready
   const isWalletReady = !!(walletAddress && signer);
   
+  const accept = challenge.accepts[0];
+  const amount = accept
+    ? (parseInt(accept.maxAmountRequired) / 1000000).toFixed(1)
+    : '1.0';
+
   // Show modal even if wallet not connected, but show warning
   if (!walletAddress || !signer) {
     return (
@@ -57,20 +72,6 @@ export default function PaymentModal({
       </div>
     );
   }
-
-  const accept = challenge.accepts[0];
-  const amount = accept
-    ? (parseInt(accept.maxAmountRequired) / 1000000).toFixed(1)
-    : '1.0';
-
-  // Reset state when modal closes
-  useEffect(() => {
-    if (!isOpen) {
-      setIsProcessing(false);
-      setError(null);
-      setTxHash(null);
-    }
-  }, [isOpen]);
 
   const handlePay = async () => {
     if (!walletAddress || !signer || !challenge) {
