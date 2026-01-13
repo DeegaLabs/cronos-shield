@@ -149,6 +149,126 @@ export function saveWalletAddress(address: string): void {
   localStorage.setItem('wallet-address', address);
 }
 
+/**
+ * Try to reconnect to a previously connected wallet
+ * This checks if MetaMask is still connected and restores the connection
+ */
+export async function tryReconnectWallet(): Promise<WalletState | null> {
+  if (typeof window === 'undefined') {
+    return null;
+  }
+
+  const savedAddress = getWalletAddress();
+  if (!savedAddress) {
+    return null;
+  }
+
+  // Check if MetaMask is available
+  if (!(window as any).ethereum) {
+    return null;
+  }
+
+  try {
+    const ethereum = (window as any).ethereum;
+    
+    // Check if we have permission to access accounts
+    let accounts: string[];
+    try {
+      accounts = await ethereum.request({ method: 'eth_accounts' });
+    } catch {
+      // No permission, user needs to reconnect
+      return null;
+    }
+
+    // Check if saved address is in the list of connected accounts
+    if (!accounts || accounts.length === 0 || !accounts.includes(savedAddress)) {
+      // Account not connected anymore
+      localStorage.removeItem('wallet-address');
+      return null;
+    }
+
+    // Check network
+    let chainId: string;
+    try {
+      chainId = await ethereum.request({ method: 'eth_chainId' });
+    } catch {
+      return null;
+    }
+
+    // Switch to correct network if needed (but don't throw if user rejects)
+    if (chainId !== CRONOS_TESTNET.chainId) {
+      try {
+        await ethereum.request({
+          method: 'wallet_switchEthereumChain',
+          params: [{ chainId: CRONOS_TESTNET.chainId }],
+        });
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      } catch (switchError: any) {
+        if (switchError.code === 4902) {
+          try {
+            await ethereum.request({
+              method: 'wallet_addEthereumChain',
+              params: [CRONOS_TESTNET],
+            });
+            await new Promise(resolve => setTimeout(resolve, 1000));
+          } catch {
+            // User rejected or failed, but continue with current network
+          }
+        }
+        // If user rejected, continue anyway
+      }
+    }
+
+    // Create provider and signer
+    let provider: ethers.BrowserProvider;
+    let signer: ethers.JsonRpcSigner;
+    
+    try {
+      provider = new ethers.BrowserProvider(ethereum, {
+        name: 'Cronos Testnet',
+        chainId: 338,
+      });
+      signer = await provider.getSigner();
+      const address = await signer.getAddress();
+      
+      // Verify address matches saved address
+      if (address.toLowerCase() !== savedAddress.toLowerCase()) {
+        // Different account selected, update saved address
+        saveWalletAddress(address);
+      }
+
+      return {
+        address,
+        isConnected: true,
+        provider,
+        signer,
+      };
+    } catch (providerError: any) {
+      // If _detectNetwork error, try without explicit network
+      if (providerError?.message?.includes('_detectNetwork') || providerError?.message?.includes('Unexpected error')) {
+        provider = new ethers.BrowserProvider(ethereum);
+        signer = await provider.getSigner();
+        const address = await signer.getAddress();
+        
+        if (address.toLowerCase() !== savedAddress.toLowerCase()) {
+          saveWalletAddress(address);
+        }
+
+        return {
+          address,
+          isConnected: true,
+          provider,
+          signer,
+        };
+      }
+      return null;
+    }
+  } catch {
+    // Any error means we can't reconnect
+    return null;
+  }
+}
+
 // Extend Window interface for TypeScript
 declare global {
   interface Window {

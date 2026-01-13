@@ -5,7 +5,7 @@
  */
 
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react';
-import { connectWallet, disconnectWallet, getWalletAddress, saveWalletAddress, type WalletState } from '../lib/wallet/wallet';
+import { connectWallet, disconnectWallet, saveWalletAddress, tryReconnectWallet, type WalletState } from '../lib/wallet/wallet';
 
 interface WalletContextType {
   wallet: WalletState;
@@ -27,21 +27,60 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   const [isConnecting, setIsConnecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Check for existing connection on mount
-  // Only restore address, don't create provider/signer automatically
-  // User must click "Connect Wallet" to establish full connection
+  // Try to reconnect to wallet on mount
   useEffect(() => {
-    const savedAddress = getWalletAddress();
-    if (savedAddress && !wallet.address) {
-      // Only set address if wallet is not already connected
-      setWallet((prev) => ({ 
-        ...prev, 
-        address: savedAddress,
-        isConnected: false, // Not fully connected until user clicks connect
-        provider: null,
-        signer: null,
-      }));
+    let mounted = true;
+    
+    const attemptReconnect = async () => {
+      try {
+        const reconnectedWallet = await tryReconnectWallet();
+        if (mounted && reconnectedWallet) {
+          setWallet(reconnectedWallet);
+        }
+      } catch (error) {
+        // Silently fail - user will need to reconnect manually
+        console.debug('Auto-reconnect failed:', error);
+      }
+    };
+
+    attemptReconnect();
+
+    // Listen for account changes
+    if (typeof window !== 'undefined' && (window as any).ethereum) {
+      const ethereum = (window as any).ethereum;
+      
+      const handleAccountsChanged = (accounts: string[]) => {
+        if (mounted) {
+          if (accounts.length === 0) {
+            // User disconnected
+            disconnect();
+          } else {
+            // Account changed, try to reconnect
+            attemptReconnect();
+          }
+        }
+      };
+
+      const handleChainChanged = () => {
+        if (mounted) {
+          // Network changed, try to reconnect
+          attemptReconnect();
+        }
+      };
+
+      ethereum.on('accountsChanged', handleAccountsChanged);
+      ethereum.on('chainChanged', handleChainChanged);
+
+      return () => {
+        mounted = false;
+        ethereum.removeListener('accountsChanged', handleAccountsChanged);
+        ethereum.removeListener('chainChanged', handleChainChanged);
+      };
     }
+
+    return () => {
+      mounted = false;
+    };
   }, []); // Only run once on mount
 
   const connect = useCallback(async () => {
