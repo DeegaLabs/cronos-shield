@@ -62,6 +62,8 @@ export function useX402Payment() {
 
       const chainIdNum = parseInt(chainId, 16);
       const currentChainId = BigInt(chainIdNum);
+      const expectedChainId = accept.network === 'cronos-mainnet' ? 25n : 338n;
+      
       if (currentChainId !== expectedChainId) {
         const chainIdHex = accept.network === 'cronos-mainnet' ? '0x19' : '0x152';
         try {
