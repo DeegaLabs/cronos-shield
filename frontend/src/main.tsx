@@ -35,14 +35,15 @@ if (typeof window !== 'undefined') {
     const errorString = args.join(' ');
     // Suppress evmAsk errors globally (they're harmless)
     // But allow them during payment flow for debugging
+    // Suppress all evmAsk-related errors (they're harmless)
+    // These occur when SDK tries to detect network but don't affect functionality
     if (errorString.includes('evmAsk') || 
         errorString.includes('Unexpected error') ||
-        errorString.includes('selectExtension')) {
-      // Only show during payment flow for debugging
-      if (isPaymentFlow) {
-        originalError.apply(console, args);
-      }
-      // Otherwise suppress silently
+        errorString.includes('Me: Unexpected error') ||
+        errorString.includes('selectExtension') ||
+        errorString.includes('Ce: Unexpected error')) {
+      // Suppress silently - these errors don't affect functionality
+      // They occur when SDK tries to detect network on initialization
       return;
     }
     originalError.apply(console, args);
