@@ -2,14 +2,16 @@
  * Divergence Analysis Component
  */
 
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, lazy, Suspense } from 'react';
 import toast from 'react-hot-toast';
 import apiClient from '../../lib/api/client';
-import PaymentModal from '../common/PaymentModal';
 import { useWallet } from '../../contexts/WalletContext';
 import { InfoTooltip } from '../common/Tooltip';
 import type { DivergenceAnalysis } from '../../types';
 import type { PaymentChallenge } from '../../types/x402.types';
+
+// Lazy load PaymentModal to prevent Facilitator SDK from loading on page load
+const PaymentModal = lazy(() => import('../common/PaymentModal'));
 
 export default function DivergenceAnalysis() {
   const { wallet } = useWallet();

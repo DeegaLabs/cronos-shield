@@ -2,13 +2,15 @@
  * Risk Analysis Component
  */
 
-import { useState } from 'react';
+import { useState, lazy, Suspense } from 'react';
 import apiClient from '../../lib/api/client';
-import PaymentModal from '../common/PaymentModal';
 import { useWallet } from '../../contexts/WalletContext';
 import { InfoTooltip } from '../common/Tooltip';
 import type { RiskAnalysis } from '../../types';
 import type { PaymentChallenge } from '../../types/x402.types';
+
+// Lazy load PaymentModal to prevent Facilitator SDK from loading on page load
+const PaymentModal = lazy(() => import('../common/PaymentModal'));
 
 export default function RiskAnalysis() {
   const { wallet } = useWallet();
