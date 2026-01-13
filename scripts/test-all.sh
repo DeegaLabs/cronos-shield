@@ -90,7 +90,7 @@ echo ""
 
 # Test 6: Swagger Documentation
 echo "6️⃣  Testing Swagger Documentation..."
-SWAGGER=$(curl -s "$BACKEND_URL/api-docs/swagger.json")
+SWAGGER=$(curl -s "$BACKEND_URL/api-doc/swagger.json")
 if echo "$SWAGGER" | grep -q "openapi"; then
     ENDPOINT_COUNT=$(echo "$SWAGGER" | jq '.paths | length' 2>/dev/null || echo "0")
     echo -e "${GREEN}✅ Swagger documentation available (${ENDPOINT_COUNT} endpoints)${NC}"
@@ -138,7 +138,7 @@ echo "✅ x402 Middleware: OK"
 echo "✅ Swagger Docs: OK"
 echo ""
 echo "🌐 Frontend: http://localhost:5173"
-echo "📚 API Docs: http://localhost:3000/api-docs"
+echo "📚 API Docs: http://localhost:3000/api-doc (Swagger) | http://localhost:3000/docs (Redoc)"
 echo "🔍 Backend: http://localhost:3000"
 echo ""
 echo -e "${GREEN}✅ All automated tests passed!${NC}"
