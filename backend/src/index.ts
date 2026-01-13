@@ -228,15 +228,36 @@ app.get('/health', (_req, res) => {
   });
 });
 
-// Start Server
-app.listen(PORT, () => {
-  console.log('═══════════════════════════════════════');
-  console.log('🚀 Cronos Shield Backend');
-  console.log('═══════════════════════════════════════');
-  console.log(`📍 Server running on http://localhost:${PORT}`);
-  console.log(`📚 Swagger docs: http://localhost:${PORT}/api-doc`);
-  console.log(`📖 Redoc docs: http://localhost:${PORT}/docs`);
-  console.log(`🌐 Network: ${network}`);
-  console.log(`✅ Risk Oracle: ${process.env.RISK_ORACLE_CONTRACT_ADDRESS || 'Not configured'}`);
-  console.log('═══════════════════════════════════════');
+// Initialize database migrations before starting server
+async function startServer() {
+  // Run migrations if DATABASE_URL is set
+  if (process.env.DATABASE_URL) {
+    try {
+      await runMigrations();
+    } catch (error: any) {
+      console.error('❌ Database migration failed:', error.message);
+      console.error('⚠️  Continuing with in-memory storage...');
+    }
+  } else {
+    console.log('ℹ️  DATABASE_URL not set, using in-memory storage');
+  }
+
+  // Start Server
+  app.listen(PORT, () => {
+    console.log('═══════════════════════════════════════');
+    console.log('🚀 Cronos Shield Backend');
+    console.log('═══════════════════════════════════════');
+    console.log(`📍 Server running on http://localhost:${PORT}`);
+    console.log(`📚 Swagger docs: http://localhost:${PORT}/api-doc`);
+    console.log(`📖 Redoc docs: http://localhost:${PORT}/docs`);
+    console.log(`🌐 Network: ${network}`);
+    console.log(`✅ Risk Oracle: ${process.env.RISK_ORACLE_CONTRACT_ADDRESS || 'Not configured'}`);
+    console.log(`💾 Database: ${process.env.DATABASE_URL ? 'PostgreSQL' : 'In-Memory'}`);
+    console.log('═══════════════════════════════════════');
+  });
+}
+
+startServer().catch((error) => {
+  console.error('❌ Failed to start server:', error);
+  process.exit(1);
 });
