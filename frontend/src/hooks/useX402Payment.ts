@@ -5,9 +5,10 @@
  */
 
 import { useState, useCallback } from 'react';
-import { Facilitator } from '@crypto.com/facilitator-client';
 import { ethers } from 'ethers';
 import type { PaymentChallenge, PaymentState } from '../types/x402.types';
+// DO NOT import Facilitator here - it causes evmAsk error on page load
+// Import it dynamically only when needed (inside processPayment)
 
 export function useX402Payment() {
   const [state, setState] = useState<PaymentState>({
@@ -91,7 +92,9 @@ export function useX402Payment() {
         }
       }
 
-      // 4. Initialize Facilitator (exactly like examples, no 'as any')
+      // CRITICAL: Import Facilitator dynamically ONLY when needed (inside processPayment)
+      // This prevents the SDK from loading on page load, which causes evmAsk error
+      const { Facilitator } = await import('@crypto.com/facilitator-client');
       const facilitator = new Facilitator({ network: accept.network });
 
       // Get payment ID from challenge

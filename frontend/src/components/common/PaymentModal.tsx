@@ -5,8 +5,9 @@
  */
 
 import { useEffect, useState } from 'react';
-import { Facilitator } from '@crypto.com/facilitator-client';
 import type { PaymentChallenge } from '../../types/x402.types';
+// DO NOT import Facilitator here - it causes evmAsk error on page load
+// Import it dynamically only when needed (inside handlePay)
 
 interface PaymentModalProps {
   challenge: PaymentChallenge | null;
@@ -173,7 +174,9 @@ export default function PaymentModal({
         throw new Error('Wallet signer is not valid. Please reconnect your wallet.');
       }
 
-      // Initialize Facilitator only when needed (when modal is open and user clicks pay)
+      // CRITICAL: Import Facilitator dynamically ONLY when needed (inside handlePay)
+      // This prevents the SDK from loading on page load, which causes evmAsk error
+      const { Facilitator } = await import('@crypto.com/facilitator-client');
       const facilitator = new Facilitator({ network: accept.network });
 
       // Get payment ID from challenge
