@@ -450,7 +450,8 @@ async function analyzeRisk(contractAddress: string, signer: ethers.Signer) {
 
 ## 🔗 Resources
 
-- [Swagger Documentation](https://cronos-shield-backend-production.up.railway.app/api-docs)
+- [Swagger Documentation](https://cronos-shield-backend-production.up.railway.app/api-doc)
+- [Redoc Documentation](https://cronos-shield-backend-production.up.railway.app/docs)
 - [x402 Protocol Docs](https://docs.cronos.org/cronos-x402-facilitator/introduction)
 - [Facilitator SDK](https://www.npmjs.com/package/@crypto.com/facilitator-client)
 - [Cronos Documentation](https://docs.cronos.org)

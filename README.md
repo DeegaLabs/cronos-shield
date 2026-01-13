@@ -114,7 +114,8 @@ pnpm dev
 
 - **Frontend**: http://localhost:5173
 - **Backend API**: http://localhost:3000
-- **Swagger Docs**: http://localhost:3000/api-docs
+- **Swagger Docs**: http://localhost:3000/api-doc
+- **Redoc Docs**: http://localhost:3000/docs
 
 ## 📁 Project Structure
 
@@ -179,8 +180,8 @@ Local:      http://localhost:3000/api
 
 ### Interactive Documentation
 
-- **Swagger UI** (Interactive Testing): http://localhost:3000/api-docs
-- **Redoc** (Visual Documentation): http://localhost:3000/api-docs/redoc
+- **Swagger UI** (Interactive Testing): http://localhost:3000/api-doc
+- **Redoc** (Visual Documentation): http://localhost:3000/docs
 - **Postman Collection**: `postman/Cronos-Shield-API.postman_collection.json`
 
 ### Endpoints

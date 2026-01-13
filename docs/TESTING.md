@@ -16,8 +16,9 @@ Open: http://localhost:5173
 
 Expected: Dashboard loads with wallet connection button
 
-### 3. Swagger Documentation
-Open: http://localhost:3000/api-docs
+### 3. API Documentation
+- **Swagger UI**: http://localhost:3000/api-doc
+- **Redoc**: http://localhost:3000/docs
 
 Expected: All 8 endpoints visible and documented
 
@@ -161,7 +162,8 @@ Expected: HTTP 402 with payment challenge
 - ✅ Health check returns 200 OK
 - ✅ All endpoints respond correctly
 - ✅ 402 returned for protected endpoints
-- ✅ Swagger docs accessible
+- ✅ Swagger docs accessible at /api-doc
+- ✅ Redoc docs accessible at /docs
 - ✅ Logs being created
 
 ### Frontend

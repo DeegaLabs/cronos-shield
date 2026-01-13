@@ -76,7 +76,7 @@ console.log('Risk Score:', result.score);
 
 - Read [Developer Documentation](./DEVELOPER.md) for complete guide
 - Check [API Reference](./API.md) for all endpoints
-- Explore [Swagger UI](https://cronos-shield-backend-production.up.railway.app/api-docs)
+- Explore [Swagger UI](https://cronos-shield-backend-production.up.railway.app/api-doc) or [Redoc](https://cronos-shield-backend-production.up.railway.app/docs)
 
 ## Need Help?
 
