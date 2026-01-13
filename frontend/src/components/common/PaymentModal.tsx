@@ -142,6 +142,8 @@ export default function PaymentModal({
       await new Promise(resolve => setTimeout(resolve, 1000));
       
       // Verify signer is still valid and get a fresh one if needed
+      // Following the official examples pattern: create provider WITHOUT network config
+      // Network is ensured separately via ensureCronosChain
       let currentSigner = signer;
       if (!currentSigner || !currentSigner.provider) {
         // Try to get a fresh signer from the wallet
@@ -153,10 +155,11 @@ export default function PaymentModal({
         try {
           // Import ethers dynamically to avoid issues
           const { ethers } = await import('ethers');
-          const provider = new ethers.BrowserProvider(ethereum, {
-            name: 'Cronos Testnet',
-            chainId: 338,
-          });
+          // Create provider WITHOUT explicit network config (like official examples)
+          // This avoids the _detectNetwork error
+          const provider = new ethers.BrowserProvider(ethereum);
+          // Request accounts to ensure wallet is connected
+          await provider.send('eth_requestAccounts', []);
           currentSigner = await provider.getSigner();
         } catch (signerError: any) {
           throw new Error('Failed to get wallet signer. Please reconnect your wallet.');
@@ -213,14 +216,13 @@ export default function PaymentModal({
           if (isUnexpectedError && retries > 0) {
             // Wait a bit longer before retry
             await new Promise(resolve => setTimeout(resolve, 1000));
-            // Try to get a fresh signer
+            // Try to get a fresh signer (without network config to avoid _detectNetwork error)
             try {
               const ethereum = (window as any).ethereum;
               const { ethers } = await import('ethers');
-              const provider = new ethers.BrowserProvider(ethereum, {
-                name: 'Cronos Testnet',
-                chainId: 338,
-              });
+              // Create provider WITHOUT explicit network config (like official examples)
+              const provider = new ethers.BrowserProvider(ethereum);
+              await provider.send('eth_requestAccounts', []);
               currentSigner = await provider.getSigner();
             } catch (refreshError) {
               // If we can't refresh, fail
