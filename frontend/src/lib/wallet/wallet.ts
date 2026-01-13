@@ -123,7 +123,7 @@ export async function connectWallet(): Promise<WalletState> {
       provider = new ethers.BrowserProvider(ethereum, {
         name: 'Cronos Testnet',
         chainId: 338,
-        ensAddress: null, // Disable ENS
+        // ensAddress is not set, which disables ENS resolution
       });
       signer = await provider.getSigner();
       address = await signer.getAddress();
@@ -141,8 +141,6 @@ export async function connectWallet(): Promise<WalletState> {
         try {
           // Try without explicit network config (ethers will use current network)
           provider = new ethers.BrowserProvider(ethereum);
-          // Disable ENS resolution on the provider
-          (provider as any)._network = { chainId: 338n, name: 'cronos-testnet', ensAddress: null };
           signer = await provider.getSigner();
           address = await signer.getAddress();
         } catch (retryError: any) {
