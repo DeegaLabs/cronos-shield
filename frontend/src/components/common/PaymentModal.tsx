@@ -79,6 +79,11 @@ export default function PaymentModal({
       return;
     }
     
+    // Dispatch event to allow errors during payment flow
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('payment-flow-start'));
+    }
+    
     setIsProcessing(true);
     setError(null);
     setTxHash(null);
@@ -298,6 +303,12 @@ export default function PaymentModal({
       setIsProcessing(false);
       setError(errorMessage);
       setTxHash(null);
+      console.error('Payment error:', error); // Log full error during payment
+    } finally {
+      // Dispatch event to end payment flow
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('payment-flow-end'));
+      }
     }
   };
 
