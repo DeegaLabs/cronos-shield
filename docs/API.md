@@ -300,9 +300,8 @@ Error response format:
 
 Currently, rate limiting is handled by x402 payments. Each payment grants access to the resource for a limited time.
 
-## Swagger Documentation
+## API Documentation
 
 Interactive API documentation is available at:
-```
-http://localhost:3000/api-docs
-```
+- **Swagger UI**: http://localhost:3000/api-doc
+- **Redoc**: http://localhost:3000/docs
