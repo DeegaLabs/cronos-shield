@@ -46,7 +46,11 @@ export default function PaymentModal({
     return null;
   }
   
-  // Check if wallet is ready
+  // CRITICAL: Don't access signer or any wallet-related code during render
+  // This prevents evmAsk errors when PaymentModal is lazy-loaded
+  // Only access signer inside handlePay when user actually clicks "Pay"
+  
+  // Check if wallet is ready (but don't access signer properties)
   const isWalletReady = !!(walletAddress && signer);
   
   const accept = challenge.accepts[0];
@@ -55,6 +59,7 @@ export default function PaymentModal({
     : '1.0';
 
   // Show modal even if wallet not connected, but show warning
+  // Don't access signer here - just check if it exists
   if (!walletAddress || !signer) {
     return (
       <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
@@ -222,11 +227,17 @@ export default function PaymentModal({
           await new Promise(resolve => setTimeout(resolve, 200));
           
           console.log(`🔄 Attempting to generate payment header (attempt ${3 - retries}/2)...`);
-          console.log('🔍 Signer check:', {
-            hasSigner: !!currentSigner,
-            hasProvider: !!(currentSigner?.provider),
-            signerAddress: await currentSigner.getAddress(),
-          });
+          // Don't access signer.provider here - it can trigger evmAsk error
+          // Only access signer methods that are safe
+          try {
+            const addr = await currentSigner.getAddress();
+            console.log('🔍 Signer check:', {
+              hasSigner: !!currentSigner,
+              signerAddress: addr,
+            });
+          } catch (e) {
+            console.log('🔍 Signer check: signer exists but address check failed');
+          }
           
           // This should trigger MetaMask to open for signing
           console.log('⏳ Calling facilitator.generatePaymentHeader() - MetaMask should open now...');
