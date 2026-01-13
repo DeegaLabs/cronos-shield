@@ -19,7 +19,9 @@ export default defineConfig({
         manualChunks: {
           'vendor-react': ['react', 'react-dom', 'react-router-dom'],
           'vendor-ethers': ['ethers'],
-          'vendor-facilitator': ['@crypto.com/facilitator-client'],
+          // DO NOT include facilitator-client in manualChunks
+          // It should be lazy-loaded dynamically only when needed
+          // Including it here causes it to be bundled and loaded on page load
         },
       },
     },

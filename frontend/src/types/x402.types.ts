@@ -1,8 +1,18 @@
 /**
  * x402 Payment Protocol Types
+ * 
+ * NOTE: Do NOT import types from @crypto.com/facilitator-client here
+ * This causes the SDK to be bundled even with dynamic imports
+ * Use string literals instead to avoid bundling the SDK
  */
 
-import type { CronosNetwork, Contract } from '@crypto.com/facilitator-client';
+// Use string literals instead of importing types from SDK
+export type CronosNetwork = 'cronos-mainnet' | 'cronos-testnet';
+
+export interface Contract {
+  address: string;
+  chainId: number;
+}
 
 export interface PaymentChallenge {
   x402Version: number;
@@ -14,8 +24,8 @@ export interface PaymentChallenge {
 
 export interface PaymentAccept {
   scheme: string;
-  network: CronosNetwork; // Use correct type from SDK
-  asset: Contract; // Use correct type from SDK
+  network: CronosNetwork; // Use our own type instead of SDK type
+  asset: Contract; // Use our own type instead of SDK type
   payTo: string;
   maxAmountRequired: string;
   maxTimeoutSeconds: number;
