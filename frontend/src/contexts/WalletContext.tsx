@@ -5,7 +5,7 @@
  */
 
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react';
-import { connectWallet, disconnectWallet, saveWalletAddress, tryReconnectWallet, type WalletState } from '../lib/wallet/wallet';
+import { connectWallet, disconnectWallet, saveWalletAddress, checkWalletAvailability, type WalletState } from '../lib/wallet/wallet';
 
 interface WalletContextType {
   wallet: WalletState;
@@ -27,34 +27,41 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   const [isConnecting, setIsConnecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Try to reconnect to wallet on mount
+  // Check wallet availability on mount (only identify, don't connect)
   useEffect(() => {
     let mounted = true;
-    let reconnectTimeout: NodeJS.Timeout | null = null;
     
-    const attemptReconnect = async () => {
-      // Debounce: only attempt reconnect if not already connecting
-      if (isConnecting) {
-        return;
-      }
-      
+    const checkWallet = async () => {
       try {
-        const reconnectedWallet = await tryReconnectWallet();
-        if (mounted && reconnectedWallet) {
-          setWallet(reconnectedWallet);
+        const availableAddress = await checkWalletAvailability();
+        if (mounted && availableAddress) {
+          // Only set address, don't create provider/signer
+          // User must click "Connect Wallet" to establish full connection
+          setWallet((prev) => ({
+            ...prev,
+            address: availableAddress,
+            isConnected: false, // Not fully connected until user clicks
+            provider: null,
+            signer: null,
+          }));
+        } else if (mounted && !availableAddress) {
+          // No wallet available or no permission
+          setWallet({
+            address: null,
+            isConnected: false,
+            provider: null,
+            signer: null,
+          });
         }
       } catch (error) {
-        // Silently fail - user will need to reconnect manually
-        console.debug('Auto-reconnect failed:', error);
+        // Silently fail
+        console.debug('Wallet check failed:', error);
       }
     };
 
-    // Delay initial reconnect to avoid conflicts
-    reconnectTimeout = setTimeout(() => {
-      attemptReconnect();
-    }, 1000);
+    checkWallet();
 
-    // Listen for account changes
+    // Listen for account changes (only to update address, not to reconnect)
     if (typeof window !== 'undefined' && (window as any).ethereum) {
       const ethereum = (window as any).ethereum;
       
@@ -66,24 +73,16 @@ export function WalletProvider({ children }: { children: ReactNode }) {
               // User disconnected
               disconnect();
             } else {
-              // Account changed, try to reconnect after a delay
-              setTimeout(() => {
-                if (mounted) {
-                  attemptReconnect();
-                }
-              }, 500);
+              // Account changed, just check availability again
+              checkWallet();
             }
           }
         };
 
         const handleChainChanged = () => {
           if (mounted) {
-            // Network changed, wait a bit then try to reconnect
-            setTimeout(() => {
-              if (mounted) {
-                attemptReconnect();
-              }
-            }, 1000);
+            // Network changed, just check availability again
+            checkWallet();
           }
         };
 
@@ -92,9 +91,6 @@ export function WalletProvider({ children }: { children: ReactNode }) {
 
         return () => {
           mounted = false;
-          if (reconnectTimeout) {
-            clearTimeout(reconnectTimeout);
-          }
           if (ethereum && typeof ethereum.removeListener === 'function') {
             ethereum.removeListener('accountsChanged', handleAccountsChanged);
             ethereum.removeListener('chainChanged', handleChainChanged);
@@ -105,11 +101,8 @@ export function WalletProvider({ children }: { children: ReactNode }) {
 
     return () => {
       mounted = false;
-      if (reconnectTimeout) {
-        clearTimeout(reconnectTimeout);
-      }
     };
-  }, [isConnecting]); // Re-run if connection state changes
+  }, []); // Only run once on mount
 
   const connect = useCallback(async () => {
     setIsConnecting(true);

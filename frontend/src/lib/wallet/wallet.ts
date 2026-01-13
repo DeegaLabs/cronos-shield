@@ -104,61 +104,21 @@ export async function connectWallet(): Promise<WalletState> {
     }
 
     // Create provider and signer
-    // Use a more robust approach to avoid _detectNetwork errors
-    // Wait a bit to ensure network is stable
-    await new Promise(resolve => setTimeout(resolve, 500));
-    
-    // Verify chain ID again after potential switch
-    const finalChainId = await ethereum.request({ method: 'eth_chainId' });
-    if (finalChainId !== CRONOS_TESTNET.chainId) {
-      throw new Error(`Network mismatch. Expected Cronos Testnet (${CRONOS_TESTNET.chainId}), got ${finalChainId}`);
-    }
-
+    // Use a simple approach - create provider without explicit network to avoid _detectNetwork errors
+    // The network is already verified above, so we can safely create provider
     let provider: ethers.BrowserProvider;
     let signer: ethers.JsonRpcSigner;
     let address: string;
     
-    // Try creating provider with explicit network first
     try {
-      // Create provider with explicit network config to avoid auto-detection
-      provider = new ethers.BrowserProvider(ethereum, {
-        name: 'Cronos Testnet',
-        chainId: 338,
-      });
-      
-      // Get signer with error handling
+      // Create provider without explicit network to avoid _detectNetwork error
+      // Network is already verified and correct at this point
+      provider = new ethers.BrowserProvider(ethereum);
       signer = await provider.getSigner();
       address = await signer.getAddress();
     } catch (providerError: any) {
       const errorMsg = providerError?.message || String(providerError);
-      const isNetworkError = errorMsg.includes('_detectNetwork') || 
-                            errorMsg.includes('Unexpected error') ||
-                            errorMsg.includes('evmAsk') ||
-                            errorMsg.includes('selectExtension');
-      
-      if (isNetworkError) {
-        // Fallback: Create provider without explicit network, but ensure network is correct first
-        // This is a workaround for the ethers.js _detectNetwork issue
-        try {
-          // Wait a bit more before retry
-          await new Promise(resolve => setTimeout(resolve, 1000));
-          
-          // Verify network is still correct
-          const verifyChainId = await ethereum.request({ method: 'eth_chainId' });
-          if (verifyChainId !== CRONOS_TESTNET.chainId) {
-            throw new Error('Network changed during provider creation');
-          }
-          
-          // Create provider without network spec (ethers will use current network)
-          provider = new ethers.BrowserProvider(ethereum);
-          signer = await provider.getSigner();
-          address = await signer.getAddress();
-        } catch (fallbackError: any) {
-          throw new Error(`Failed to create wallet provider: ${fallbackError.message || 'Unknown error'}. Please refresh the page and try again.`);
-        }
-      } else {
-        throw providerError;
-      }
+      throw new Error(`Failed to create wallet provider: ${errorMsg}. Please refresh the page and try again.`);
     }
 
     return {
@@ -189,10 +149,11 @@ export function saveWalletAddress(address: string): void {
 }
 
 /**
- * Try to reconnect to a previously connected wallet
- * This checks if MetaMask is still connected and restores the connection
+ * Check if wallet is available and has permission
+ * This ONLY checks, does NOT create provider/signer automatically
+ * Returns the saved address if wallet has permission, null otherwise
  */
-export async function tryReconnectWallet(): Promise<WalletState | null> {
+export async function checkWalletAvailability(): Promise<string | null> {
   if (typeof window === 'undefined') {
     return null;
   }
@@ -215,7 +176,7 @@ export async function tryReconnectWallet(): Promise<WalletState | null> {
       return null;
     }
     
-    // Check if we have permission to access accounts
+    // Check if we have permission to access accounts (doesn't prompt user)
     let accounts: string[];
     try {
       accounts = await ethereum.request({ method: 'eth_accounts' });
@@ -225,121 +186,27 @@ export async function tryReconnectWallet(): Promise<WalletState | null> {
     }
 
     // Check if saved address is in the list of connected accounts
-    if (!accounts || accounts.length === 0 || !accounts.includes(savedAddress)) {
-      // Account not connected anymore
+    if (!accounts || accounts.length === 0) {
+      // No accounts connected
+      return null;
+    }
+
+    // Check if saved address matches any connected account
+    const isAddressConnected = accounts.some(
+      (acc: string) => acc.toLowerCase() === savedAddress.toLowerCase()
+    );
+
+    if (!isAddressConnected) {
+      // Saved address not in connected accounts, clear it
       localStorage.removeItem('wallet-address');
       return null;
     }
 
-    // Check network
-    let chainId: string;
-    try {
-      chainId = await ethereum.request({ method: 'eth_chainId' });
-    } catch {
-      return null;
-    }
-
-    // Switch to correct network if needed (but don't throw if user rejects)
-    if (chainId !== CRONOS_TESTNET.chainId) {
-      try {
-        await ethereum.request({
-          method: 'wallet_switchEthereumChain',
-          params: [{ chainId: CRONOS_TESTNET.chainId }],
-        });
-        await new Promise(resolve => setTimeout(resolve, 1000));
-      } catch (switchError: any) {
-        if (switchError.code === 4902) {
-          try {
-            await ethereum.request({
-              method: 'wallet_addEthereumChain',
-              params: [CRONOS_TESTNET],
-            });
-            await new Promise(resolve => setTimeout(resolve, 1000));
-          } catch {
-            // User rejected or failed, but continue with current network
-          }
-        }
-        // If user rejected, continue anyway
-      }
-    }
-
-    // Create provider and signer with robust error handling
-    // Wait a bit to ensure network is stable
-    await new Promise(resolve => setTimeout(resolve, 500));
-    
-    // Verify chain ID
-    const finalChainId = await ethereum.request({ method: 'eth_chainId' });
-    if (finalChainId !== CRONOS_TESTNET.chainId) {
-      // Network not correct, but don't throw - just return null
-      return null;
-    }
-
-    let provider: ethers.BrowserProvider;
-    let signer: ethers.JsonRpcSigner;
-    
-    try {
-      // Try with explicit network first
-      provider = new ethers.BrowserProvider(ethereum, {
-        name: 'Cronos Testnet',
-        chainId: 338,
-      });
-      signer = await provider.getSigner();
-      const address = await signer.getAddress();
-      
-      // Verify address matches saved address
-      if (address.toLowerCase() !== savedAddress.toLowerCase()) {
-        // Different account selected, update saved address
-        saveWalletAddress(address);
-      }
-
-      return {
-        address,
-        isConnected: true,
-        provider,
-        signer,
-      };
-    } catch (providerError: any) {
-      const errorMsg = providerError?.message || String(providerError);
-      const isNetworkError = errorMsg.includes('_detectNetwork') || 
-                            errorMsg.includes('Unexpected error') ||
-                            errorMsg.includes('evmAsk') ||
-                            errorMsg.includes('selectExtension');
-      
-      if (isNetworkError) {
-        // Fallback: try without explicit network
-        try {
-          await new Promise(resolve => setTimeout(resolve, 1000));
-          
-          // Verify network is still correct
-          const verifyChainId = await ethereum.request({ method: 'eth_chainId' });
-          if (verifyChainId !== CRONOS_TESTNET.chainId) {
-            return null;
-          }
-          
-          provider = new ethers.BrowserProvider(ethereum);
-          signer = await provider.getSigner();
-          const address = await signer.getAddress();
-          
-          if (address.toLowerCase() !== savedAddress.toLowerCase()) {
-            saveWalletAddress(address);
-          }
-
-          return {
-            address,
-            isConnected: true,
-            provider,
-            signer,
-          };
-        } catch {
-          // Silent fail for auto-reconnect
-          return null;
-        }
-      }
-      // For other errors, return null (silent fail for auto-reconnect)
-      return null;
-    }
+    // Wallet has permission and address matches - return address
+    // But DON'T create provider/signer - user must click "Connect Wallet"
+    return savedAddress;
   } catch {
-    // Any error means we can't reconnect
+    // Any error means we can't verify
     return null;
   }
 }
