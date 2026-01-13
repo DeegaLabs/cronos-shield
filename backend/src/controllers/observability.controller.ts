@@ -5,6 +5,8 @@
 import type { Request, Response, NextFunction } from 'express';
 import { LogService } from '../services/observability/log.service';
 import { MetricsService } from '../services/observability/metrics.service';
+import { PostgresStore } from '../lib/storage/postgres.store';
+import { store } from '../lib/storage/in-memory.store';
 
 export class ObservabilityController {
   constructor(
@@ -57,8 +59,6 @@ export class ObservabilityController {
   async getBlockedTransactions(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { limit } = req.query;
-      const { PostgresStore } = await import('../../lib/storage/postgres.store');
-      const { store } = await import('../../lib/storage/in-memory.store');
       
       const usePostgres = !!process.env.DATABASE_URL;
       const postgresStore = usePostgres ? new PostgresStore() : null;
