@@ -139,8 +139,37 @@ export default function PaymentModal({
       }
 
       // Wait a bit to ensure network switch is complete
-      await new Promise(resolve => setTimeout(resolve, 500));
+      await new Promise(resolve => setTimeout(resolve, 1000));
       
+      // Verify signer is still valid and get a fresh one if needed
+      let currentSigner = signer;
+      if (!currentSigner || !currentSigner.provider) {
+        // Try to get a fresh signer from the wallet
+        const ethereum = (window as any).ethereum;
+        if (!ethereum) {
+          throw new Error('MetaMask not found. Please refresh the page.');
+        }
+
+        try {
+          // Import ethers dynamically to avoid issues
+          const { ethers } = await import('ethers');
+          const provider = new ethers.BrowserProvider(ethereum, {
+            name: 'Cronos Testnet',
+            chainId: 338,
+          });
+          currentSigner = await provider.getSigner();
+        } catch (signerError: any) {
+          throw new Error('Failed to get wallet signer. Please reconnect your wallet.');
+        }
+      }
+
+      // Verify we can get the address from the signer (this validates it's working)
+      try {
+        await currentSigner.getAddress();
+      } catch (addressError: any) {
+        throw new Error('Wallet signer is not valid. Please reconnect your wallet.');
+      }
+
       // Initialize Facilitator only when needed (when modal is open and user clicks pay)
       const facilitator = new Facilitator({ network: accept.network });
 
@@ -150,37 +179,67 @@ export default function PaymentModal({
         throw new Error('Payment ID not found in challenge');
       }
 
-      // Generate payment header
+      // Generate payment header with retry logic
       const validBefore = Math.floor(Date.now() / 1000) + accept.maxTimeoutSeconds;
       
       let paymentHeader: string;
-      try {
-        if (!signer || !signer.provider) {
-          throw new Error('Signer is no longer valid. Please reconnect your wallet.');
+      let retries = 2;
+      
+      while (retries > 0) {
+        try {
+          // Small delay before attempting to generate header
+          await new Promise(resolve => setTimeout(resolve, 200));
+          
+          paymentHeader = await facilitator.generatePaymentHeader({
+            to: accept.payTo,
+            value: accept.maxAmountRequired,
+            asset: accept.asset,
+            signer: currentSigner,
+            validBefore,
+            validAfter: 0,
+          });
+          
+          // Success, break out of retry loop
+          break;
+        } catch (headerError: any) {
+          retries--;
+          const errorMsg = headerError?.message || String(headerError);
+          const isUnexpectedError = errorMsg.includes('Unexpected error') || 
+                                    errorMsg.includes('evmAsk') ||
+                                    errorMsg.includes('selectExtension') ||
+                                    errorMsg.includes('_detectNetwork');
+          
+          if (isUnexpectedError && retries > 0) {
+            // Wait a bit longer before retry
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            // Try to get a fresh signer
+            try {
+              const ethereum = (window as any).ethereum;
+              const { ethers } = await import('ethers');
+              const provider = new ethers.BrowserProvider(ethereum, {
+                name: 'Cronos Testnet',
+                chainId: 338,
+              });
+              currentSigner = await provider.getSigner();
+            } catch (refreshError) {
+              // If we can't refresh, fail
+              retries = 0;
+            }
+            continue;
+          }
+          
+          if (isUnexpectedError) {
+            throw new Error(
+              'MetaMask connection error. Please: 1) Refresh the page, 2) Reconnect your wallet, 3) Ensure MetaMask is unlocked, 4) Try again'
+            );
+          }
+          
+          throw new Error(`Failed to generate payment header: ${errorMsg}. Please ensure MetaMask is unlocked and you have sufficient balance.`);
         }
-
-        paymentHeader = await facilitator.generatePaymentHeader({
-          to: accept.payTo,
-          value: accept.maxAmountRequired,
-          asset: accept.asset,
-          signer,
-          validBefore,
-          validAfter: 0,
-        });
-      } catch (headerError: any) {
-        const errorMsg = headerError?.message || String(headerError);
-        const isUnexpectedError = errorMsg.includes('Unexpected error') || 
-                                  errorMsg.includes('evmAsk') ||
-                                  errorMsg.includes('selectExtension') ||
-                                  errorMsg.includes('_detectNetwork');
-        
-        if (isUnexpectedError) {
-          throw new Error(
-            'MetaMask connection error. Please: 1) Refresh the page, 2) Reconnect your wallet, 3) Ensure MetaMask is unlocked, 4) Try again'
-          );
-        }
-        
-        throw new Error(`Failed to generate payment header: ${errorMsg}. Please ensure MetaMask is unlocked and you have sufficient balance.`);
+      }
+      
+      if (!paymentHeader) {
+        throw new Error('Failed to generate payment header after retries. Please try again.');
       }
 
       // Determine endpoint based on service name or resource URL
