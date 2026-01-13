@@ -47,28 +47,22 @@ export function useX402Payment() {
       }
 
       // Verify we're on the correct network
-      // Use try-catch to handle potential provider errors gracefully
-      let network;
-      try {
-        network = await signer.provider.getNetwork();
-      } catch (networkError: any) {
-        // If network detection fails, try to get chainId directly from ethereum
-        if (typeof window !== 'undefined' && (window as any).ethereum) {
-          const chainId = await (window as any).ethereum.request({ method: 'eth_chainId' });
-          const chainIdNum = parseInt(chainId, 16);
-          network = { chainId: BigInt(chainIdNum) };
-        } else {
-          throw new Error('Failed to detect network. Please refresh and try again.');
-        }
+      // Use eth_chainId directly to avoid _detectNetwork errors
+      const ethereum = (window as any).ethereum;
+      if (!ethereum) {
+        throw new Error('MetaMask not found');
       }
-      
-      const expectedChainId = accept.network === 'cronos-mainnet' ? 25n : 338n;
-      if (network.chainId !== expectedChainId) {
-        const ethereum = (window as any).ethereum;
-        if (!ethereum) {
-          throw new Error('MetaMask not found');
-        }
-        
+
+      let chainId: string;
+      try {
+        chainId = await ethereum.request({ method: 'eth_chainId' });
+      } catch (error: any) {
+        throw new Error('Failed to get chain ID. Please check MetaMask.');
+      }
+
+      const chainIdNum = parseInt(chainId, 16);
+      const currentChainId = BigInt(chainIdNum);
+      if (currentChainId !== expectedChainId) {
         const chainIdHex = accept.network === 'cronos-mainnet' ? '0x19' : '0x152';
         try {
           await ethereum.request({
@@ -105,10 +99,18 @@ export function useX402Payment() {
       }
 
       // Generate payment header
+      // Wait a bit to ensure network switch is complete
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
       const validBefore = Math.floor(Date.now() / 1000) + accept.maxTimeoutSeconds;
       
       let paymentHeader: string;
       try {
+        // Ensure signer is still valid after potential network switch
+        if (!signer || !signer.provider) {
+          throw new Error('Signer is no longer valid. Please reconnect your wallet.');
+        }
+
         paymentHeader = await facilitator.generatePaymentHeader({
           to: accept.payTo,
           value: accept.maxAmountRequired,
@@ -121,11 +123,14 @@ export function useX402Payment() {
         const errorMsg = headerError?.message || String(headerError);
         const isUnexpectedError = errorMsg.includes('Unexpected error') || 
                                   errorMsg.includes('evmAsk') ||
-                                  errorMsg.includes('selectExtension');
+                                  errorMsg.includes('selectExtension') ||
+                                  errorMsg.includes('_detectNetwork');
         
         if (isUnexpectedError) {
+          // This error is often caused by ethers.js trying to detect network
+          // Suggest user to refresh and reconnect
           throw new Error(
-            'MetaMask connection error. Please try: 1) Refresh the page, 2) Ensure MetaMask is unlocked, 3) Disable other wallet extensions temporarily, 4) Try again'
+            'MetaMask connection error. Please: 1) Refresh the page, 2) Reconnect your wallet, 3) Ensure MetaMask is unlocked, 4) Try again'
           );
         }
         

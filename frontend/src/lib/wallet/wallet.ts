@@ -104,8 +104,15 @@ export async function connectWallet(): Promise<WalletState> {
     }
 
     // Create provider and signer
-    // Use a simple approach - create provider without explicit network to avoid _detectNetwork errors
-    // The network is already verified above, so we can safely create provider
+    // Wait a bit to ensure network is stable after potential switch
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
+    // Verify chain ID one more time before creating provider
+    const finalChainId = await ethereum.request({ method: 'eth_chainId' });
+    if (finalChainId !== CRONOS_TESTNET.chainId) {
+      throw new Error(`Network mismatch. Expected Cronos Testnet (${CRONOS_TESTNET.chainId}), got ${finalChainId}`);
+    }
+
     let provider: ethers.BrowserProvider;
     let signer: ethers.JsonRpcSigner;
     let address: string;
@@ -118,7 +125,24 @@ export async function connectWallet(): Promise<WalletState> {
       address = await signer.getAddress();
     } catch (providerError: any) {
       const errorMsg = providerError?.message || String(providerError);
-      throw new Error(`Failed to create wallet provider: ${errorMsg}. Please refresh the page and try again.`);
+      const isNetworkError = errorMsg.includes('_detectNetwork') || 
+                            errorMsg.includes('Unexpected error') ||
+                            errorMsg.includes('evmAsk');
+      
+      if (isNetworkError) {
+        // This is the known ethers.js _detectNetwork issue
+        // Try one more time after a longer delay
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        try {
+          provider = new ethers.BrowserProvider(ethereum);
+          signer = await provider.getSigner();
+          address = await signer.getAddress();
+        } catch (retryError: any) {
+          throw new Error('Failed to connect wallet. Please refresh the page and try again. If the problem persists, try disabling other wallet extensions.');
+        }
+      } else {
+        throw new Error(`Failed to create wallet provider: ${errorMsg}. Please refresh the page and try again.`);
+      }
     }
 
     return {

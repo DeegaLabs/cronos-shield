@@ -45,7 +45,7 @@ export default function RiskAnalysis() {
       if (err.response?.status === 402) {
         const paymentData = err.response?.data as PaymentChallenge;
         setPaymentChallenge(paymentData);
-        if (!wallet.isConnected || !wallet.address) {
+        if (!wallet.isConnected || !wallet.address || !wallet.signer) {
           setError('Please connect your wallet first to make payments');
         }
       } else {
