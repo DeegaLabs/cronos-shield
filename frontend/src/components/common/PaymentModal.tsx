@@ -4,9 +4,8 @@
  * Modal for x402 payment flow
  */
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState } from 'react';
 import { Facilitator } from '@crypto.com/facilitator-client';
-import { ethers } from 'ethers';
 import type { PaymentChallenge } from '../../types/x402.types';
 
 interface PaymentModalProps {
