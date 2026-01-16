@@ -22,14 +22,27 @@
     font-family: 'Orbitron', sans-serif;
   }
   
-  /* Glassmorphism card */
+  /* Glassmorphism card - matches HTML exactly */
   .glass-card {
-    @apply bg-[rgba(30,41,59,0.5)] backdrop-blur-[16px] border border-slate-700/10;
+    background: rgba(30, 41, 59, 0.5);
+    backdrop-filter: blur(16px);
+    border: 1px solid rgba(148, 163, 184, 0.1);
+    transition: all 0.3s ease;
   }
   
-  /* Gradient text */
+  .glass-card:hover {
+    background: rgba(30, 41, 59, 0.7);
+    border-color: rgba(99, 102, 241, 0.3);
+    transform: translateY(-4px);
+    box-shadow: 0 20px 40px rgba(99, 102, 241, 0.2);
+  }
+  
+  /* Gradient text - matches HTML exactly */
   .gradient-text {
-    @apply bg-gradient-to-r from-indigo-500 to-cyan-500 bg-clip-text text-transparent;
+    background: linear-gradient(135deg, #6366f1 0%, #06b6d4 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
   }
   
   /* Animated border */
@@ -47,6 +60,11 @@
     border-radius: inherit;
     z-index: -1;
     animation: borderFlow 3s linear infinite;
+  }
+  
+  @keyframes borderFlow {
+    0% { background-position: 0% 50%; }
+    100% { background-position: 200% 50%; }
   }
   
   /* Glow effect */
@@ -81,10 +99,19 @@
     animation: pulse 8s ease-in-out infinite;
   }
   
+  @keyframes pulse {
+    0%, 100% { opacity: 0.5; }
+    50% { opacity: 1; }
+  }
+  
   /* Fade in animations */
   .fade-in {
     opacity: 0;
     animation: fadeIn 1s ease-out forwards;
+  }
+  
+  @keyframes fadeIn {
+    to { opacity: 1; }
   }
   
   .fade-in-delay-1 { animation-delay: 0.2s; }
@@ -126,6 +153,11 @@
     bottom: 0;
     background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
     animation: shimmer 2s infinite;
+  }
+  
+  @keyframes shimmer {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(100%); }
   }
   
   /* Button primary effect */
