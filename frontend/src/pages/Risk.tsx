@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { CheckCircle, AlertTriangle, Info, Shield, ExternalLink, XCircle } from 'lucide-react'
 import { GlassCard } from '../components/cards/GlassCard'
 import { RiskScoreBar } from '../components/risk/RiskScoreBar'
 import { RecentAnalysisCard } from '../components/risk/RecentAnalysisCard'
@@ -55,11 +54,13 @@ export default function RiskPage() {
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-6 py-8">
+    <>
       {/* Page Header */}
       <div className="mb-8">
         <h1 className="text-3xl font-bold mb-2 flex items-center gap-3">
-          <CheckCircle className="w-8 h-8 text-green-400" />
+          <svg className="w-8 h-8 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          </svg>
           Risk Oracle
         </h1>
         <p className="text-slate-400">Analyze smart contracts with AI-powered risk scoring</p>
@@ -99,14 +100,16 @@ export default function RiskPage() {
           {/* Analyze Button */}
           <button
             onClick={handleAnalyze}
-            className="w-full py-4 bg-green-600 hover:bg-green-500 rounded-lg text-lg font-bold transition-all transform hover:scale-[1.02] relative overflow-hidden"
+            className="btn-analyze w-full py-4 bg-green-600 hover:bg-green-500 rounded-lg text-lg font-bold transition-all transform hover:scale-[1.02] relative overflow-hidden"
           >
             <span className="relative z-10">Analyze Contract →</span>
           </button>
 
           {/* Try Example */}
           <div className="flex items-center justify-center gap-2 text-sm text-slate-500">
-            <Info className="w-4 h-4" />
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
             <span>Pro Tip: Try analyzing</span>
             <button
               onClick={() => setContractAddress('0x145...452A')}
@@ -122,7 +125,9 @@ export default function RiskPage() {
       {/* Recent Analyses */}
       <div className="mb-8">
         <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
-          <AlertTriangle className="w-5 h-5 text-indigo-400" />
+          <svg className="w-5 h-5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          </svg>
           Recent Analyses
         </h3>
         
@@ -148,8 +153,8 @@ export default function RiskPage() {
                 {`${analysisResult.address.slice(0, 6)}...${analysisResult.address.slice(-4)}`}
               </span>
             </h3>
-            <button className="text-sm text-indigo-400 hover:text-indigo-300 transition-colors flex items-center gap-1">
-              View on Explorer <ExternalLink className="w-4 h-4" />
+            <button className="text-sm text-indigo-400 hover:text-indigo-300 transition-colors">
+              View on Explorer →
             </button>
           </div>
 
@@ -159,7 +164,9 @@ export default function RiskPage() {
           {/* Issues Found */}
           <div className="mb-8">
             <h4 className="text-lg font-bold mb-4 flex items-center gap-2">
-              <AlertTriangle className="w-5 h-5 text-red-400" />
+              <svg className="w-5 h-5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+              </svg>
               Issues Found
             </h4>
 
@@ -178,7 +185,9 @@ export default function RiskPage() {
                     className={`flex items-start gap-4 p-4 rounded-lg ${colors.bg} border ${colors.border}`}
                   >
                     <div className={`w-8 h-8 rounded-full ${colors.icon} flex items-center justify-center flex-shrink-0`}>
-                      <XCircle className="w-4 h-4 text-white" />
+                      <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"/>
+                      </svg>
                     </div>
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-1">
@@ -199,7 +208,9 @@ export default function RiskPage() {
           <div className="p-4 rounded-lg bg-indigo-950/20 border border-indigo-900/30">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <Shield className="w-5 h-5 text-indigo-400" />
+                <svg className="w-5 h-5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+                </svg>
                 <div>
                   <div className="font-semibold mb-1">✅ Proof of Risk Stored On-Chain</div>
                   <div className="text-sm text-slate-400">
@@ -235,6 +246,6 @@ export default function RiskPage() {
       <div className="hidden">
         <RiskAnalysis />
       </div>
-    </div>
+    </>
   )
 }
