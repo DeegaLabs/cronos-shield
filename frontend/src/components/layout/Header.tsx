@@ -8,7 +8,7 @@ export const Header = () => {
         <div className="flex items-center justify-between">
           <Link to="/" className="flex items-center gap-3">
             <Shield className="w-8 h-8 text-indigo-400" />
-            <span className="font-display text-xl font-bold gradient-text">
+            <span className="orbitron text-xl font-bold gradient-text">
               CRONOS SHIELD
             </span>
           </Link>

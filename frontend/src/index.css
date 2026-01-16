@@ -8,6 +8,7 @@
     margin: 0;
     min-width: 320px;
     min-height: 100vh;
+    overflow-x: hidden;
   }
 
   #root {
@@ -16,6 +17,11 @@
 }
 
 @layer utilities {
+  /* Orbitron font class (matches HTML) */
+  .orbitron {
+    font-family: 'Orbitron', sans-serif;
+  }
+  
   /* Glassmorphism card */
   .glass-card {
     @apply bg-[rgba(30,41,59,0.5)] backdrop-blur-[16px] border border-slate-700/10;

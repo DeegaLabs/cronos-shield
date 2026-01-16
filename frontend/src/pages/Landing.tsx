@@ -19,7 +19,7 @@ export const Landing = () => {
               🏆 Cronos x402 Paytech Hackathon 2025
             </div>
             
-            <h1 className="font-display text-6xl md:text-8xl font-black mb-6 glow-effect">
+            <h1 className="orbitron text-6xl md:text-8xl font-black mb-6 glow-effect">
               <span className="gradient-text">CRONOS SHIELD</span>
             </h1>
             
@@ -75,7 +75,7 @@ export const Landing = () => {
       <section id="tools" className="py-24 px-6 relative">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-16">
-            <h2 className="font-display text-4xl md:text-5xl font-bold mb-4">
+            <h2 className="orbitron text-4xl md:text-5xl font-bold mb-4">
               <GradientText>Our Tools</GradientText>
             </h2>
             <p className="text-slate-400 text-lg max-w-2xl mx-auto">
@@ -227,7 +227,7 @@ export const Landing = () => {
       <section id="about" className="py-24 px-6 bg-slate-900/50">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-16">
-            <h2 className="font-display text-4xl md:text-5xl font-bold mb-4">
+            <h2 className="orbitron text-4xl md:text-5xl font-bold mb-4">
               <GradientText>How It Works</GradientText>
             </h2>
             <p className="text-slate-400 text-lg">Integration creates exponential value</p>
