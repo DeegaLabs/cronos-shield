@@ -7,6 +7,7 @@ import { MetricCard } from '../components/dashboard/MetricCard'
 import { LineChart } from '../components/charts/LineChart'
 import DecisionLog from '../components/dashboard/DecisionLog'
 import BlockedTransactions from '../components/dashboard/BlockedTransactions'
+import { ActivityTable } from '../components/dashboard/ActivityTable'
 import type { Metrics as MetricsType } from '../types'
 
 export default function DashboardPage() {
@@ -150,6 +151,9 @@ export default function DashboardPage() {
           <BlockedTransactions />
         </GlassCard>
       </div>
+
+      {/* Full Width Activity Table */}
+      <ActivityTable />
     </div>
   )
 }
