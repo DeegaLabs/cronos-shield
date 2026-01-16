@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { Shield, CheckCircle, Lock, TrendingUp, Eye } from 'lucide-react'
+import { CheckCircle, Lock, TrendingUp, Eye } from 'lucide-react'
 import { Header } from '../components/layout/Header'
 import { Footer } from '../components/layout/Footer'
 import { GlassCard } from '../components/cards/GlassCard'
