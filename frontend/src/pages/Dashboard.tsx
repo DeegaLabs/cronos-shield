@@ -1,5 +1,4 @@
 import { useQuery } from '@tanstack/react-query'
-import { BarChart3, CheckCircle, XCircle, DollarSign, TrendingUp } from 'lucide-react'
 import apiClient from '../lib/api/client'
 import { GlassCard } from '../components/cards/GlassCard'
 import { SystemHealthBadge } from '../components/dashboard/SystemHealthBadge'
@@ -32,11 +31,13 @@ export default function DashboardPage() {
   const chartLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 
   return (
-    <div className="max-w-7xl mx-auto px-6 py-8">
+    <>
       {/* Page Header */}
       <div className="mb-8">
         <h1 className="text-3xl font-bold mb-2 flex items-center gap-3">
-          <BarChart3 className="w-8 h-8 text-blue-400" />
+          <svg className="w-8 h-8 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+          </svg>
           Observability Dashboard
         </h1>
         <p className="text-slate-400">Real-time monitoring of AI decisions and system metrics</p>
@@ -55,7 +56,11 @@ export default function DashboardPage() {
           last24h="156"
           sparklineData={sparklineData1}
           sparklineColor="#10b981"
-          icon={DollarSign}
+          iconSvg={
+            <svg className="w-5 h-5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+          }
         />
         <MetricCard
           label="Risk Analyses"
@@ -65,7 +70,11 @@ export default function DashboardPage() {
           last24h="67"
           sparklineData={sparklineData2}
           sparklineColor="#ef4444"
-          icon={CheckCircle}
+          iconSvg={
+            <svg className="w-5 h-5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+          }
         />
         <MetricCard
           label="Blocked Txns"
@@ -75,8 +84,12 @@ export default function DashboardPage() {
           last24h="12"
           sparklineData={sparklineData3}
           sparklineColor="#f59e0b"
-          icon={XCircle}
           valueColor="text-red-400"
+          iconSvg={
+            <svg className="w-5 h-5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/>
+            </svg>
+          }
         />
         <MetricCard
           label="Divergence Checks"
@@ -86,7 +99,11 @@ export default function DashboardPage() {
           last24h="45"
           sparklineData={sparklineData4}
           sparklineColor="#a855f7"
-          icon={TrendingUp}
+          iconSvg={
+            <svg className="w-5 h-5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"/>
+            </svg>
+          }
         />
       </div>
 
@@ -154,6 +171,6 @@ export default function DashboardPage() {
 
       {/* Full Width Activity Table */}
       <ActivityTable />
-    </div>
+    </>
   )
 }

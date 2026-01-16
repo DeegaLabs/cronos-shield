@@ -1,4 +1,3 @@
-import type { LucideIcon } from 'lucide-react'
 import { GlassCard } from '../cards/GlassCard'
 import { SparklineChart } from '../charts/SparklineChart'
 
@@ -10,7 +9,7 @@ interface MetricCardProps {
   last24h: string
   sparklineData: number[]
   sparklineColor: string
-  icon: LucideIcon
+  iconSvg: React.ReactNode
   valueColor?: string
 }
 
@@ -22,16 +21,16 @@ export const MetricCard = ({
   last24h,
   sparklineData,
   sparklineColor,
-  icon: Icon,
+  iconSvg,
   valueColor = 'text-white',
 }: MetricCardProps) => {
   return (
-    <GlassCard className="rounded-2xl p-6 transition-all duration-300 hover:-translate-y-1 hover:border-indigo-500/30">
+    <GlassCard className="rounded-2xl p-6 metric-card">
       <div className="flex items-center justify-between mb-4">
         <span className="text-slate-400 text-sm font-semibold uppercase tracking-wide">
           {label}
         </span>
-        <Icon className="w-5 h-5 text-slate-500" />
+        {iconSvg}
       </div>
       <div className="mb-3">
         <div className={`text-3xl font-bold mb-1 ${valueColor}`}>{value}</div>
@@ -42,7 +41,9 @@ export const MetricCard = ({
           <span className="text-xs text-slate-500">Last 24h: {last24h}</span>
         </div>
       </div>
-      <SparklineChart data={sparklineData} color={sparklineColor} />
+      <div className="sparkline">
+        <SparklineChart data={sparklineData} color={sparklineColor} />
+      </div>
     </GlassCard>
   )
 }
