@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { TrendingUp, Building2, ArrowLeftRight, AlertTriangle, CheckCircle } from 'lucide-react'
 import { GlassCard } from '../components/cards/GlassCard'
 import { DivergenceBar } from '../components/divergence/DivergenceBar'
 import { LineChart } from '../components/charts/LineChart'
@@ -68,11 +67,13 @@ export default function DivergencePage() {
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-6 py-8">
+    <>
       {/* Page Header */}
       <div className="mb-8">
         <h1 className="text-3xl font-bold mb-2 flex items-center gap-3">
-          <TrendingUp className="w-8 h-8 text-purple-400" />
+          <svg className="w-8 h-8 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"/>
+          </svg>
           CEX-DEX Synergy
         </h1>
         <p className="text-slate-400">Real-time price divergence detection between Crypto.com and DEXs</p>
@@ -116,7 +117,9 @@ export default function DivergencePage() {
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-3">
               <div className="w-12 h-12 bg-indigo-500/10 rounded-xl flex items-center justify-center">
-                <Building2 className="w-6 h-6 text-indigo-400" />
+                <svg className="w-6 h-6 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
+                </svg>
               </div>
               <div>
                 <div className="text-sm text-slate-400">🏢 Crypto.com</div>
@@ -127,7 +130,7 @@ export default function DivergencePage() {
           </div>
 
           <div className="mb-6">
-            <div className="text-5xl font-bold mb-2">${cexPrice.toFixed(4)}</div>
+            <div className="text-5xl font-bold mb-2 price-flash">${cexPrice.toFixed(4)}</div>
             <div className="flex items-center gap-2">
               <span className="px-2 py-1 bg-green-500/10 text-green-400 rounded text-sm font-semibold">
                 ↗ +2.5%
@@ -157,7 +160,9 @@ export default function DivergencePage() {
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-3">
               <div className="w-12 h-12 bg-cyan-500/10 rounded-xl flex items-center justify-center">
-                <ArrowLeftRight className="w-6 h-6 text-cyan-400" />
+                <svg className="w-6 h-6 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/>
+                </svg>
               </div>
               <div>
                 <div className="text-sm text-slate-400">🔄 VVS Finance</div>
@@ -168,7 +173,7 @@ export default function DivergencePage() {
           </div>
 
           <div className="mb-6">
-            <div className="text-5xl font-bold mb-2">${dexPrice.toFixed(4)}</div>
+            <div className="text-5xl font-bold mb-2 price-flash">${dexPrice.toFixed(4)}</div>
             <div className="flex items-center gap-2">
               <span className="px-2 py-1 bg-green-500/10 text-green-400 rounded text-sm font-semibold">
                 ↗ +3.2%
@@ -195,23 +200,20 @@ export default function DivergencePage() {
       </div>
 
       {/* Divergence Alert */}
-      <GlassCard className="rounded-2xl p-8 mb-8 border-2 border-red-500/30 animate-pulse">
+      <GlassCard className="rounded-2xl p-8 mb-8 border-2 border-red-500/30 alert-pulse">
         <div className="flex items-start gap-4 mb-6">
           <div className="w-12 h-12 rounded-full bg-red-500 flex items-center justify-center flex-shrink-0">
-            <AlertTriangle className="w-6 h-6 text-white" />
+            <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+            </svg>
           </div>
           <div className="flex-1">
             <div className="flex items-center gap-3 mb-2">
-              <h3 className="text-2xl font-bold">{divergencePercentage.toFixed(1)}% Price Divergence Detected</h3>
-              <span className="px-3 py-1 bg-red-500 text-white rounded-lg text-sm font-bold">
-                🔴 HIGH RISK
-              </span>
+              <h3 className="text-2xl font-bold">8.2% Price Divergence Detected</h3>
+              <span className="px-3 py-1 bg-red-500 text-white rounded-lg text-sm font-bold">🔴 HIGH RISK</span>
             </div>
-            <p className="text-slate-400 mb-4">
-              DEX price is {divergencePercentage.toFixed(1)}% higher than CEX price. High risk of arbitrage
-              opportunities and potential market manipulation.
-            </p>
-
+            <p className="text-slate-400 mb-4">DEX price is 8.2% higher than CEX price. High risk of arbitrage opportunities and potential market manipulation.</p>
+            
             {/* Divergence Bar */}
             <DivergenceBar percentage={divergencePercentage} />
 
@@ -253,36 +255,32 @@ export default function DivergencePage() {
             <button className="px-3 py-1 bg-slate-800 hover:bg-slate-700 rounded text-sm">90D</button>
           </div>
         </div>
-        <LineChart
-          labels={chartLabels}
-          data={divergenceData}
-          color="#a855f7"
-          title="Divergence"
-          max={10}
-          yAxisLabel="%"
-        />
+        <div className="chart-container-large">
+          <LineChart
+            labels={chartLabels}
+            data={divergenceData}
+            color="#a855f7"
+            title="Divergence"
+          />
+        </div>
       </GlassCard>
 
       {/* Recent Alerts */}
       <GlassCard className="rounded-2xl p-8">
         <h3 className="text-lg font-bold mb-6">Recent Divergence Alerts</h3>
-
+        
         <div className="space-y-3">
           {recentAlerts.map((alert, index) => {
             const colors = getSeverityColors(alert.severity)
             return (
               <div
                 key={index}
-                className={`flex items-center gap-4 p-4 rounded-lg ${colors.bg} border ${colors.border} cursor-pointer hover:border-opacity-50 transition-colors`}
+                className={`flex items-center gap-4 p-4 rounded-lg ${colors.bg} border ${colors.border} cursor-pointer hover:${colors.border.replace('/30', '/50')} transition-colors`}
               >
                 <div className={`w-10 h-10 rounded-full ${colors.icon} flex items-center justify-center flex-shrink-0`}>
-                  {alert.severity === 'high' ? (
-                    <AlertTriangle className={`w-5 h-5 ${colors.iconColor}`} />
-                  ) : alert.severity === 'medium' ? (
-                    <AlertTriangle className={`w-5 h-5 ${colors.iconColor}`} />
-                  ) : (
-                    <CheckCircle className={`w-5 h-5 ${colors.iconColor}`} />
-                  )}
+                  <svg className={`w-5 h-5 ${colors.iconColor}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                  </svg>
                 </div>
                 <div className="flex-1">
                   <div className="flex items-center gap-2 mb-1">
@@ -303,6 +301,6 @@ export default function DivergencePage() {
           View All Alerts
         </button>
       </GlassCard>
-    </div>
+    </>
   )
 }

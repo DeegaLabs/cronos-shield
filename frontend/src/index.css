@@ -233,6 +233,12 @@
     height: 300px;
   }
   
+  /* Chart container for CEX-DEX (400px) */
+  .chart-container-large {
+    position: relative;
+    height: 400px;
+  }
+  
   /* Analysis button pulse - Risk Oracle */
   .btn-analyze {
     position: relative;
