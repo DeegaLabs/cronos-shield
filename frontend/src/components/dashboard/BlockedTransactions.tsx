@@ -1,74 +1,88 @@
-/**
- * Blocked Transactions Component
- */
-
-import { useQuery } from '@tanstack/react-query';
-import apiClient from '../../lib/api/client';
-import type { BlockedTransaction } from '../../types';
+import { useQuery } from '@tanstack/react-query'
+import { XCircle } from 'lucide-react'
+import apiClient from '../../lib/api/client'
+import type { BlockedTransaction } from '../../types'
+import { formatDistanceToNow } from 'date-fns'
 
 export default function BlockedTransactions() {
   const { data: blocks, isLoading } = useQuery<BlockedTransaction[]>({
     queryKey: ['blocked-transactions'],
     queryFn: async () => {
       const response = await apiClient.get('/api/observability/blocked-transactions', {
-        params: { limit: 50 },
-      });
-      return response.data;
+        params: { limit: 3 },
+      })
+      return response.data
     },
     refetchInterval: 3000,
-  });
+  })
 
   if (isLoading) {
-    return <div className="text-center py-8">Loading blocked transactions...</div>;
+    return (
+      <div>
+        <div className="flex items-center justify-between mb-6">
+          <h3 className="text-lg font-bold flex items-center gap-2">
+            <XCircle className="w-5 h-5 text-red-400" />
+            Blocked Transactions
+          </h3>
+          <span className="px-3 py-1 bg-red-500/10 text-red-400 rounded-full text-sm font-semibold">
+            {blocks?.length || 0} Total
+          </span>
+        </div>
+        <div className="text-center py-8 text-slate-400">Loading blocked transactions...</div>
+      </div>
+    )
   }
 
   return (
-    <div className="space-y-4">
-      <h3 className="text-2xl font-bold">🚫 Blocked Transactions</h3>
-
-      <div className="bg-slate-800 p-4 rounded-lg border border-slate-700 mb-4">
-        <div className="text-slate-300">
-          Total blocked: <span className="font-bold text-red-400">{blocks?.length || 0}</span>
-        </div>
-        <div className="text-sm text-slate-500 mt-1">
-          Transactions blocked by the Shield to protect capital
-        </div>
+    <div>
+      <div className="flex items-center justify-between mb-6">
+        <h3 className="text-lg font-bold flex items-center gap-2">
+          <XCircle className="w-5 h-5 text-red-400" />
+          Blocked Transactions
+        </h3>
+        <span className="px-3 py-1 bg-red-500/10 text-red-400 rounded-full text-sm font-semibold">
+          {blocks?.length || 0} Total
+        </span>
       </div>
 
-      <div className="space-y-2 max-h-96 overflow-y-auto">
+      <div className="space-y-3">
         {!blocks || blocks.length === 0 ? (
           <div className="text-center py-8 text-slate-400">No blocked transactions</div>
         ) : (
-          blocks.map((block) => (
-            <div
-              key={block.id}
-              className="bg-slate-800 p-4 rounded-lg border border-red-500/50 hover:border-red-500 transition-colors"
-            >
-              <div className="flex items-start justify-between">
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="text-xl">🚫</span>
-                    <span className="font-semibold text-red-400">BLOCKED</span>
-                    <span className="text-xs text-slate-500">({block.service})</span>
+          blocks.map((block) => {
+            const timeAgo = formatDistanceToNow(new Date(block.timestamp), { addSuffix: true })
+            const addressShort = `${block.target.slice(0, 6)}...${block.target.slice(-4)}`
+
+            return (
+              <div
+                key={block.id}
+                className="p-4 rounded-lg bg-red-950/20 border border-red-900/30 hover:border-red-800/50 transition-colors cursor-pointer"
+              >
+                <div className="flex items-start justify-between mb-2">
+                  <div>
+                    <div className="font-semibold text-sm mb-1">
+                      {block.reason || 'High Risk Contract'}
+                    </div>
+                    <div className="text-xs text-slate-400 font-mono">{addressShort}</div>
                   </div>
-                  <p className="text-slate-200 mb-2">{block.reason}</p>
-                  <div className="flex flex-wrap gap-4 text-sm">
-                    <span className="text-slate-400">
-                      Target: <span className="text-slate-300 font-mono">{block.target.slice(0, 10)}...</span>
-                    </span>
-                    <span className="text-slate-400">
-                      Risk Score: <span className="text-red-400">{block.riskScore}/100</span>
-                    </span>
-                  </div>
+                  <span className="px-2 py-1 bg-red-500 text-white rounded text-xs font-bold">
+                    {block.riskScore}
+                  </span>
                 </div>
-                <div className="text-xs text-slate-500 ml-4">
-                  {new Date(block.timestamp).toLocaleString()}
+                <div className="flex items-center gap-2 text-xs text-slate-400">
+                  <span>{timeAgo}</span>
+                  <span>•</span>
+                  <span>{block.service || 'Risk Oracle'}</span>
                 </div>
               </div>
-            </div>
-          ))
+            )
+          })
         )}
       </div>
+
+      <button className="w-full mt-4 py-2 border border-slate-700 hover:border-slate-600 rounded-lg text-sm font-semibold transition-colors">
+        View All Blocked Transactions
+      </button>
     </div>
-  );
+  )
 }

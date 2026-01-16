@@ -1,77 +1,96 @@
-/**
- * Decision Log Component
- */
-
-import { useQuery } from '@tanstack/react-query';
-import apiClient from '../../lib/api/client';
-import type { LogEntry } from '../../types';
+import { useQuery } from '@tanstack/react-query'
+import { Clipboard, CheckCircle, XCircle, DollarSign, TrendingUp } from 'lucide-react'
+import apiClient from '../../lib/api/client'
+import type { LogEntry } from '../../types'
+import { formatDistanceToNow } from 'date-fns'
 
 export default function DecisionLog() {
   const { data: logs, isLoading } = useQuery<LogEntry[]>({
     queryKey: ['logs'],
     queryFn: async () => {
       const response = await apiClient.get('/api/observability/logs', {
-        params: { limit: 50 },
-      });
-      return response.data;
+        params: { limit: 5 },
+      })
+      return response.data
     },
     refetchInterval: 3000,
-  });
+  })
 
-  const getTypeIcon = (type: string) => {
-    const icons: Record<string, string> = {
-      'x402_payment': '💰',
-      'risk_analysis': '🔍',
-      'transaction_blocked': '🚫',
-      'transaction_allowed': '✅',
-      'divergence_analysis': '📊',
-    };
-    return icons[type] || '📝';
-  };
-
-  const getTypeColor = (type: string) => {
-    if (type === 'transaction_blocked') return 'text-red-400';
-    if (type === 'transaction_allowed') return 'text-green-400';
-    if (type === 'x402_payment') return 'text-blue-400';
-    return 'text-slate-300';
-  };
+  const getLogIcon = (type: string) => {
+    if (type.includes('risk_analysis') || type.includes('allowed')) {
+      return { Icon: CheckCircle, color: 'text-green-400', bg: 'bg-green-500/10' }
+    }
+    if (type.includes('blocked')) {
+      return { Icon: XCircle, color: 'text-red-400', bg: 'bg-red-500/10' }
+    }
+    if (type.includes('payment')) {
+      return { Icon: DollarSign, color: 'text-blue-400', bg: 'bg-blue-500/10' }
+    }
+    if (type.includes('divergence')) {
+      return { Icon: TrendingUp, color: 'text-purple-400', bg: 'bg-purple-500/10' }
+    }
+    return { Icon: Clipboard, color: 'text-slate-400', bg: 'bg-slate-500/10' }
+  }
 
   if (isLoading) {
-    return <div className="text-center py-8">Loading logs...</div>;
+    return (
+      <div>
+        <div className="flex items-center justify-between mb-6">
+          <h3 className="text-lg font-bold flex items-center gap-2">
+            <Clipboard className="w-5 h-5 text-indigo-400" />
+            Decision Log
+          </h3>
+          <button className="text-sm text-indigo-400 hover:text-indigo-300 transition-colors">
+            View All →
+          </button>
+        </div>
+        <div className="text-center py-8 text-slate-400">Loading logs...</div>
+      </div>
+    )
   }
 
   return (
-    <div className="space-y-4">
-      <h3 className="text-2xl font-bold">📝 Decision Log</h3>
+    <div>
+      <div className="flex items-center justify-between mb-6">
+        <h3 className="text-lg font-bold flex items-center gap-2">
+          <Clipboard className="w-5 h-5 text-indigo-400" />
+          Decision Log
+        </h3>
+        <button className="text-sm text-indigo-400 hover:text-indigo-300 transition-colors">
+          View All →
+        </button>
+      </div>
 
-      <div className="space-y-2 max-h-96 overflow-y-auto">
+      <div className="space-y-3">
         {!logs || logs.length === 0 ? (
           <div className="text-center py-8 text-slate-400">No logs found</div>
         ) : (
-          logs.map((log) => (
-            <div
-              key={log.id}
-              className="bg-slate-800 p-4 rounded-lg border border-slate-700 hover:border-slate-600 transition-colors"
-            >
-              <div className="flex items-start justify-between">
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="text-xl">{getTypeIcon(log.type)}</span>
-                    <span className={`font-semibold ${getTypeColor(log.type)}`}>
-                      {log.type.replace('_', ' ').toUpperCase()}
-                    </span>
-                    <span className="text-xs text-slate-500">({log.service})</span>
-                  </div>
-                  <p className="text-slate-200">{log.humanReadable}</p>
+          logs.map((log) => {
+            const { Icon, color, bg } = getLogIcon(log.type)
+            const timeAgo = formatDistanceToNow(new Date(log.timestamp), { addSuffix: true })
+
+            return (
+              <div
+                key={log.id}
+                className="flex items-center gap-4 p-3 rounded-lg bg-slate-800/50 hover:bg-slate-800 transition-colors cursor-pointer"
+              >
+                <div className={`w-10 h-10 rounded-full ${bg} flex items-center justify-center flex-shrink-0`}>
+                  <Icon className={`w-5 h-5 ${color}`} />
                 </div>
-                <div className="text-xs text-slate-500 ml-4">
-                  {new Date(log.timestamp).toLocaleString()}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="font-semibold text-sm">
+                      {log.type.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase())}
+                    </span>
+                    <span className="text-xs text-slate-400">{timeAgo}</span>
+                  </div>
+                  <div className="text-xs text-slate-400 truncate">{log.humanReadable}</div>
                 </div>
               </div>
-            </div>
-          ))
+            )
+          })
         )}
       </div>
     </div>
-  );
+  )
 }
