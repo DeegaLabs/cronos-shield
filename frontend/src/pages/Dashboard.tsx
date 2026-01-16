@@ -10,7 +10,7 @@ import BlockedTransactions from '../components/dashboard/BlockedTransactions'
 import type { Metrics as MetricsType } from '../types'
 
 export default function DashboardPage() {
-  const { data: metrics, isLoading } = useQuery<MetricsType>({
+  const { data: metrics } = useQuery<MetricsType>({
     queryKey: ['metrics'],
     queryFn: async () => {
       const response = await apiClient.get('/api/observability/metrics')
@@ -68,7 +68,7 @@ export default function DashboardPage() {
         />
         <MetricCard
           label="Blocked Txns"
-          value={metrics?.blockedTransactions || '89'}
+          value={metrics?.totalBlocks || '89'}
           change="+8.7%"
           changeColor="green"
           last24h="12"

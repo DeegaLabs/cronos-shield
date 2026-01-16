@@ -1,4 +1,4 @@
-import { LucideIcon } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 import { GlassCard } from '../cards/GlassCard'
 import { SparklineChart } from '../charts/SparklineChart'
 

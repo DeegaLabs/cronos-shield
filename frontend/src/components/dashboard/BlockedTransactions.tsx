@@ -11,10 +11,12 @@ export default function BlockedTransactions() {
       const response = await apiClient.get('/api/observability/blocked-transactions', {
         params: { limit: 3 },
       })
-      return response.data
+      return response.data || []
     },
     refetchInterval: 3000,
   })
+
+  const blocksCount = Array.isArray(blocks) ? blocks.length : 0
 
   if (isLoading) {
     return (
@@ -25,7 +27,7 @@ export default function BlockedTransactions() {
             Blocked Transactions
           </h3>
           <span className="px-3 py-1 bg-red-500/10 text-red-400 rounded-full text-sm font-semibold">
-            {blocks?.length || 0} Total
+            {blocksCount} Total
           </span>
         </div>
         <div className="text-center py-8 text-slate-400">Loading blocked transactions...</div>
@@ -41,7 +43,7 @@ export default function BlockedTransactions() {
           Blocked Transactions
         </h3>
         <span className="px-3 py-1 bg-red-500/10 text-red-400 rounded-full text-sm font-semibold">
-          {blocks?.length || 0} Total
+          {blocksCount} Total
         </span>
       </div>
 

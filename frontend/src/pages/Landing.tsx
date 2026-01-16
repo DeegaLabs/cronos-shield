@@ -20,7 +20,7 @@ export const Landing = () => {
             </div>
             
             <h1 className="font-display text-6xl md:text-8xl font-black mb-6 glow-effect">
-              <GradientText>CRONOS SHIELD</GradientText>
+              <span className="gradient-text">CRONOS SHIELD</span>
             </h1>
             
             <p className="text-xl md:text-2xl text-slate-400 mb-4 max-w-3xl mx-auto">
@@ -47,21 +47,19 @@ export const Landing = () => {
             {/* Stats Bar */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-6 max-w-4xl mx-auto">
               <GlassCard className="rounded-2xl p-6 fade-in fade-in-delay-1">
-                <div className="text-3xl font-bold">
-                  <GradientText>1,234</GradientText>
-                </div>
+                <div className="text-3xl font-bold gradient-text stat-number">1,234</div>
                 <div className="text-sm text-slate-400 mt-2">Risk Analyses</div>
               </GlassCard>
               <GlassCard className="rounded-2xl p-6 fade-in fade-in-delay-2">
-                <div className="text-3xl font-bold text-green-400">$2.5M</div>
+                <div className="text-3xl font-bold text-green-400 stat-number">$2.5M</div>
                 <div className="text-sm text-slate-400 mt-2">TVL Protected</div>
               </GlassCard>
               <GlassCard className="rounded-2xl p-6 fade-in fade-in-delay-3">
-                <div className="text-3xl font-bold text-red-400">89</div>
+                <div className="text-3xl font-bold text-red-400 stat-number">89</div>
                 <div className="text-sm text-slate-400 mt-2">Attacks Blocked</div>
               </GlassCard>
               <GlassCard className="rounded-2xl p-6 fade-in fade-in-delay-4">
-                <div className="text-3xl font-bold text-cyan-400">567</div>
+                <div className="text-3xl font-bold text-cyan-400 stat-number">567</div>
                 <div className="text-sm text-slate-400 mt-2">x402 Payments</div>
               </GlassCard>
             </div>

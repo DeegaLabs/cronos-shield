@@ -6,7 +6,6 @@ import { LineChart } from '../components/charts/LineChart'
 
 export default function DivergencePage() {
   const [selectedPair, setSelectedPair] = useState('CRO/USDC')
-  const [divergence, setDivergence] = useState(8.2)
 
   // Mock data
   const cexPrice = 0.0850

@@ -74,7 +74,9 @@ export const LineChart = ({
         grid: { color: 'rgba(148, 163, 184, 0.1)' },
         ticks: { 
           color: '#94a3b8',
-          callback: yAxisLabel ? (value: number) => `${value}${yAxisLabel}` : undefined,
+          callback: yAxisLabel ? function(this: any, tickValue: string | number) {
+            return `${tickValue}${yAxisLabel}`
+          } : undefined,
         },
       },
       x: {
