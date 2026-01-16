@@ -4,7 +4,7 @@
 
 import { useState, lazy, Suspense } from 'react';
 import apiClient from '../../lib/api/client';
-import { useWallet } from '../../contexts/WalletContext';
+import { useAccount, useWalletClient } from 'wagmi';
 import { InfoTooltip } from '../common/Tooltip';
 import type { RiskAnalysis } from '../../types';
 import type { PaymentChallenge } from '../../types/x402.types';
@@ -14,7 +14,8 @@ import type { PaymentChallenge } from '../../types/x402.types';
 const PaymentModalLazy = lazy(() => import('../common/PaymentModal'));
 
 export default function RiskAnalysis() {
-  const { wallet } = useWallet();
+  const { address, isConnected } = useAccount();
+  const { data: walletClient } = useWalletClient();
   const [contract, setContract] = useState('');
   const [analysis, setAnalysis] = useState<RiskAnalysis | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -50,7 +51,7 @@ export default function RiskAnalysis() {
       if (err.response?.status === 402) {
         const paymentData = err.response?.data as PaymentChallenge;
         setPaymentChallenge(paymentData);
-        if (!wallet.isConnected || !wallet.address || !wallet.signer) {
+        if (!isConnected || !address || !walletClient) {
           setError('Please connect your wallet first to make payments');
         }
       } else {
@@ -140,8 +141,8 @@ export default function RiskAnalysis() {
         }>
           <PaymentModalLazy
             challenge={paymentChallenge}
-            walletAddress={wallet.address}
-            signer={wallet.signer}
+            walletAddress={address || null}
+            signer={walletClient as any}
             isOpen={showPaymentModal}
             onClose={() => {
               setShowPaymentModal(false);

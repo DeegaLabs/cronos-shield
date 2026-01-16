@@ -5,7 +5,7 @@
 import { useState, useCallback, useRef, lazy, Suspense } from 'react';
 import toast from 'react-hot-toast';
 import apiClient from '../../lib/api/client';
-import { useWallet } from '../../contexts/WalletContext';
+import { useAccount, useWalletClient } from 'wagmi';
 import { InfoTooltip } from '../common/Tooltip';
 import type { DivergenceAnalysis } from '../../types';
 import type { PaymentChallenge } from '../../types/x402.types';
@@ -15,7 +15,8 @@ import type { PaymentChallenge } from '../../types/x402.types';
 const PaymentModalLazy = lazy(() => import('../common/PaymentModal'));
 
 export default function DivergenceAnalysis() {
-  const { wallet } = useWallet();
+  const { address, isConnected } = useAccount();
+  const { data: walletClient } = useWalletClient();
   const [token, setToken] = useState('CRO');
   const [analysis, setAnalysis] = useState<DivergenceAnalysis | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -60,7 +61,7 @@ export default function DivergenceAnalysis() {
       if (err.response?.status === 402) {
         const paymentData = err.response?.data as PaymentChallenge;
         setPaymentChallenge(paymentData);
-        if (!wallet.isConnected || !wallet.address || !wallet.signer) {
+        if (!isConnected || !address || !walletClient) {
           toast.error('Please connect your wallet first to make payments');
           setError('Please connect your wallet first to make payments');
         }
@@ -73,7 +74,7 @@ export default function DivergenceAnalysis() {
     } finally {
       setIsAnalyzing(false);
     }
-  }, [token, paymentId, wallet.isConnected, wallet.address, wallet.signer, isAnalyzing]);
+  }, [token, paymentId, isConnected, address, walletClient, isAnalyzing]);
 
   const handlePaymentSuccess = useCallback((newPaymentId: string) => {
     setPaymentId(newPaymentId);
@@ -149,8 +150,8 @@ export default function DivergenceAnalysis() {
         }>
           <PaymentModalLazy
             challenge={paymentChallenge}
-            walletAddress={wallet.address}
-            signer={wallet.signer}
+            walletAddress={address || null}
+            signer={walletClient as any}
             isOpen={showPaymentModal}
             onClose={() => {
               setShowPaymentModal(false);

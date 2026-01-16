@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import { ConnectButton } from '@rainbow-me/rainbowkit'
 
 export const Header = () => {
   return (
@@ -24,9 +25,7 @@ export const Header = () => {
             <a href="#docs" className="text-slate-400 hover:text-indigo-400 transition-colors">
               Docs
             </a>
-            <button className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 rounded-lg transition-all transform hover:scale-105">
-              Connect Wallet
-            </button>
+            <ConnectButton />
           </div>
         </div>
       </div>

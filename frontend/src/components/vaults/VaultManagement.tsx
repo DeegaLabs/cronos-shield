@@ -8,7 +8,7 @@ import { useState, useEffect } from 'react';
 import { ethers } from 'ethers';
 import toast from 'react-hot-toast';
 import apiClient from '../../lib/api/client';
-import { useWallet } from '../../contexts/WalletContext';
+import { useAccount, useWalletClient } from 'wagmi';
 import ConfirmModal from '../common/ConfirmModal';
 import { InfoTooltip } from '../common/Tooltip';
 import type { VaultInfo, VaultBalance, TransactionResult } from '../../types/vault.types';
@@ -29,7 +29,8 @@ const SHIELDED_VAULT_ABI = [
 const VAULT_CONTRACT_ADDRESS = import.meta.env.VITE_SHIELDED_VAULT_ADDRESS || '';
 
 export default function VaultManagement() {
-  const { wallet } = useWallet();
+  const { address } = useAccount();
+  const { data: walletClient } = useWalletClient();
   const [vaultInfo, setVaultInfo] = useState<VaultInfo | null>(null);
   const [balance, setBalance] = useState<VaultBalance | null>(null);
   const [depositAmount, setDepositAmount] = useState('');
@@ -53,22 +54,22 @@ export default function VaultManagement() {
     if (VAULT_CONTRACT_ADDRESS) {
       loadVaultInfo();
     }
-    if (wallet.address) {
+    if (address) {
       loadBalance();
       loadBlockedTransactions();
     }
-  }, [wallet.address]);
+  }, [address]);
 
   // Auto-refresh blocked transactions every 10 seconds
   useEffect(() => {
-    if (!wallet.address) return;
+    if (!address) return;
     
     const interval = setInterval(() => {
       loadBlockedTransactions();
     }, 10000);
     
     return () => clearInterval(interval);
-  }, [wallet.address]);
+  }, [address]);
 
   const loadVaultInfo = async () => {
     try {
@@ -80,11 +81,11 @@ export default function VaultManagement() {
   };
 
   const loadBalance = async () => {
-    if (!wallet.address) return;
+    if (!address) return;
     
     try {
       const response = await apiClient.get('/api/vault/balance', {
-        params: { address: wallet.address },
+        params: { address },
       });
       setBalance(response.data);
     } catch (err: any) {
@@ -93,14 +94,14 @@ export default function VaultManagement() {
   };
 
   const loadBlockedTransactions = async () => {
-    if (!wallet.address) return;
+    if (!address) return;
     
     setIsLoadingBlocked(true);
     try {
       const response = await apiClient.get('/api/vault/blocked-transactions', {
         params: { 
           limit: 20,
-          userAddress: wallet.address,
+          userAddress: address,
         },
       });
       setBlockedTransactions(response.data || []);
@@ -112,7 +113,7 @@ export default function VaultManagement() {
   };
 
   const handleDeposit = () => {
-    if (!wallet.signer || !wallet.address) {
+    if (!walletClient || !address) {
       toast.error('Please connect your wallet first');
       return;
     }
@@ -140,15 +141,19 @@ export default function VaultManagement() {
       const loadingToast = toast.loading('Preparing deposit transaction...');
 
       // Direct contract interaction via frontend
-      // Ensure signer is valid and provider doesn't try to resolve ENS
-      if (!wallet.signer || !wallet.signer.provider) {
-        throw new Error('Wallet signer is not available. Please reconnect your wallet.');
+      // Convert viem walletClient to ethers signer
+      if (!walletClient || !address) {
+        throw new Error('Wallet is not available. Please reconnect your wallet.');
       }
+
+      // Convert viem WalletClient to ethers JsonRpcProvider + Wallet
+      const provider = new ethers.BrowserProvider(walletClient.transport as any);
+      const signer = await provider.getSigner();
 
       const vaultContract = new ethers.Contract(
         VAULT_CONTRACT_ADDRESS,
         SHIELDED_VAULT_ABI,
-        wallet.signer
+        signer
       );
 
       toast.loading('Waiting for MetaMask confirmation...', { id: loadingToast });
@@ -173,7 +178,7 @@ export default function VaultManagement() {
   };
 
   const handleWithdraw = () => {
-    if (!wallet.signer || !wallet.address) {
+    if (!walletClient || !address) {
       toast.error('Please connect your wallet first');
       return;
     }
@@ -201,10 +206,18 @@ export default function VaultManagement() {
       const loadingToast = toast.loading('Preparing withdrawal transaction...');
 
       // Direct contract interaction via frontend
+      // Convert viem walletClient to ethers signer
+      if (!walletClient || !address) {
+        throw new Error('Wallet is not available. Please reconnect your wallet.');
+      }
+
+      const provider = new ethers.BrowserProvider(walletClient.transport as any);
+      const signer = await provider.getSigner();
+
       const vaultContract = new ethers.Contract(
         VAULT_CONTRACT_ADDRESS,
         SHIELDED_VAULT_ABI,
-        wallet.signer
+        signer
       );
 
       toast.loading('Waiting for MetaMask confirmation...', { id: loadingToast });
@@ -229,7 +242,7 @@ export default function VaultManagement() {
   };
 
   const handleExecuteTransaction = () => {
-    if (!wallet.signer || !wallet.address) {
+    if (!walletClient || !address) {
       toast.error('Please connect your wallet first');
       return;
     }
@@ -260,7 +273,7 @@ export default function VaultManagement() {
       // Risk analysis will be done by the backend
       // Execute transaction via backend
       const response = await apiClient.post('/api/vault/execute', {
-        userAddress: wallet.address,
+        userAddress: address,
         target: data.target,
         callData: '0x',
         value: data.value || '0',
@@ -390,7 +403,7 @@ export default function VaultManagement() {
           />
           <button
             onClick={handleDeposit}
-            disabled={isLoading || !wallet.signer}
+            disabled={isLoading || !walletClient}
             className="px-6 py-2 bg-green-600 hover:bg-green-700 disabled:bg-slate-600 disabled:cursor-not-allowed rounded-lg transition-colors"
           >
             {isLoading ? 'Processing...' : 'Deposit'}
@@ -412,7 +425,7 @@ export default function VaultManagement() {
           />
           <button
             onClick={handleWithdraw}
-            disabled={isLoading || !wallet.signer}
+            disabled={isLoading || !walletClient}
             className="px-6 py-2 bg-red-600 hover:bg-red-700 disabled:bg-slate-600 disabled:cursor-not-allowed rounded-lg transition-colors"
           >
             {isLoading ? 'Processing...' : 'Withdraw'}
@@ -450,7 +463,7 @@ export default function VaultManagement() {
           </div>
           <button
             onClick={handleExecuteTransaction}
-            disabled={isLoading || !wallet.signer}
+            disabled={isLoading || !walletClient}
             className="w-full px-6 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-600 disabled:cursor-not-allowed rounded-lg transition-colors"
           >
             {isLoading ? 'Processing...' : 'Execute Transaction'}
@@ -575,7 +588,7 @@ export default function VaultManagement() {
         )}
       </div>
 
-      {!wallet.signer && (
+      {!walletClient && (
         <div className="bg-yellow-900/50 border border-yellow-500 p-4 rounded-lg">
           <p className="text-yellow-400">⚠️ Please connect your wallet to interact with the vault</p>
         </div>

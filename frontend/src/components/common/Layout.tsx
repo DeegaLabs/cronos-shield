@@ -6,7 +6,7 @@
 
 import type { ReactNode } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { useWallet } from '../../contexts/WalletContext';
+import { ConnectButton } from '@rainbow-me/rainbowkit';
 
 interface LayoutProps {
   children: ReactNode;
@@ -14,7 +14,6 @@ interface LayoutProps {
 
 export default function Layout({ children }: LayoutProps) {
   const location = useLocation();
-  const { wallet, isConnecting, error, connect, disconnect } = useWallet();
 
   const isActive = (path: string) => location.pathname === path;
 
@@ -29,42 +28,7 @@ export default function Layout({ children }: LayoutProps) {
               <p className="text-slate-400 text-sm">AI-powered security layer for Cronos</p>
             </div>
             <div className="flex items-center gap-4">
-              {wallet.address && wallet.isConnected && wallet.signer ? (
-                <>
-                  <div className="text-sm">
-                    <span className="text-slate-400">Connected:</span>{' '}
-                    <span className="font-mono text-blue-400">
-                      {wallet.address.slice(0, 6)}...{wallet.address.slice(-4)}
-                    </span>
-                  </div>
-                  <button
-                    onClick={disconnect}
-                    className="px-4 py-2 bg-red-600 hover:bg-red-700 rounded-lg transition-colors"
-                  >
-                    Disconnect
-                  </button>
-                </>
-              ) : (
-                <div className="flex flex-col items-end gap-2">
-                  {wallet.address && !wallet.isConnected && (
-                    <span className="text-xs text-slate-400 max-w-xs text-right">
-                      Wallet identified: {wallet.address.slice(0, 6)}...{wallet.address.slice(-4)}
-                    </span>
-                  )}
-                  <button
-                    onClick={connect}
-                    disabled={isConnecting}
-                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-600 disabled:cursor-not-allowed rounded-lg transition-colors"
-                  >
-                    {isConnecting ? 'Connecting...' : wallet.address ? 'Connect Wallet' : 'Connect Wallet'}
-                  </button>
-                  {error && (
-                    <span className="text-xs text-red-400 max-w-xs text-right">
-                      {error}
-                    </span>
-                  )}
-                </div>
-              )}
+              <ConnectButton />
             </div>
           </div>
         </div>
