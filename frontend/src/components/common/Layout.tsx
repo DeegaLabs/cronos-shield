@@ -7,7 +7,6 @@
 import type { ReactNode } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { ConnectButton } from '@rainbow-me/rainbowkit'
-import { useAccount } from 'wagmi'
 
 interface LayoutProps {
   children: ReactNode
@@ -15,14 +14,8 @@ interface LayoutProps {
 
 export default function Layout({ children }: LayoutProps) {
   const location = useLocation()
-  const { address, isConnected } = useAccount()
 
   const isActive = (path: string) => location.pathname === path
-
-  const formatAddress = (addr: string | undefined) => {
-    if (!addr) return '0x0000...0000'
-    return `${addr.slice(0, 6)}...${addr.slice(-4)}`
-  }
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
@@ -67,11 +60,6 @@ export default function Layout({ children }: LayoutProps) {
             </div>
             
             <div className="flex items-center gap-4">
-              {isConnected && address && (
-                <span className="text-sm text-slate-400">
-                  Wallet: <span className="text-indigo-400">{formatAddress(address)}</span>
-                </span>
-              )}
               <ConnectButton />
             </div>
           </div>
