@@ -165,68 +165,55 @@ export default function PaymentModal({
       const { ethers } = await import('ethers');
       console.log('✅ Ethers imported');
       
-      console.log('📦 Step 4: Creating signer (following SDK examples - no network config)...');
-      // Following SDK examples and QUICK-START.md: create BrowserProvider WITHOUT network config
-      // Network is already verified above, so we don't need to specify it
-      // This avoids _detectNetwork issues that can cause hangs
+      console.log('📦 Step 4: Creating signer (following x402-examples/paywall pattern)...');
+      // Following the official x402-examples/paywall pattern:
+      // 1. Create BrowserProvider
+      // 2. Call provider.send('eth_requestAccounts') through provider (not window.ethereum)
+      // 3. Call ensureCronosChain (already done above)
+      // 4. Call provider.getSigner() without address parameter
       const ethereumProvider = (window as any).ethereum;
       if (!ethereumProvider) {
         throw new Error('MetaMask not found. Please refresh the page.');
       }
       
-      console.log('📋 Creating BrowserProvider (no network config, network already verified)...');
+      console.log('📋 Creating BrowserProvider...');
       const provider = new ethers.BrowserProvider(ethereumProvider);
       console.log('✅ BrowserProvider created');
       
-      // Wallet is already connected via RainbowKit, so we don't need to request accounts
-      // Just verify accounts are available and get signer directly
-      console.log('📋 Verifying MetaMask accounts (wallet already connected via RainbowKit)...');
+      // Following x402-examples pattern: call eth_requestAccounts through provider
+      // This ensures the provider is ready before getting signer
+      console.log('📋 Requesting accounts through provider (x402-examples pattern)...');
       try {
-        // Use eth_accounts (read-only) instead of eth_requestAccounts (requires user approval)
-        // Since wallet is already connected, accounts should be available
-        const accountsPromise = ethereumProvider.request({ method: 'eth_accounts' });
+        const accountsPromise = provider.send('eth_requestAccounts', []);
         const accountsTimeout = new Promise<never>((_, reject) => {
-          setTimeout(() => reject(new Error('eth_accounts check timed out')), 3000);
+          setTimeout(() => reject(new Error('eth_requestAccounts timed out')), 10000);
         });
         const accounts = await Promise.race([accountsPromise, accountsTimeout]) as string[];
-        console.log('✅ Accounts verified:', accounts.length);
+        console.log('✅ Accounts requested through provider:', accounts.length);
         if (!accounts || accounts.length === 0) {
           throw new Error('No accounts found. Please connect your wallet in MetaMask.');
         }
-        if (accounts[0].toLowerCase() !== walletAddress.toLowerCase()) {
-          console.warn('⚠️ Account mismatch, but proceeding with connected account');
-        }
       } catch (accountsError: any) {
-        console.error('❌ Failed to verify accounts:', accountsError);
-        // Don't fail here - try to get signer anyway since wallet is connected via RainbowKit
-        console.warn('⚠️ Account verification failed, but proceeding to get signer...');
+        console.error('❌ Failed to request accounts:', accountsError);
+        // If wallet is already connected via RainbowKit, this might timeout
+        // But we can still try to get signer
+        console.warn('⚠️ Account request failed, but wallet is connected via RainbowKit. Trying to get signer anyway...');
       }
       
-      console.log('⏳ Getting signer (wallet already connected via RainbowKit)...');
+      // Network already verified above (Step 2)
+      // Following x402-examples pattern: call getSigner() WITHOUT address parameter
+      console.log('⏳ Getting signer (x402-examples pattern - no address parameter)...');
       let currentSigner: any;
       try {
-        // Get signer with explicit address since wallet is already connected
-        const signerPromise = provider.getSigner(walletAddress);
+        const signerPromise = provider.getSigner();
         const signerTimeout = new Promise<never>((_, reject) => {
-          setTimeout(() => reject(new Error('getSigner() timed out')), 10000); // Increased timeout
+          setTimeout(() => reject(new Error('getSigner() timed out')), 10000);
         });
         currentSigner = await Promise.race([signerPromise, signerTimeout]);
         console.log('✅ Signer obtained');
       } catch (signerError: any) {
         console.error('❌ Failed to get signer:', signerError);
-        // Try without address as fallback
-        console.log('🔄 Trying getSigner() without address parameter...');
-        try {
-          const fallbackPromise = provider.getSigner();
-          const fallbackTimeout = new Promise<never>((_, reject) => {
-            setTimeout(() => reject(new Error('Fallback getSigner() timed out')), 10000);
-          });
-          currentSigner = await Promise.race([fallbackPromise, fallbackTimeout]);
-          console.log('✅ Signer obtained via fallback method');
-        } catch (fallbackError: any) {
-          console.error('❌ Fallback also failed:', fallbackError);
-          throw new Error(`Failed to get wallet signer: ${signerError.message}. Please refresh the page and try again.`);
-        }
+        throw new Error(`Failed to get wallet signer: ${signerError.message}. Please refresh the page and try again.`);
       }
       
       console.log('📦 Step 5: Validating signer address...');
