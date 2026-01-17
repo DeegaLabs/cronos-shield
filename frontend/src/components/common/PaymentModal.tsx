@@ -137,37 +137,13 @@ export default function PaymentModal({
       const provider = new ethers.BrowserProvider(ethereumProvider);
       console.log('✅ BrowserProvider created');
       
-      console.log('📦 Step 5: Checking existing accounts...');
-      // Check if accounts are already available (wallet is already connected via RainbowKit)
-      // Only request accounts if none are available
-      let accounts: string[] = [];
-      try {
-        accounts = await ethereumProvider.request({ method: 'eth_accounts' });
-        console.log('✅ Existing accounts found:', accounts.length);
-        
-        if (accounts.length === 0) {
-          console.log('📦 No accounts found, requesting...');
-          // Only request if no accounts are available
-          const accountsPromise = ethereumProvider.request({ method: 'eth_requestAccounts' });
-          const accountsTimeout = new Promise<never>((_, reject) => {
-            setTimeout(() => {
-              reject(new Error('MetaMask did not respond to account request. Please check if MetaMask is unlocked and try again.'));
-            }, 10000); // 10 seconds timeout
-          });
-          
-          accounts = await Promise.race([accountsPromise, accountsTimeout]) as string[];
-          console.log('✅ Accounts requested and received:', accounts.length);
-        }
-      } catch (accountsError: any) {
-        console.error('❌ Failed to get accounts:', accountsError);
-        // If wallet is already connected via RainbowKit, we can still proceed
-        // The signer will work even if this fails
-        console.warn('⚠️ Account request failed, but continuing (wallet may already be connected)...');
-      }
-      
-      console.log('📦 Step 6: Getting signer...');
+      console.log('📦 Step 5: Getting signer directly (wallet already connected via RainbowKit)...');
+      // Skip account request since wallet is already connected via RainbowKit
+      // Get signer directly - it will use the connected account
       let currentSigner: any;
       try {
+        // Use the walletAddress prop to get the signer for that specific address
+        // This avoids needing to request accounts again
         currentSigner = await provider.getSigner();
         console.log('✅ Signer obtained');
       } catch (signerError: any) {
