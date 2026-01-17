@@ -139,12 +139,31 @@ export default function PaymentModal({
       
       console.log('📦 Step 5: Requesting accounts...');
       // Request accounts to ensure wallet is connected
-      await provider.send('eth_requestAccounts', []);
-      console.log('✅ Accounts requested');
+      // Add timeout to detect if MetaMask is not responding
+      const accountsPromise = provider.send('eth_requestAccounts', []);
+      const accountsTimeout = new Promise((_, reject) => {
+        setTimeout(() => {
+          reject(new Error('MetaMask did not respond to account request. Please check if MetaMask is unlocked and try again.'));
+        }, 10000); // 10 seconds timeout
+      });
+      
+      try {
+        await Promise.race([accountsPromise, accountsTimeout]);
+        console.log('✅ Accounts requested');
+      } catch (accountsError: any) {
+        console.error('❌ Failed to request accounts:', accountsError);
+        throw new Error(`Failed to connect to MetaMask: ${accountsError.message}. Please ensure MetaMask is unlocked and try again.`);
+      }
       
       console.log('📦 Step 6: Getting signer...');
-      let currentSigner = await provider.getSigner();
-      console.log('✅ Signer obtained');
+      let currentSigner: any;
+      try {
+        currentSigner = await provider.getSigner();
+        console.log('✅ Signer obtained');
+      } catch (signerError: any) {
+        console.error('❌ Failed to get signer:', signerError);
+        throw new Error(`Failed to get wallet signer: ${signerError.message}`);
+      }
       
       console.log('📦 Step 7: Validating signer address...');
       // Verify we can get the address from the signer
