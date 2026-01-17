@@ -240,7 +240,38 @@ export default function PaymentModal({
           
           // This should trigger MetaMask to open for signing
           console.log('⏳ Calling facilitator.generatePaymentHeader() - MetaMask should open now...');
-          paymentHeader = await facilitator.generatePaymentHeader({
+          console.log('📋 Payment parameters:', {
+            to: accept.payTo,
+            value: accept.maxAmountRequired,
+            asset: accept.asset,
+            signerAddress: signerAddress,
+            validBefore,
+          });
+          
+          // Check if MetaMask is available and unlocked
+          const ethereum = (window as any).ethereum;
+          if (ethereum) {
+            try {
+              const accounts = await ethereum.request({ method: 'eth_accounts' });
+              if (accounts.length === 0) {
+                throw new Error('No accounts found. Please connect your wallet in MetaMask.');
+              }
+              console.log('✅ MetaMask accounts found:', accounts.length);
+            } catch (accountError: any) {
+              console.error('❌ MetaMask account check failed:', accountError);
+              throw new Error('MetaMask is not connected. Please connect your wallet and try again.');
+            }
+          }
+          
+          // Add timeout to detect if MetaMask is not responding
+          const timeoutPromise = new Promise<never>((_, reject) => {
+            setTimeout(() => {
+              reject(new Error('Payment header generation timed out after 60 seconds. MetaMask may not have opened for signing. Please check: 1) MetaMask is unlocked, 2) No other popup is blocking it, 3) Try refreshing the page.'));
+            }, 60000); // 60 seconds timeout
+          });
+          
+          console.log('🔐 Requesting signature from MetaMask...');
+          const generateHeaderPromise = facilitator.generatePaymentHeader({
             to: accept.payTo,
             value: accept.maxAmountRequired,
             asset: accept.asset as any, // Cast to SDK's Contract type (compatible structure)
@@ -248,6 +279,8 @@ export default function PaymentModal({
             validBefore,
             validAfter: 0,
           });
+          
+          paymentHeader = await Promise.race([generateHeaderPromise, timeoutPromise]);
           
           console.log('✅ Payment header generated successfully, length:', paymentHeader.length);
           
@@ -351,6 +384,12 @@ export default function PaymentModal({
       setError(errorMessage);
       setTxHash(null);
       console.error('Payment error:', error); // Log full error during payment
+      console.error('Full error details:', {
+        message: error?.message,
+        stack: error?.stack,
+        code: error?.code,
+        name: error?.name,
+      });
     } finally {
       // Dispatch event to end payment flow
       if (typeof window !== 'undefined') {
