@@ -178,10 +178,32 @@ export default function PaymentModal({
       const provider = new ethers.BrowserProvider(ethereumProvider);
       console.log('✅ BrowserProvider created');
       
+      // Following agentflow-402 pattern: request accounts BEFORE getting signer
+      // This ensures MetaMask is ready and avoids getSigner() hanging
+      console.log('📋 Requesting accounts from MetaMask (ensuring it's ready)...');
+      try {
+        const accountsPromise = provider.send('eth_requestAccounts', []);
+        const accountsTimeout = new Promise<never>((_, reject) => {
+          setTimeout(() => reject(new Error('eth_requestAccounts timed out')), 5000);
+        });
+        const accounts = await Promise.race([accountsPromise, accountsTimeout]);
+        console.log('✅ Accounts requested, MetaMask is ready');
+        if (!accounts || accounts.length === 0) {
+          throw new Error('No accounts found. Please connect your wallet in MetaMask.');
+        }
+        if (accounts[0].toLowerCase() !== walletAddress.toLowerCase()) {
+          console.warn('⚠️ Account mismatch, using first account from MetaMask');
+        }
+      } catch (accountsError: any) {
+        console.error('❌ Failed to request accounts:', accountsError);
+        throw new Error(`MetaMask is not ready: ${accountsError.message}. Please refresh the page and reconnect your wallet.`);
+      }
+      
       console.log('⏳ Getting signer...');
       let currentSigner: any;
       try {
-        const signerPromise = provider.getSigner(walletAddress);
+        // Try without address first (uses first account from eth_requestAccounts)
+        const signerPromise = provider.getSigner();
         const signerTimeout = new Promise<never>((_, reject) => {
           setTimeout(() => reject(new Error('getSigner() timed out')), 5000);
         });
