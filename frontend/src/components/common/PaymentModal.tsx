@@ -271,18 +271,38 @@ export default function PaymentModal({
           });
           
           console.log('🔐 Requesting signature from MetaMask...');
-          const generateHeaderPromise = facilitator.generatePaymentHeader({
-            to: accept.payTo,
-            value: accept.maxAmountRequired,
-            asset: accept.asset as any, // Cast to SDK's Contract type (compatible structure)
-            signer: currentSigner,
-            validBefore,
-            validAfter: 0,
+          console.log('📝 Signer details:', {
+            hasSigner: !!currentSigner,
+            signerType: currentSigner?.constructor?.name,
+            signerAddress: signerAddress,
           });
           
-          paymentHeader = await Promise.race([generateHeaderPromise, timeoutPromise]);
+          // Verify signer has the _signTypedData method (required for EIP-712)
+          if (!currentSigner || typeof (currentSigner as any)._signTypedData !== 'function') {
+            console.warn('⚠️ Signer may not support EIP-712 signing');
+          }
           
-          console.log('✅ Payment header generated successfully, length:', paymentHeader.length);
+          try {
+            const generateHeaderPromise = facilitator.generatePaymentHeader({
+              to: accept.payTo,
+              value: accept.maxAmountRequired,
+              asset: accept.asset as any, // Cast to SDK's Contract type (compatible structure)
+              signer: currentSigner,
+              validBefore,
+              validAfter: 0,
+            });
+            
+            console.log('⏳ Waiting for MetaMask signature...');
+            paymentHeader = await Promise.race([generateHeaderPromise, timeoutPromise]);
+            
+            console.log('✅ Payment header generated successfully, length:', paymentHeader.length);
+          } catch (signError: any) {
+            console.error('❌ Signature error caught:', signError);
+            console.error('Error type:', signError?.constructor?.name);
+            console.error('Error message:', signError?.message);
+            console.error('Error stack:', signError?.stack);
+            throw signError;
+          }
           
           // Success, break out of retry loop
           break;
