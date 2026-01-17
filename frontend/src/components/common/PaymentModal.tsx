@@ -181,50 +181,25 @@ export default function PaymentModal({
       const provider = new ethers.BrowserProvider(ethereumProvider);
       console.log('✅ BrowserProvider created');
       
-      console.log('📋 Checking if accounts are already authorized (with timeout)...');
-      // Check if accounts are already authorized (wallet connected via RainbowKit)
-      // If yes, we can skip eth_requestAccounts and go directly to getSigner()
-      // Add timeout to avoid hanging
-      let accountsAuthorized = false;
+      console.log('📋 Requesting accounts through window.ethereum directly (not provider.send)...');
+      // CRITICAL: BrowserProvider.getSigner() requires explicit authorization
+      // Even if wallet is connected via RainbowKit, we MUST call eth_requestAccounts
+      // Use window.ethereum.request directly (not provider.send) to avoid conflicts
       try {
-        const checkPromise = ethereumProvider.request({ method: 'eth_accounts' });
-        const checkTimeout = new Promise<never>((_, reject) => {
-          setTimeout(() => reject(new Error('eth_accounts check timed out')), 2000);
+        const accountsPromise = ethereumProvider.request({ method: 'eth_requestAccounts' });
+        const accountsTimeout = new Promise<never>((_, reject) => {
+          setTimeout(() => reject(new Error('eth_requestAccounts timed out')), 15000);
         });
-        const existingAccounts = await Promise.race([checkPromise, checkTimeout]) as string[];
-        if (existingAccounts && existingAccounts.length > 0) {
-          console.log('✅ Accounts already authorized:', existingAccounts.length);
-          accountsAuthorized = true;
+        const accounts = await Promise.race([accountsPromise, accountsTimeout]) as string[];
+        console.log('✅ Accounts requested:', accounts.length);
+        if (!accounts || accounts.length === 0) {
+          throw new Error('No accounts found. Please connect your wallet in MetaMask.');
         }
-      } catch (checkError) {
-        console.log('⚠️ Could not check existing accounts (timed out or error), will try getSigner directly...');
-        // If check times out, assume wallet is connected via RainbowKit and proceed
-        accountsAuthorized = true;
-      }
-      
-      // Only request accounts if not already authorized AND check didn't timeout
-      // This avoids timeout when wallet is already connected via RainbowKit
-      if (!accountsAuthorized) {
-        console.log('📋 Requesting accounts through provider (not yet authorized)...');
-        try {
-          const accountsPromise = provider.send('eth_requestAccounts', []);
-          const accountsTimeout = new Promise<never>((_, reject) => {
-            setTimeout(() => reject(new Error('eth_requestAccounts timed out')), 5000);
-          });
-          const accounts = await Promise.race([accountsPromise, accountsTimeout]) as string[];
-          console.log('✅ Accounts requested through provider:', accounts.length);
-          if (!accounts || accounts.length === 0) {
-            throw new Error('No accounts found. Please connect your wallet in MetaMask.');
-          }
-        } catch (accountsError: any) {
-          console.error('❌ Failed to request accounts:', accountsError);
-          // If wallet is already connected via RainbowKit, this might timeout
-          // But we can still try to get signer
-          console.warn('⚠️ Account request failed, but proceeding to get signer (wallet may already be authorized)...');
-        }
-      } else {
-        console.log('✅ Skipping eth_requestAccounts (accounts already authorized or check timed out)');
-        console.log('✅ Proceeding directly to getSigner() (wallet connected via RainbowKit)');
+        console.log('✅ Account authorized, provider should be ready for getSigner()');
+      } catch (accountsError: any) {
+        console.error('❌ Failed to request accounts:', accountsError);
+        // Even if this fails, try getSigner() - it might work if wallet is already authorized
+        console.warn('⚠️ Account request failed, but will try getSigner() anyway...');
       }
       
       console.log('⏳ Getting signer (after eth_requestAccounts)...');
