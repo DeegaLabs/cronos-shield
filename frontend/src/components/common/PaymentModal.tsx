@@ -380,7 +380,33 @@ export default function PaymentModal({
             console.warn('⚠️ Signer may not support EIP-712 signing');
           }
           
+          // Verify signer has signTypedData method before calling
+          console.log('🔍 Verifying signer capabilities...');
+          if (!currentSigner || typeof currentSigner.signTypedData !== 'function') {
+            console.error('❌ Signer does not have signTypedData method');
+            console.error('Signer type:', typeof currentSigner);
+            console.error('Signer methods:', Object.getOwnPropertyNames(Object.getPrototypeOf(currentSigner)));
+            throw new Error('Signer does not support EIP-712 signing. Please reconnect your wallet.');
+          }
+          console.log('✅ Signer has signTypedData method');
+          
+          // Test if we can get the address (this should work)
           try {
+            const testAddress = await currentSigner.getAddress();
+            console.log('✅ Signer address verification:', testAddress);
+          } catch (addrError: any) {
+            console.error('❌ Failed to get signer address:', addrError);
+            throw new Error('Signer is not valid. Please reconnect your wallet.');
+          }
+          
+          try {
+            console.log('📝 Calling facilitator.generatePaymentHeader()...');
+            console.log('📋 Signer details:', {
+              hasSigner: !!currentSigner,
+              hasSignTypedData: typeof currentSigner.signTypedData === 'function',
+              signerType: currentSigner.constructor?.name,
+            });
+            
             const generateHeaderPromise = facilitator.generatePaymentHeader({
               to: accept.payTo,
               value: accept.maxAmountRequired,
@@ -390,15 +416,33 @@ export default function PaymentModal({
               validAfter: 0,
             });
             
-            console.log('⏳ Waiting for MetaMask signature...');
+            console.log('⏳ Waiting for MetaMask signature (this may take a moment)...');
+            console.log('💡 If MetaMask does not open, check:');
+            console.log('   1. MetaMask is unlocked');
+            console.log('   2. No other popup is blocking it');
+            console.log('   3. Browser popup blocker is disabled');
+            
             paymentHeader = await Promise.race([generateHeaderPromise, timeoutPromise]);
             
             console.log('✅ Payment header generated successfully, length:', paymentHeader.length);
+            console.log('✅ Payment header preview:', paymentHeader.substring(0, 50) + '...');
           } catch (signError: any) {
             console.error('❌ Signature error caught:', signError);
             console.error('Error type:', signError?.constructor?.name);
             console.error('Error message:', signError?.message);
+            console.error('Error code:', signError?.code);
             console.error('Error stack:', signError?.stack);
+            
+            // Check if it's a user rejection
+            if (signError?.code === 4001 || signError?.message?.includes('rejected') || signError?.message?.includes('denied')) {
+              throw new Error('Signature rejected. Please approve the transaction in MetaMask.');
+            }
+            
+            // Check if it's a timeout
+            if (signError?.message?.includes('timed out')) {
+              throw new Error('MetaMask did not respond. Please check: 1) MetaMask is unlocked, 2) No popup blocker, 3) Try refreshing the page.');
+            }
+            
             throw signError;
           }
           
