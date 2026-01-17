@@ -12,7 +12,7 @@ import type { PaymentChallenge } from '../../types/x402.types';
 interface PaymentModalProps {
   challenge: PaymentChallenge | null;
   walletAddress: string | null;
-  signer: any; // ethers.JsonRpcSigner | null
+  signer?: any; // Deprecated: signer is now created internally
   isOpen: boolean;
   onClose: () => void;
   onSuccess: (paymentId: string) => void;
@@ -21,7 +21,7 @@ interface PaymentModalProps {
 export default function PaymentModal({
   challenge,
   walletAddress,
-  signer,
+  signer: _signer, // Deprecated: kept for backward compatibility but not used
   isOpen,
   onClose,
   onSuccess,
