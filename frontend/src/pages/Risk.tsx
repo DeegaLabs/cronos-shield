@@ -1,56 +1,90 @@
 import { useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { GlassCard } from '../components/cards/GlassCard'
 import { RiskScoreBar } from '../components/risk/RiskScoreBar'
 import { RecentAnalysisCard } from '../components/risk/RecentAnalysisCard'
 import RiskAnalysis from '../components/risk/RiskAnalysis'
+import apiClient from '../lib/api/client'
+import type { RiskAnalysis as RiskAnalysisType } from '../types'
+import type { LogEntry } from '../types'
 
 export default function RiskPage() {
   const [contractAddress, setContractAddress] = useState('')
-  const [analysisResult, setAnalysisResult] = useState<{
-    address: string
-    score: number
-    issues: Array<{ title: string; severity: 'critical' | 'high' | 'medium'; description: string }>
-  } | null>(null)
+  const [analysisResult, setAnalysisResult] = useState<RiskAnalysisType | null>(null)
 
-  // Mock recent analyses
-  const recentAnalyses = [
-    { address: '0xABC123456789DEF', score: 45, timestamp: new Date(Date.now() - 2 * 60 * 1000) },
-    { address: '0xDEF987654321GHI', score: 68, timestamp: new Date(Date.now() - 5 * 60 * 1000) },
-    { address: '0xGHI456789012JKL', score: 92, timestamp: new Date(Date.now() - 8 * 60 * 1000) },
-    { address: '0xJKL012345678MNO', score: 38, timestamp: new Date(Date.now() - 12 * 60 * 1000) },
-  ]
+  // Fetch recent analyses from API
+  const { data: recentLogs, isLoading: isLoadingRecent } = useQuery<LogEntry[]>({
+    queryKey: ['recent-risk-analyses'],
+    queryFn: async () => {
+      const response = await apiClient.get('/api/observability/logs', {
+        params: {
+          type: 'risk_analysis',
+          limit: 4,
+        },
+      })
+      return response.data
+    },
+    refetchInterval: 10000, // Refetch every 10 seconds
+  })
 
-  const handlePaste = async () => {
-    const text = await navigator.clipboard.readText()
-    setContractAddress(text)
+  // Transform logs to recent analyses format
+  const recentAnalyses = recentLogs
+    ?.filter(log => log.type === 'risk_analysis' && log.data?.contract && log.data?.score !== undefined)
+    .map(log => ({
+      address: log.data.contract as string,
+      score: log.data.score as number,
+      timestamp: new Date(log.timestamp),
+    }))
+    .slice(0, 4) || []
+
+  // Handle analysis result from RiskAnalysis component
+  const handleAnalysisComplete = (result: RiskAnalysisType) => {
+    setAnalysisResult(result)
   }
 
-  const handleAnalyze = () => {
-    // This will be integrated with the actual RiskAnalysis component
-    // For now, show mock result
-    if (contractAddress) {
-      setAnalysisResult({
-        address: contractAddress,
-        score: 85,
-        issues: [
-          {
-            title: 'Liquidity Not Locked',
-            severity: 'critical',
-            description: 'No liquidity lock detected. High risk of rug pull.',
-          },
-          {
-            title: 'Contract Not Verified',
-            severity: 'high',
-            description: 'Source code not verified on block explorer.',
-          },
-          {
-            title: 'Low Holder Count',
-            severity: 'medium',
-            description: 'Only 47 holders detected. Low distribution.',
-          },
-        ],
+  // Convert analysis result to issues format for display
+  const getIssuesFromAnalysis = (analysis: RiskAnalysisType) => {
+    const issues: Array<{ title: string; severity: 'critical' | 'high' | 'medium'; description: string }> = []
+    
+    if (analysis.details.warnings && analysis.details.warnings.length > 0) {
+      analysis.details.warnings.forEach((warning) => {
+        let severity: 'critical' | 'high' | 'medium' = 'medium'
+        if (analysis.score >= 80) severity = 'critical'
+        else if (analysis.score >= 50) severity = 'high'
+        
+        issues.push({
+          title: warning,
+          severity,
+          description: warning,
+        })
       })
     }
+    
+    if (!analysis.details.verified) {
+      issues.push({
+        title: 'Contract Not Verified',
+        severity: analysis.score >= 70 ? 'high' : 'medium',
+        description: 'Source code not verified on block explorer.',
+      })
+    }
+    
+    if (analysis.details.liquidity === 'low') {
+      issues.push({
+        title: 'Low Liquidity',
+        severity: 'critical',
+        description: 'Low liquidity detected. High risk of price manipulation.',
+      })
+    }
+    
+    if (analysis.details.holders && analysis.details.holders < 50) {
+      issues.push({
+        title: 'Low Holder Count',
+        severity: 'medium',
+        description: `Only ${analysis.details.holders} holders detected. Low distribution.`,
+      })
+    }
+    
+    return issues
   }
 
   return (
@@ -66,61 +100,13 @@ export default function RiskPage() {
         <p className="text-slate-400">Analyze smart contracts with AI-powered risk scoring</p>
       </div>
 
-      {/* Main Analysis Section */}
-      <GlassCard className="rounded-2xl p-8 mb-8">
-        <div className="flex items-center gap-3 mb-6">
-          <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
-          <h2 className="text-xl font-bold">Analyze Contract</h2>
-          <span className="px-3 py-1 bg-green-500/10 text-green-400 rounded-full text-xs font-semibold">
-            x402 Enabled
-          </span>
-        </div>
-
-        <div className="space-y-4">
-          {/* Contract Address Input */}
-          <div>
-            <label className="block text-sm font-semibold text-slate-300 mb-2">Contract Address</label>
-            <div className="flex gap-3">
-              <input
-                type="text"
-                placeholder="0x..."
-                value={contractAddress}
-                onChange={(e) => setContractAddress(e.target.value)}
-                className="flex-1 px-4 py-3 bg-slate-900 border border-slate-700 rounded-lg focus:border-indigo-500 focus:outline-none transition-colors"
-              />
-              <button
-                onClick={handlePaste}
-                className="px-4 py-3 border border-slate-700 hover:border-slate-600 rounded-lg text-sm font-semibold transition-colors"
-              >
-                Paste
-              </button>
-            </div>
-          </div>
-
-          {/* Analyze Button */}
-          <button
-            onClick={handleAnalyze}
-            className="btn-analyze w-full py-4 bg-green-600 hover:bg-green-500 rounded-lg text-lg font-bold transition-all transform hover:scale-[1.02] relative overflow-hidden"
-          >
-            <span className="relative z-10">Analyze Contract →</span>
-          </button>
-
-          {/* Try Example */}
-          <div className="flex items-center justify-center gap-2 text-sm text-slate-500">
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-            </svg>
-            <span>Pro Tip: Try analyzing</span>
-            <button
-              onClick={() => setContractAddress('0x145...452A')}
-              className="text-indigo-400 hover:text-indigo-300 font-mono text-xs"
-            >
-              0x145...452A
-            </button>
-            <span>(VVS Finance Router)</span>
-          </div>
-        </div>
-      </GlassCard>
+      {/* Main Analysis Section - Using RiskAnalysis component */}
+      <div className="mb-8">
+        <RiskAnalysis 
+          contractAddress={contractAddress}
+          onAnalysisComplete={handleAnalysisComplete}
+        />
+      </div>
 
       {/* Recent Analyses */}
       <div className="mb-8">
@@ -131,16 +117,22 @@ export default function RiskPage() {
           Recent Analyses
         </h3>
         
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {recentAnalyses.map((analysis, index) => (
-            <RecentAnalysisCard
-              key={index}
-              address={analysis.address}
-              score={analysis.score}
-              timestamp={analysis.timestamp}
-            />
-          ))}
-        </div>
+        {isLoadingRecent ? (
+          <div className="text-center py-8 text-slate-400">Loading recent analyses...</div>
+        ) : recentAnalyses.length === 0 ? (
+          <div className="text-center py-8 text-slate-400">No recent analyses yet</div>
+        ) : (
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {recentAnalyses.map((analysis, index) => (
+              <RecentAnalysisCard
+                key={index}
+                address={analysis.address}
+                score={analysis.score}
+                timestamp={analysis.timestamp}
+              />
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Analysis Results */}
@@ -150,28 +142,34 @@ export default function RiskPage() {
             <h3 className="text-xl font-bold flex items-center gap-3">
               Analysis Results
               <span className="px-3 py-1 bg-indigo-500/10 text-indigo-400 rounded-full text-xs font-semibold">
-                {`${analysisResult.address.slice(0, 6)}...${analysisResult.address.slice(-4)}`}
+                {`${analysisResult.contract.slice(0, 6)}...${analysisResult.contract.slice(-4)}`}
               </span>
             </h3>
-            <button className="text-sm text-indigo-400 hover:text-indigo-300 transition-colors">
+            <a
+              href={`https://cronoscan.com/address/${analysisResult.contract}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-sm text-indigo-400 hover:text-indigo-300 transition-colors"
+            >
               View on Explorer →
-            </button>
+            </a>
           </div>
 
           {/* Risk Score */}
           <RiskScoreBar score={analysisResult.score} />
 
           {/* Issues Found */}
-          <div className="mb-8">
-            <h4 className="text-lg font-bold mb-4 flex items-center gap-2">
-              <svg className="w-5 h-5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
-              </svg>
-              Issues Found
-            </h4>
+          {getIssuesFromAnalysis(analysisResult).length > 0 && (
+            <div className="mb-8">
+              <h4 className="text-lg font-bold mb-4 flex items-center gap-2">
+                <svg className="w-5 h-5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                </svg>
+                Issues Found
+              </h4>
 
-            <div className="space-y-3">
-              {analysisResult.issues.map((issue, index) => {
+              <div className="space-y-3">
+                {getIssuesFromAnalysis(analysisResult).map((issue, index) => {
                 const severityColors = {
                   critical: { bg: 'bg-red-950/20', border: 'border-red-900/30', icon: 'bg-red-500', badge: 'bg-red-500/20 text-red-300' },
                   high: { bg: 'bg-orange-950/20', border: 'border-orange-900/30', icon: 'bg-orange-500', badge: 'bg-orange-500/20 text-orange-300' },
@@ -200,27 +198,57 @@ export default function RiskPage() {
                     </div>
                   </div>
                 )
-              })}
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Contract Details */}
+          <div className="mb-8">
+            <h4 className="text-lg font-bold mb-4 flex items-center gap-2">
+              <svg className="w-5 h-5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+              </svg>
+              Contract Details
+            </h4>
+            <div className="bg-slate-900/50 p-4 rounded-lg space-y-2">
+              <div className="flex justify-between">
+                <span className="text-slate-400">Liquidity:</span>
+                <span className="text-slate-200 capitalize">{analysisResult.details.liquidity || 'N/A'}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400">Contract Age:</span>
+                <span className="text-slate-200">{analysisResult.details.contractAge || 'N/A'}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400">Holders:</span>
+                <span className="text-slate-200">{analysisResult.details.holders || 'N/A'}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400">Verified:</span>
+                <span className={analysisResult.details.verified ? 'text-green-400' : 'text-red-400'}>
+                  {analysisResult.details.verified ? 'Yes' : 'No'}
+                </span>
+              </div>
             </div>
           </div>
 
           {/* On-chain Proof */}
-          <div className="p-4 rounded-lg bg-indigo-950/20 border border-indigo-900/30">
+          <div className="p-4 rounded-lg bg-indigo-950/20 border border-indigo-900/30 mb-8">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <svg className="w-5 h-5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
                 </svg>
                 <div>
-                  <div className="font-semibold mb-1">✅ Proof of Risk Stored On-Chain</div>
+                  <div className="font-semibold mb-1">
+                    {analysisResult.verified ? '✅ Proof of Risk Verified On-Chain' : '⏳ Proof of Risk Stored On-Chain'}
+                  </div>
                   <div className="text-sm text-slate-400">
-                    Transaction: <span className="font-mono text-indigo-400">0xabc...def</span>
+                    Proof: <span className="font-mono text-indigo-400 text-xs break-all">{analysisResult.proof.slice(0, 20)}...</span>
                   </div>
                 </div>
               </div>
-              <button className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 rounded-lg text-sm font-semibold transition-colors">
-                View Transaction
-              </button>
             </div>
           </div>
 
@@ -235,17 +263,18 @@ export default function RiskPage() {
             >
               Analyze Another Contract
             </button>
-            <button className="flex-1 py-3 bg-indigo-600 hover:bg-indigo-500 rounded-lg font-semibold transition-colors">
+            <button 
+              onClick={() => {
+                const url = window.location.href
+                navigator.clipboard.writeText(url)
+              }}
+              className="flex-1 py-3 bg-indigo-600 hover:bg-indigo-500 rounded-lg font-semibold transition-colors"
+            >
               Share Analysis
             </button>
           </div>
         </GlassCard>
       )}
-
-      {/* Keep existing RiskAnalysis component for actual functionality */}
-      <div className="hidden">
-        <RiskAnalysis />
-      </div>
     </>
   )
 }

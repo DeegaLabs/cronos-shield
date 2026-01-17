@@ -5,19 +5,23 @@
 import { useState, lazy, Suspense } from 'react';
 import apiClient from '../../lib/api/client';
 import { useAccount, useWalletClient } from 'wagmi';
-import { InfoTooltip } from '../common/Tooltip';
-import type { RiskAnalysis } from '../../types';
+import { GlassCard } from '../cards/GlassCard';
+import type { RiskAnalysis as RiskAnalysisType } from '../../types';
 import type { PaymentChallenge } from '../../types/x402.types';
 
 // Lazy load PaymentModal ONLY when user clicks "Pay with x402"
 // This prevents SDK from loading when 402 is received
 const PaymentModalLazy = lazy(() => import('../common/PaymentModal'));
 
-export default function RiskAnalysis() {
+interface RiskAnalysisProps {
+  contractAddress?: string;
+  onAnalysisComplete?: (analysis: RiskAnalysisType) => void;
+}
+
+export default function RiskAnalysis({ contractAddress: initialContract = '', onAnalysisComplete }: RiskAnalysisProps = {}) {
   const { address, isConnected } = useAccount();
   const { data: walletClient } = useWalletClient();
-  const [contract, setContract] = useState('');
-  const [analysis, setAnalysis] = useState<RiskAnalysis | null>(null);
+  const [contract, setContract] = useState(initialContract || '');
   const [error, setError] = useState<string | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [paymentChallenge, setPaymentChallenge] = useState<PaymentChallenge | null>(null);
@@ -45,8 +49,12 @@ export default function RiskAnalysis() {
         params: { contract: contract.trim() },
         headers,
       });
-      setAnalysis(response.data);
+      const analysisData = response.data;
       setPaymentId(null); // Reset after successful request
+      // Notify parent component
+      if (onAnalysisComplete) {
+        onAnalysisComplete(analysisData);
+      }
     } catch (err: any) {
       if (err.response?.status === 402) {
         const paymentData = err.response?.data as PaymentChallenge;
@@ -71,48 +79,77 @@ export default function RiskAnalysis() {
     }, 500);
   };
 
-  const getRiskColor = (score: number) => {
-    if (score < 30) return 'text-green-400';
-    if (score < 70) return 'text-yellow-400';
-    return 'text-red-400';
-  };
-
-  const getRiskLabel = (score: number) => {
-    if (score < 30) return 'Low Risk';
-    if (score < 70) return 'Medium Risk';
-    return 'High Risk';
-  };
-
   return (
     <div className="space-y-6">
-      {/* Input Form */}
-      <div className="bg-slate-800 p-6 rounded-lg border border-slate-700">
-        <div className="flex items-center gap-2 mb-4">
-          <h3 className="text-xl font-bold">Analyze Contract Risk</h3>
-          <InfoTooltip content="Analyze the risk score of a smart contract. This service uses x402 payment protocol - you'll need to pay a small fee to access the analysis." />
+      {/* Input Form - Matching HTML design */}
+      <GlassCard className="rounded-2xl p-8">
+        <div className="flex items-center gap-3 mb-6">
+          <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
+          <h2 className="text-xl font-bold">Analyze Contract</h2>
+          <span className="px-3 py-1 bg-green-500/10 text-green-400 rounded-full text-xs font-semibold">
+            x402 Enabled
+          </span>
         </div>
-        <div className="flex gap-4">
-          <input
-            type="text"
-            value={contract}
-            onChange={(e) => setContract(e.target.value)}
-            placeholder="0x..."
-            className="flex-1 px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:border-blue-500"
-          />
+
+        <div className="space-y-4">
+          {/* Contract Address Input */}
+          <div>
+            <label className="block text-sm font-semibold text-slate-300 mb-2">Contract Address</label>
+            <div className="flex gap-3">
+              <input
+                type="text"
+                placeholder="0x..."
+                value={contract}
+                onChange={(e) => setContract(e.target.value)}
+                className="flex-1 px-4 py-3 bg-slate-900 border border-slate-700 rounded-lg focus:border-indigo-500 focus:outline-none transition-colors"
+              />
+              <button
+                onClick={async () => {
+                  try {
+                    const text = await navigator.clipboard.readText()
+                    setContract(text)
+                  } catch (err) {
+                    console.error('Failed to read clipboard:', err)
+                  }
+                }}
+                className="px-4 py-3 border border-slate-700 hover:border-slate-600 rounded-lg text-sm font-semibold transition-colors"
+              >
+                Paste
+              </button>
+            </div>
+          </div>
+
+          {/* Analyze Button */}
           <button
             onClick={handleAnalyze}
             disabled={isAnalyzing}
-            className="px-6 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-600 rounded-lg transition-colors"
+            className="btn-analyze w-full py-4 bg-green-600 hover:bg-green-500 disabled:bg-slate-600 rounded-lg text-lg font-bold transition-all transform hover:scale-[1.02] relative overflow-hidden"
           >
-            {isAnalyzing ? 'Analyzing...' : 'Analyze'}
+            <span className="relative z-10">{isAnalyzing ? 'Analyzing...' : 'Analyze Contract →'}</span>
           </button>
-        </div>
-        {error && !paymentChallenge && (
-          <div className="mt-4 p-3 bg-red-900/50 border border-red-500 rounded-lg text-red-400">
-            {error}
+
+          {/* Try Example */}
+          <div className="flex items-center justify-center gap-2 text-sm text-slate-500">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+            <span>Pro Tip: Try analyzing</span>
+            <button
+              onClick={() => setContract('0x145d82b09b0068b42113e83622E88D58d25d7772')}
+              className="text-indigo-400 hover:text-indigo-300 font-mono text-xs"
+            >
+              0x145...452A
+            </button>
+            <span>(VVS Finance Router)</span>
           </div>
-        )}
-      </div>
+
+          {error && !paymentChallenge && (
+            <div className="mt-4 p-3 bg-red-900/50 border border-red-500 rounded-lg text-red-400">
+              {error}
+            </div>
+          )}
+        </div>
+      </GlassCard>
 
       {/* Show payment button when 402 is received */}
       {paymentChallenge && !showPaymentModal && (
@@ -153,73 +190,7 @@ export default function RiskAnalysis() {
         </Suspense>
       )}
 
-      {/* Results */}
-      {analysis && (
-        <div className="bg-slate-800 p-6 rounded-lg border border-slate-700">
-          <h3 className="text-xl font-bold mb-4">Analysis Results</h3>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <div className="text-slate-400 text-sm mb-2">Risk Score</div>
-              <div className={`text-4xl font-bold ${getRiskColor(analysis.score)}`}>
-                {analysis.score}/100
-              </div>
-              <div className="text-slate-500 text-sm mt-1">{getRiskLabel(analysis.score)}</div>
-            </div>
-
-            <div>
-              <div className="text-slate-400 text-sm mb-2">Contract</div>
-              <div className="text-slate-200 font-mono text-sm break-all">{analysis.contract}</div>
-            </div>
-          </div>
-
-          <div className="mt-6 space-y-4">
-            <div>
-              <div className="text-slate-400 text-sm mb-2">Details</div>
-              <div className="bg-slate-700 p-4 rounded-lg space-y-2">
-                <div className="flex justify-between">
-                  <span className="text-slate-400">Liquidity:</span>
-                  <span className="text-slate-200">{analysis.details.liquidity || 'N/A'}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-400">Contract Age:</span>
-                  <span className="text-slate-200">{analysis.details.contractAge || 'N/A'}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-400">Holders:</span>
-                  <span className="text-slate-200">{analysis.details.holders || 'N/A'}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-400">Verified:</span>
-                  <span className={analysis.details.verified ? 'text-green-400' : 'text-red-400'}>
-                    {analysis.details.verified ? 'Yes' : 'No'}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {analysis.details.warnings && analysis.details.warnings.length > 0 && (
-              <div>
-                <div className="text-slate-400 text-sm mb-2">Warnings</div>
-                <div className="bg-red-900/50 border border-red-500 p-4 rounded-lg">
-                  <ul className="list-disc list-inside space-y-1">
-                    {analysis.details.warnings.map((warning, idx) => (
-                      <li key={idx} className="text-red-400">{warning}</li>
-                    ))}
-                  </ul>
-                </div>
-              </div>
-            )}
-
-            <div>
-              <div className="text-slate-400 text-sm mb-2">Proof of Risk</div>
-              <div className="bg-slate-700 p-4 rounded-lg">
-                <code className="text-xs text-slate-300 break-all">{analysis.proof}</code>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Results are now handled by parent component (RiskPage) */}
     </div>
   );
 }
