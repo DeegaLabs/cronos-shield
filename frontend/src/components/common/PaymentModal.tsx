@@ -121,168 +121,92 @@ export default function PaymentModal({
         network: accept.network,
       });
 
-      console.log('📦 Step 2: Using walletClient from wagmi to create signer...');
-      // Use walletClient from wagmi (already connected) instead of creating new provider
-      // This avoids the BrowserProvider.getSigner() hang issue
-      if (!walletClient) {
-        throw new Error('Wallet client not available. Please reconnect your wallet.');
+      console.log('📦 Step 2: Checking network first (following SDK pattern)...');
+      // Following SDK examples: verify network BEFORE creating provider
+      // This avoids _detectNetwork issues
+      const targetChainId = accept.network === 'cronos-mainnet' ? 25 : 338;
+      const targetChainIdBigInt = BigInt(targetChainId);
+      const chainIdHex = accept.network === 'cronos-mainnet' ? '0x19' : '0x152';
+      
+      let currentChainId: bigint;
+      if (walletClient?.chain?.id) {
+        currentChainId = BigInt(walletClient.chain.id);
+        console.log('✅ Current chain ID from walletClient:', currentChainId.toString());
+      } else {
+        const ethereumProvider = (window as any).ethereum;
+        if (!ethereumProvider) {
+          throw new Error('MetaMask not found');
+        }
+        const chainId = await ethereumProvider.request({ method: 'eth_chainId' });
+        const chainIdNum = parseInt(chainId, 16);
+        currentChainId = BigInt(chainIdNum);
+        console.log('✅ Current chain ID from provider:', currentChainId.toString());
       }
-      console.log('✅ WalletClient found');
+      
+      if (currentChainId !== targetChainIdBigInt) {
+        console.log(`⚠️ Wrong network. Current: ${currentChainId}, Expected: ${targetChainIdBigInt}`);
+        console.log('🔄 Requesting network switch...');
+        const ethereumProvider = (window as any).ethereum;
+        const switchPromise = ethereumProvider.request({
+          method: 'wallet_switchEthereumChain',
+          params: [{ chainId: chainIdHex }],
+        });
+        const switchTimeout = new Promise<never>((_, reject) => {
+          setTimeout(() => reject(new Error('Network switch timed out')), 30000);
+        });
+        await Promise.race([switchPromise, switchTimeout]);
+        console.log('✅ Network switched successfully');
+        await new Promise(resolve => setTimeout(resolve, 2000));
+      } else {
+        console.log('✅ Already on correct network');
+      }
 
       console.log('📦 Step 3: Importing ethers...');
       const { ethers } = await import('ethers');
       console.log('✅ Ethers imported');
       
-      console.log('📦 Step 4: Creating signer from walletClient transport...');
-      // Use walletClient.transport which is the ethereum provider
-      // This is the same provider that wagmi is using, so it should work
-      const expectedChainId = accept.network === 'cronos-mainnet' ? 25 : 338;
-      const networkConfig = {
-        chainId: expectedChainId,
-        name: accept.network === 'cronos-mainnet' ? 'Cronos Mainnet' : 'Cronos Testnet',
-      };
-      
-      let currentSigner: any;
-      try {
-        // Get transport from walletClient (this is the ethereum provider)
-        const transport = (walletClient as any).transport?.value || (walletClient as any).transport;
-        if (!transport) {
-          throw new Error('WalletClient transport not available');
-        }
-        
-        console.log('📋 Creating provider from walletClient transport...');
-        const provider = new ethers.BrowserProvider(transport, networkConfig);
-        console.log('✅ Provider created from walletClient');
-        
-        console.log('⏳ Getting signer...');
-        // Try to get signer with timeout
-        const signerPromise = provider.getSigner(walletAddress);
-        const signerTimeout = new Promise<never>((_, reject) => {
-          setTimeout(() => {
-            reject(new Error('getSigner() timed out'));
-          }, 3000); // 3 seconds
-        });
-        
-        currentSigner = await Promise.race([signerPromise, signerTimeout]);
-        console.log('✅ Signer obtained from walletClient');
-      } catch (transportError: any) {
-        console.warn('⚠️ Failed with walletClient transport, trying window.ethereum directly...', transportError);
-        // Fallback: use window.ethereum directly
-        const ethereumProvider = (window as any).ethereum;
-        if (!ethereumProvider) {
-          throw new Error('MetaMask not found. Please refresh the page.');
-        }
-        
-        const provider = new ethers.BrowserProvider(ethereumProvider, networkConfig);
-        console.log('⏳ Getting signer from window.ethereum...');
-        currentSigner = await provider.getSigner(walletAddress);
-        console.log('✅ Signer obtained from window.ethereum');
+      console.log('📦 Step 4: Creating signer (following SDK examples - no network config)...');
+      // Following SDK examples and QUICK-START.md: create BrowserProvider WITHOUT network config
+      // Network is already verified above, so we don't need to specify it
+      // This avoids _detectNetwork issues that can cause hangs
+      const ethereumProvider = (window as any).ethereum;
+      if (!ethereumProvider) {
+        throw new Error('MetaMask not found. Please refresh the page.');
       }
       
-      console.log('📦 Step 7: Validating signer address...');
-      // Verify we can get the address from the signer
+      console.log('📋 Creating BrowserProvider (no network config, network already verified)...');
+      const provider = new ethers.BrowserProvider(ethereumProvider);
+      console.log('✅ BrowserProvider created');
+      
+      console.log('⏳ Getting signer...');
+      let currentSigner: any;
+      try {
+        const signerPromise = provider.getSigner(walletAddress);
+        const signerTimeout = new Promise<never>((_, reject) => {
+          setTimeout(() => reject(new Error('getSigner() timed out')), 5000);
+        });
+        currentSigner = await Promise.race([signerPromise, signerTimeout]);
+        console.log('✅ Signer obtained');
+      } catch (signerError: any) {
+        console.error('❌ Failed to get signer:', signerError);
+        throw new Error(`Failed to get wallet signer: ${signerError.message}`);
+      }
+      
+      console.log('📦 Step 5: Validating signer address...');
       let signerAddress: string;
       try {
         signerAddress = await currentSigner.getAddress();
         console.log('✅ Signer created, address:', signerAddress);
-        
-        // Verify the address matches the walletAddress prop
         if (signerAddress.toLowerCase() !== walletAddress.toLowerCase()) {
-          console.warn('⚠️ Signer address does not match walletAddress prop, using signer address');
+          console.warn('⚠️ Signer address does not match walletAddress prop');
         }
       } catch (addressError: any) {
         console.error('❌ Signer validation failed:', addressError);
         throw new Error('Wallet signer is not valid. Please reconnect your wallet.');
       }
-
-      console.log('📦 Step 8: Checking network...');
-      // Check network using walletClient first (faster, already available)
-      const targetChainId = accept.network === 'cronos-mainnet' ? 25 : 338;
-      const expectedChainIdBigInt = BigInt(targetChainId);
-      const chainIdHex = accept.network === 'cronos-mainnet' ? '0x19' : '0x152';
       
-      let currentChainId: bigint;
-      if (walletClient?.chain?.id) {
-        // Use chain ID from walletClient (already available, no async call needed)
-        currentChainId = BigInt(walletClient.chain.id);
-        console.log('✅ Current chain ID from walletClient:', currentChainId.toString());
-      } else {
-        // Fallback: get chain ID from ethereum provider
-        console.log('⚠️ walletClient chain not available, checking via ethereum provider...');
-        const ethereumProvider = (window as any).ethereum;
-        if (!ethereumProvider) {
-          throw new Error('MetaMask not found');
-        }
-
-        try {
-          const chainIdPromise = ethereumProvider.request({ method: 'eth_chainId' });
-          const chainIdTimeout = new Promise<never>((_, reject) => {
-            setTimeout(() => reject(new Error('eth_chainId request timed out')), 5000);
-          });
-          const chainId = await Promise.race([chainIdPromise, chainIdTimeout]);
-          console.log('✅ Current chain ID from provider:', chainId);
-          const chainIdNum = parseInt(chainId, 16);
-          currentChainId = BigInt(chainIdNum);
-        } catch (error: any) {
-          console.error('❌ Failed to get chain ID:', error);
-          throw new Error('Failed to get chain ID. Please check MetaMask.');
-        }
-      }
-      
-      if (currentChainId !== expectedChainIdBigInt) {
-        console.log(`⚠️ Wrong network. Current: ${currentChainId}, Expected: ${expectedChainIdBigInt}`);
-        console.log('🔄 Requesting network switch...');
-        const ethereumProvider = (window as any).ethereum;
-        if (!ethereumProvider) {
-          throw new Error('MetaMask not found');
-        }
-        
-        try {
-          const switchPromise = ethereumProvider.request({
-            method: 'wallet_switchEthereumChain',
-            params: [{ chainId: chainIdHex }],
-          });
-          const switchTimeout = new Promise<never>((_, reject) => {
-            setTimeout(() => reject(new Error('Network switch request timed out. Please switch manually in MetaMask.')), 30000); // 30 seconds for user to approve
-          });
-          await Promise.race([switchPromise, switchTimeout]);
-          console.log('✅ Network switched successfully');
-          await new Promise(resolve => setTimeout(resolve, 2000)); // Wait longer after switch
-        } catch (e: any) {
-          if (e?.code === 4902 && accept.network === 'cronos-testnet') {
-            console.log('📝 Network not added, adding Cronos Testnet...');
-            const addPromise = ethereumProvider.request({
-              method: 'wallet_addEthereumChain',
-              params: [{
-                chainId: '0x152',
-                chainName: 'Cronos Testnet',
-                nativeCurrency: { name: 'tCRO', symbol: 'tCRO', decimals: 18 },
-                rpcUrls: ['https://evm-t3.cronos.org'],
-                blockExplorerUrls: ['https://testnet.cronoscan.com'],
-              }],
-            });
-            const addTimeout = new Promise<never>((_, reject) => {
-              setTimeout(() => reject(new Error('Add network request timed out. Please add Cronos Testnet manually in MetaMask.')), 30000);
-            });
-            await Promise.race([addPromise, addTimeout]);
-            console.log('✅ Network added successfully');
-            await new Promise(resolve => setTimeout(resolve, 2000));
-          } else if (e?.code === 4001) {
-            throw new Error('Network switch rejected. Please switch to Cronos Testnet manually in MetaMask.');
-          } else {
-            console.error('❌ Network switch error:', e);
-            const networkName = accept.network === 'cronos-mainnet' ? 'Mainnet' : 'Testnet';
-            throw new Error(`Failed to switch network: ${e?.message || `Please switch to Cronos ${networkName} manually in MetaMask.`}`);
-          }
-        }
-      } else {
-        console.log('✅ Already on correct network');
-      }
-      
-      // Verify signer is still valid and get a fresh one if needed
-      // Following the official examples pattern: create provider WITHOUT network config
-      // Network is ensured separately via ensureCronosChain
-      // currentSigner is already created above
+      // Network already checked and switched above (Step 2)
+      // Signer is already created above (Step 4)
 
       // CRITICAL: Import Facilitator dynamically ONLY when needed (inside handlePay)
       // This prevents the SDK from loading on page load, which causes evmAsk error
