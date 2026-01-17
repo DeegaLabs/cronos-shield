@@ -139,15 +139,27 @@ export default function PaymentModal({
       
       console.log('📦 Step 5: Getting signer directly (wallet already connected via RainbowKit)...');
       // Skip account request since wallet is already connected via RainbowKit
-      // Get signer directly - it will use the connected account
+      // Get signer directly by passing the wallet address
       let currentSigner: any;
       try {
-        // Use the walletAddress prop to get the signer for that specific address
-        // This avoids needing to request accounts again
-        currentSigner = await provider.getSigner();
+        console.log('⏳ Getting signer for address:', walletAddress);
+        // Pass the wallet address directly to getSigner to avoid internal account detection
+        const signerPromise = provider.getSigner(walletAddress);
+        const signerTimeout = new Promise<never>((_, reject) => {
+          setTimeout(() => {
+            reject(new Error('getSigner() timed out. MetaMask may not be responding. Please refresh the page and try again.'));
+          }, 10000); // 10 seconds timeout
+        });
+        
+        currentSigner = await Promise.race([signerPromise, signerTimeout]);
         console.log('✅ Signer obtained');
       } catch (signerError: any) {
         console.error('❌ Failed to get signer:', signerError);
+        console.error('Error details:', {
+          message: signerError?.message,
+          stack: signerError?.stack,
+          code: signerError?.code,
+        });
         throw new Error(`Failed to get wallet signer: ${signerError.message}`);
       }
       
