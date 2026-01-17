@@ -137,22 +137,32 @@ export default function PaymentModal({
       const provider = new ethers.BrowserProvider(ethereumProvider);
       console.log('✅ BrowserProvider created');
       
-      console.log('📦 Step 5: Requesting accounts...');
-      // Request accounts to ensure wallet is connected
-      // Add timeout to detect if MetaMask is not responding
-      const accountsPromise = provider.send('eth_requestAccounts', []);
-      const accountsTimeout = new Promise((_, reject) => {
-        setTimeout(() => {
-          reject(new Error('MetaMask did not respond to account request. Please check if MetaMask is unlocked and try again.'));
-        }, 10000); // 10 seconds timeout
-      });
-      
+      console.log('📦 Step 5: Checking existing accounts...');
+      // Check if accounts are already available (wallet is already connected via RainbowKit)
+      // Only request accounts if none are available
+      let accounts: string[] = [];
       try {
-        await Promise.race([accountsPromise, accountsTimeout]);
-        console.log('✅ Accounts requested');
+        accounts = await ethereumProvider.request({ method: 'eth_accounts' });
+        console.log('✅ Existing accounts found:', accounts.length);
+        
+        if (accounts.length === 0) {
+          console.log('📦 No accounts found, requesting...');
+          // Only request if no accounts are available
+          const accountsPromise = ethereumProvider.request({ method: 'eth_requestAccounts' });
+          const accountsTimeout = new Promise<never>((_, reject) => {
+            setTimeout(() => {
+              reject(new Error('MetaMask did not respond to account request. Please check if MetaMask is unlocked and try again.'));
+            }, 10000); // 10 seconds timeout
+          });
+          
+          accounts = await Promise.race([accountsPromise, accountsTimeout]) as string[];
+          console.log('✅ Accounts requested and received:', accounts.length);
+        }
       } catch (accountsError: any) {
-        console.error('❌ Failed to request accounts:', accountsError);
-        throw new Error(`Failed to connect to MetaMask: ${accountsError.message}. Please ensure MetaMask is unlocked and try again.`);
+        console.error('❌ Failed to get accounts:', accountsError);
+        // If wallet is already connected via RainbowKit, we can still proceed
+        // The signer will work even if this fails
+        console.warn('⚠️ Account request failed, but continuing (wallet may already be connected)...');
       }
       
       console.log('📦 Step 6: Getting signer...');
