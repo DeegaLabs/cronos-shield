@@ -5,7 +5,8 @@
  */
 
 import { useEffect, useState } from 'react';
-import { useWalletClient } from 'wagmi';
+import { useWalletClient, useChainId } from 'wagmi';
+import { useEthersSigner } from '../../hooks/useEthersSigner';
 import type { PaymentChallenge } from '../../types/x402.types';
 // DO NOT import Facilitator here - it causes evmAsk error on page load
 // Import it dynamically only when needed (inside handlePay)
@@ -27,8 +28,9 @@ export default function PaymentModal({
   onClose,
   onSuccess,
 }: PaymentModalProps) {
-  // Get walletClient from wagmi - this is already connected and working
-  const { data: walletClient } = useWalletClient();
+  // Get ethers signer from wagmi walletClient (avoids deadlock with BrowserProvider.getSigner())
+  const signer = useEthersSigner();
+  const chainId = useChainId();
   // ALL HOOKS MUST BE CALLED BEFORE ANY EARLY RETURNS
   // This is a React rule - hooks must be called in the same order every render
   const [isProcessing, setIsProcessing] = useState(false);
@@ -120,119 +122,42 @@ export default function PaymentModal({
         value: accept.maxAmountRequired,
         network: accept.network,
       });
-
-      console.log('📦 Step 2: Checking network first (following SDK pattern)...');
-      // Following SDK examples: verify network BEFORE creating provider
-      // This avoids _detectNetwork issues
-      const targetChainId = accept.network === 'cronos-mainnet' ? 25 : 338;
-      const targetChainIdBigInt = BigInt(targetChainId);
-      const chainIdHex = accept.network === 'cronos-mainnet' ? '0x19' : '0x152';
       
-      let currentChainId: bigint;
-      if (walletClient?.chain?.id) {
-        currentChainId = BigInt(walletClient.chain.id);
-        console.log('✅ Current chain ID from walletClient:', currentChainId.toString());
-      } else {
-        const ethereumProvider = (window as any).ethereum;
-        if (!ethereumProvider) {
-          throw new Error('MetaMask not found');
-        }
-        const chainId = await ethereumProvider.request({ method: 'eth_chainId' });
-        const chainIdNum = parseInt(chainId, 16);
-        currentChainId = BigInt(chainIdNum);
-        console.log('✅ Current chain ID from provider:', currentChainId.toString());
-      }
-      
-      if (currentChainId !== targetChainIdBigInt) {
-        console.log(`⚠️ Wrong network. Current: ${currentChainId}, Expected: ${targetChainIdBigInt}`);
-        console.log('🔄 Requesting network switch...');
-        const ethereumProvider = (window as any).ethereum;
-        const switchPromise = ethereumProvider.request({
-          method: 'wallet_switchEthereumChain',
-          params: [{ chainId: chainIdHex }],
-        });
-        const switchTimeout = new Promise<never>((_, reject) => {
-          setTimeout(() => reject(new Error('Network switch timed out')), 30000);
-        });
-        await Promise.race([switchPromise, switchTimeout]);
-        console.log('✅ Network switched successfully');
-        await new Promise(resolve => setTimeout(resolve, 2000));
-      } else {
-        console.log('✅ Already on correct network');
+      // Validate signer is available before proceeding
+      if (!signer) {
+        throw new Error('Wallet signer not available. Please ensure your wallet is connected.');
       }
 
-      console.log('📦 Step 3: Importing ethers...');
-      const { ethers } = await import('ethers');
-      console.log('✅ Ethers imported');
-      
-      console.log('📦 Step 4: Creating ethers signer (following d73a640 pattern that worked)...');
-      // Following the commit d73a640 pattern that worked:
-      // 1. Create BrowserProvider WITHOUT network config
-      // 2. Call provider.send('eth_requestAccounts', []) BEFORE getSigner()
-      // 3. Then call getSigner()
-      const ethereumProvider = (window as any).ethereum;
-      if (!ethereumProvider) {
-        throw new Error('MetaMask not found. Please refresh the page.');
+      console.log('📦 Step 2: Validating wallet connection and network...');
+      // Validate that signer is available (from useEthersSigner hook)
+      if (!signer) {
+        throw new Error('Wallet not connected. Please connect your wallet first.');
       }
       
-      console.log('📋 Creating BrowserProvider (no network config, like d73a640)...');
-      // Create provider WITHOUT network config (network already verified above)
-      // This avoids _detectNetwork error that causes evmAsk issues
-      const provider = new ethers.BrowserProvider(ethereumProvider);
-      console.log('✅ BrowserProvider created');
-      
-      console.log('📋 Requesting accounts through window.ethereum directly (not provider.send)...');
-      // CRITICAL: BrowserProvider.getSigner() requires explicit authorization
-      // Even if wallet is connected via RainbowKit, we MUST call eth_requestAccounts
-      // Use window.ethereum.request directly (not provider.send) to avoid conflicts
-      try {
-        const accountsPromise = ethereumProvider.request({ method: 'eth_requestAccounts' });
-        const accountsTimeout = new Promise<never>((_, reject) => {
-          setTimeout(() => reject(new Error('eth_requestAccounts timed out')), 15000);
-        });
-        const accounts = await Promise.race([accountsPromise, accountsTimeout]) as string[];
-        console.log('✅ Accounts requested:', accounts.length);
-        if (!accounts || accounts.length === 0) {
-          throw new Error('No accounts found. Please connect your wallet in MetaMask.');
-        }
-        console.log('✅ Account authorized, provider should be ready for getSigner()');
-      } catch (accountsError: any) {
-        console.error('❌ Failed to request accounts:', accountsError);
-        // Even if this fails, try getSigner() - it might work if wallet is already authorized
-        console.warn('⚠️ Account request failed, but will try getSigner() anyway...');
+      // Validate chain is Cronos (25 = Mainnet, 338 = Testnet)
+      const CRONOS_CHAINS = [25, 338];
+      if (!CRONOS_CHAINS.includes(chainId)) {
+        const targetChainId = accept.network === 'cronos-mainnet' ? 25 : 338;
+        const chainIdHex = accept.network === 'cronos-mainnet' ? '0x19' : '0x152';
+        throw new Error(`Please switch to Cronos ${accept.network === 'cronos-mainnet' ? 'Mainnet' : 'Testnet'}. Current chain: ${chainId}`);
       }
+      console.log('✅ Wallet connected and on correct Cronos network:', chainId);
       
-      console.log('⏳ Getting signer (after eth_requestAccounts)...');
-      let currentSigner: any;
-      try {
-        // Use getSigner() without address parameter (uses first account from eth_requestAccounts)
-        // This matches the d73a640 pattern exactly
-        const signerPromise = provider.getSigner();
-        const signerTimeout = new Promise<never>((_, reject) => {
-          setTimeout(() => reject(new Error('getSigner() timed out')), 10000);
-        });
-        currentSigner = await Promise.race([signerPromise, signerTimeout]);
-        console.log('✅ Signer obtained');
-      } catch (signerError: any) {
-        console.error('❌ Failed to get signer:', signerError);
-        throw new Error(`Failed to get wallet signer: ${signerError.message}. Please refresh the page and try again.`);
-      }
-      
-      console.log('📦 Step 5: Validating signer address...');
+      // Get signer address for validation
       let signerAddress: string;
       try {
-        signerAddress = await currentSigner.getAddress();
-        console.log('✅ Signer created, address:', signerAddress);
+        signerAddress = await signer.getAddress();
+        console.log('✅ Signer address:', signerAddress);
         if (signerAddress.toLowerCase() !== walletAddress.toLowerCase()) {
           console.warn('⚠️ Signer address does not match walletAddress prop');
         }
       } catch (addressError: any) {
-        console.error('❌ Signer validation failed:', addressError);
+        console.error('❌ Failed to get signer address:', addressError);
         throw new Error('Wallet signer is not valid. Please reconnect your wallet.');
       }
       
-      // Network already checked and switched above (Step 2)
-      // Signer is already created above (Step 4)
+      // Use the signer from useEthersSigner hook (already created, no timeout!)
+      const currentSigner = signer;
 
       // CRITICAL: Import Facilitator dynamically ONLY when needed (inside handlePay)
       // This prevents the SDK from loading on page load, which causes evmAsk error
