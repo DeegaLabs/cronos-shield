@@ -132,10 +132,17 @@ export default function PaymentModal({
       const { ethers } = await import('ethers');
       console.log('✅ Ethers imported');
       
-      console.log('📦 Step 4: Creating BrowserProvider...');
-      // Create provider and signer from window.ethereum
-      const provider = new ethers.BrowserProvider(ethereumProvider);
-      console.log('✅ BrowserProvider created');
+      console.log('📦 Step 4: Creating BrowserProvider with explicit network config...');
+      // Create provider with explicit network config to avoid _detectNetwork hang
+      const expectedChainId = accept.network === 'cronos-mainnet' ? 25 : 338;
+      const networkConfig = {
+        chainId: expectedChainId,
+        name: accept.network === 'cronos-mainnet' ? 'Cronos Mainnet' : 'Cronos Testnet',
+      };
+      
+      console.log('📋 Network config:', networkConfig);
+      const provider = new ethers.BrowserProvider(ethereumProvider, networkConfig);
+      console.log('✅ BrowserProvider created with network config');
       
       console.log('📦 Step 5: Getting signer directly (wallet already connected via RainbowKit)...');
       // Skip account request since wallet is already connected via RainbowKit
@@ -144,11 +151,12 @@ export default function PaymentModal({
       try {
         console.log('⏳ Getting signer for address:', walletAddress);
         // Pass the wallet address directly to getSigner to avoid internal account detection
+        // Use shorter timeout since we have network config
         const signerPromise = provider.getSigner(walletAddress);
         const signerTimeout = new Promise<never>((_, reject) => {
           setTimeout(() => {
-            reject(new Error('getSigner() timed out. MetaMask may not be responding. Please refresh the page and try again.'));
-          }, 10000); // 10 seconds timeout
+            reject(new Error('getSigner() timed out after 5s. This may indicate a MetaMask issue. Please try: 1) Refresh page, 2) Reconnect wallet, 3) Ensure MetaMask is unlocked.'));
+          }, 5000); // Reduced to 5 seconds since we have network config
         });
         
         currentSigner = await Promise.race([signerPromise, signerTimeout]);
@@ -160,7 +168,20 @@ export default function PaymentModal({
           stack: signerError?.stack,
           code: signerError?.code,
         });
-        throw new Error(`Failed to get wallet signer: ${signerError.message}`);
+        
+        // Try alternative: create signer without address parameter
+        console.log('🔄 Trying alternative: getSigner() without address...');
+        try {
+          const altSignerPromise = provider.getSigner();
+          const altTimeout = new Promise<never>((_, reject) => {
+            setTimeout(() => reject(new Error('Alternative getSigner() also timed out')), 5000);
+          });
+          currentSigner = await Promise.race([altSignerPromise, altTimeout]);
+          console.log('✅ Signer obtained via alternative method');
+        } catch (altError: any) {
+          console.error('❌ Alternative method also failed:', altError);
+          throw new Error(`Failed to get wallet signer: ${signerError.message}`);
+        }
       }
       
       console.log('📦 Step 7: Validating signer address...');
