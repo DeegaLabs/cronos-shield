@@ -50,9 +50,6 @@ export default function PaymentModal({
   // This prevents evmAsk errors when PaymentModal is lazy-loaded
   // Only access signer inside handlePay when user actually clicks "Pay"
   
-  // Check if wallet is ready (but don't access signer properties)
-  const isWalletReady = !!(walletAddress && signer);
-  
   const accept = challenge.accepts[0];
   const amount = accept
     ? (parseInt(accept.maxAmountRequired) / 1000000).toFixed(1)
@@ -63,6 +60,8 @@ export default function PaymentModal({
   // The signer will be created internally in handlePay if needed
   const ethereum = typeof window !== 'undefined' ? (window as any).ethereum : null;
   const hasEthereum = !!ethereum;
+  // Wallet is ready if we have address and ethereum provider (signer will be created on demand)
+  const isWalletReady = !!(walletAddress && hasEthereum);
   
   if (!walletAddress || !hasEthereum) {
     return (
@@ -84,7 +83,15 @@ export default function PaymentModal({
   }
 
   const handlePay = async () => {
+    console.log('🚀 handlePay called');
+    console.log('📋 Initial state:', {
+      walletAddress,
+      hasChallenge: !!challenge,
+      isProcessing,
+    });
+    
     if (!walletAddress || !challenge) {
+      console.error('❌ Missing requirements:', { walletAddress, challenge: !!challenge });
       return;
     }
     
@@ -93,6 +100,7 @@ export default function PaymentModal({
       window.dispatchEvent(new Event('payment-flow-start'));
     }
     
+    console.log('⏳ Starting payment process...');
     setIsProcessing(true);
     setError(null);
     setTxHash(null);
