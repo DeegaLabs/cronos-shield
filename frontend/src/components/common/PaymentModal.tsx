@@ -180,7 +180,7 @@ export default function PaymentModal({
       
       // Following agentflow-402 pattern: request accounts BEFORE getting signer
       // This ensures MetaMask is ready and avoids getSigner() hanging
-      console.log('📋 Requesting accounts from MetaMask (ensuring it's ready)...');
+      console.log('📋 Requesting accounts from MetaMask (ensuring it is ready)...');
       try {
         const accountsPromise = provider.send('eth_requestAccounts', []);
         const accountsTimeout = new Promise<never>((_, reject) => {
