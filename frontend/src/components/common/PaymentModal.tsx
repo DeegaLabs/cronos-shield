@@ -165,25 +165,46 @@ export default function PaymentModal({
       const { ethers } = await import('ethers');
       console.log('✅ Ethers imported');
       
-      console.log('📦 Step 4: Creating ethers signer (using window.ethereum directly)...');
-      // Use window.ethereum directly - wallet is already connected via RainbowKit
-      // This is simpler and more reliable than converting walletClient
+      console.log('📦 Step 4: Creating ethers signer (following d73a640 pattern that worked)...');
+      // Following the commit d73a640 pattern that worked:
+      // 1. Create BrowserProvider WITHOUT network config
+      // 2. Call provider.send('eth_requestAccounts', []) BEFORE getSigner()
+      // 3. Then call getSigner()
       const ethereumProvider = (window as any).ethereum;
       if (!ethereumProvider) {
         throw new Error('MetaMask not found. Please refresh the page.');
       }
       
-      console.log('📋 Creating BrowserProvider from window.ethereum...');
+      console.log('📋 Creating BrowserProvider (no network config, like d73a640)...');
       // Create provider WITHOUT network config (network already verified above)
-      // This matches the x402-examples pattern exactly
+      // This avoids _detectNetwork error that causes evmAsk issues
       const provider = new ethers.BrowserProvider(ethereumProvider);
       console.log('✅ BrowserProvider created');
       
-      console.log('⏳ Getting signer...');
+      console.log('📋 Requesting accounts through provider (CRITICAL: must be before getSigner)...');
+      // CRITICAL: Request accounts BEFORE getSigner() - this is what made d73a640 work
+      // Even though wallet is connected via RainbowKit, BrowserProvider needs explicit authorization
+      try {
+        const accountsPromise = provider.send('eth_requestAccounts', []);
+        const accountsTimeout = new Promise<never>((_, reject) => {
+          setTimeout(() => reject(new Error('eth_requestAccounts timed out')), 10000);
+        });
+        const accounts = await Promise.race([accountsPromise, accountsTimeout]) as string[];
+        console.log('✅ Accounts requested through provider:', accounts.length);
+        if (!accounts || accounts.length === 0) {
+          throw new Error('No accounts found. Please connect your wallet in MetaMask.');
+        }
+      } catch (accountsError: any) {
+        console.error('❌ Failed to request accounts:', accountsError);
+        // Don't fail here - try to get signer anyway since wallet is connected via RainbowKit
+        console.warn('⚠️ Account request failed, but proceeding to get signer...');
+      }
+      
+      console.log('⏳ Getting signer (after eth_requestAccounts)...');
       let currentSigner: any;
       try {
-        // Use getSigner() without address parameter (uses first account)
-        // This matches the x402-examples pattern
+        // Use getSigner() without address parameter (uses first account from eth_requestAccounts)
+        // This matches the d73a640 pattern exactly
         const signerPromise = provider.getSigner();
         const signerTimeout = new Promise<never>((_, reject) => {
           setTimeout(() => reject(new Error('getSigner() timed out')), 10000);
