@@ -178,40 +178,55 @@ export default function PaymentModal({
       const provider = new ethers.BrowserProvider(ethereumProvider);
       console.log('✅ BrowserProvider created');
       
-      // Following agentflow-402 pattern: request accounts BEFORE getting signer
-      // This ensures MetaMask is ready and avoids getSigner() hanging
-      console.log('📋 Requesting accounts from MetaMask (ensuring it is ready)...');
+      // Wallet is already connected via RainbowKit, so we don't need to request accounts
+      // Just verify accounts are available and get signer directly
+      console.log('📋 Verifying MetaMask accounts (wallet already connected via RainbowKit)...');
       try {
-        const accountsPromise = provider.send('eth_requestAccounts', []);
+        // Use eth_accounts (read-only) instead of eth_requestAccounts (requires user approval)
+        // Since wallet is already connected, accounts should be available
+        const accountsPromise = ethereumProvider.request({ method: 'eth_accounts' });
         const accountsTimeout = new Promise<never>((_, reject) => {
-          setTimeout(() => reject(new Error('eth_requestAccounts timed out')), 5000);
+          setTimeout(() => reject(new Error('eth_accounts check timed out')), 3000);
         });
-        const accounts = await Promise.race([accountsPromise, accountsTimeout]);
-        console.log('✅ Accounts requested, MetaMask is ready');
+        const accounts = await Promise.race([accountsPromise, accountsTimeout]) as string[];
+        console.log('✅ Accounts verified:', accounts.length);
         if (!accounts || accounts.length === 0) {
           throw new Error('No accounts found. Please connect your wallet in MetaMask.');
         }
         if (accounts[0].toLowerCase() !== walletAddress.toLowerCase()) {
-          console.warn('⚠️ Account mismatch, using first account from MetaMask');
+          console.warn('⚠️ Account mismatch, but proceeding with connected account');
         }
       } catch (accountsError: any) {
-        console.error('❌ Failed to request accounts:', accountsError);
-        throw new Error(`MetaMask is not ready: ${accountsError.message}. Please refresh the page and reconnect your wallet.`);
+        console.error('❌ Failed to verify accounts:', accountsError);
+        // Don't fail here - try to get signer anyway since wallet is connected via RainbowKit
+        console.warn('⚠️ Account verification failed, but proceeding to get signer...');
       }
       
-      console.log('⏳ Getting signer...');
+      console.log('⏳ Getting signer (wallet already connected via RainbowKit)...');
       let currentSigner: any;
       try {
-        // Try without address first (uses first account from eth_requestAccounts)
-        const signerPromise = provider.getSigner();
+        // Get signer with explicit address since wallet is already connected
+        const signerPromise = provider.getSigner(walletAddress);
         const signerTimeout = new Promise<never>((_, reject) => {
-          setTimeout(() => reject(new Error('getSigner() timed out')), 5000);
+          setTimeout(() => reject(new Error('getSigner() timed out')), 10000); // Increased timeout
         });
         currentSigner = await Promise.race([signerPromise, signerTimeout]);
         console.log('✅ Signer obtained');
       } catch (signerError: any) {
         console.error('❌ Failed to get signer:', signerError);
-        throw new Error(`Failed to get wallet signer: ${signerError.message}`);
+        // Try without address as fallback
+        console.log('🔄 Trying getSigner() without address parameter...');
+        try {
+          const fallbackPromise = provider.getSigner();
+          const fallbackTimeout = new Promise<never>((_, reject) => {
+            setTimeout(() => reject(new Error('Fallback getSigner() timed out')), 10000);
+          });
+          currentSigner = await Promise.race([fallbackPromise, fallbackTimeout]);
+          console.log('✅ Signer obtained via fallback method');
+        } catch (fallbackError: any) {
+          console.error('❌ Fallback also failed:', fallbackError);
+          throw new Error(`Failed to get wallet signer: ${signerError.message}. Please refresh the page and try again.`);
+        }
       }
       
       console.log('📦 Step 5: Validating signer address...');
