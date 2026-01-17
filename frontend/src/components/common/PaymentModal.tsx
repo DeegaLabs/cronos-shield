@@ -181,21 +181,28 @@ export default function PaymentModal({
       const provider = new ethers.BrowserProvider(ethereumProvider);
       console.log('✅ BrowserProvider created');
       
-      console.log('📋 Checking if accounts are already authorized...');
+      console.log('📋 Checking if accounts are already authorized (with timeout)...');
       // Check if accounts are already authorized (wallet connected via RainbowKit)
       // If yes, we can skip eth_requestAccounts and go directly to getSigner()
+      // Add timeout to avoid hanging
       let accountsAuthorized = false;
       try {
-        const existingAccounts = await ethereumProvider.request({ method: 'eth_accounts' });
+        const checkPromise = ethereumProvider.request({ method: 'eth_accounts' });
+        const checkTimeout = new Promise<never>((_, reject) => {
+          setTimeout(() => reject(new Error('eth_accounts check timed out')), 2000);
+        });
+        const existingAccounts = await Promise.race([checkPromise, checkTimeout]) as string[];
         if (existingAccounts && existingAccounts.length > 0) {
           console.log('✅ Accounts already authorized:', existingAccounts.length);
           accountsAuthorized = true;
         }
       } catch (checkError) {
-        console.log('⚠️ Could not check existing accounts, will request...');
+        console.log('⚠️ Could not check existing accounts (timed out or error), will try getSigner directly...');
+        // If check times out, assume wallet is connected via RainbowKit and proceed
+        accountsAuthorized = true;
       }
       
-      // Only request accounts if not already authorized
+      // Only request accounts if not already authorized AND check didn't timeout
       // This avoids timeout when wallet is already connected via RainbowKit
       if (!accountsAuthorized) {
         console.log('📋 Requesting accounts through provider (not yet authorized)...');
@@ -216,15 +223,8 @@ export default function PaymentModal({
           console.warn('⚠️ Account request failed, but proceeding to get signer (wallet may already be authorized)...');
         }
       } else {
-        console.log('✅ Skipping eth_requestAccounts (accounts already authorized via RainbowKit)');
-        // Even if accounts are authorized, we still need to "activate" the provider
-        // Try a lightweight call to ensure provider is ready
-        try {
-          await provider.send('eth_chainId', []);
-          console.log('✅ Provider is ready');
-        } catch (chainError) {
-          console.warn('⚠️ ChainId check failed, but proceeding...');
-        }
+        console.log('✅ Skipping eth_requestAccounts (accounts already authorized or check timed out)');
+        console.log('✅ Proceeding directly to getSigner() (wallet connected via RainbowKit)');
       }
       
       console.log('⏳ Getting signer (after eth_requestAccounts)...');
