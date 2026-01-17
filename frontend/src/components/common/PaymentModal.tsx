@@ -59,8 +59,12 @@ export default function PaymentModal({
     : '1.0';
 
   // Show modal even if wallet not connected, but show warning
-  // Don't access signer here - just check if it exists
-  if (!walletAddress || !signer) {
+  // Check if wallet is connected via window.ethereum instead of relying on signer prop
+  // The signer will be created internally in handlePay if needed
+  const ethereum = typeof window !== 'undefined' ? (window as any).ethereum : null;
+  const hasEthereum = !!ethereum;
+  
+  if (!walletAddress || !hasEthereum) {
     return (
       <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
         <div className="bg-slate-800 rounded-lg border border-yellow-500 max-w-md w-full p-6">
@@ -80,7 +84,7 @@ export default function PaymentModal({
   }
 
   const handlePay = async () => {
-    if (!walletAddress || !signer || !challenge) {
+    if (!walletAddress || !challenge) {
       return;
     }
     
@@ -100,20 +104,45 @@ export default function PaymentModal({
         throw new Error('No payment method available');
       }
 
-      // Use the signer passed from useWallet hook (already connected)
-      if (!signer || !signer.provider) {
-        throw new Error('Wallet not connected. Please connect your wallet first.');
+      // Always create a fresh signer from window.ethereum to ensure it's valid
+      // This avoids issues with wagmi's walletClient not being compatible with ethers
+      const ethereumProvider = (window as any).ethereum;
+      if (!ethereumProvider) {
+        throw new Error('MetaMask not found. Please refresh the page.');
+      }
+
+      // Import ethers dynamically to avoid issues
+      const { ethers } = await import('ethers');
+      
+      // Create provider and signer from window.ethereum
+      const provider = new ethers.BrowserProvider(ethereumProvider);
+      // Request accounts to ensure wallet is connected
+      await provider.send('eth_requestAccounts', []);
+      let currentSigner = await provider.getSigner();
+      
+      // Verify we can get the address from the signer
+      let signerAddress: string;
+      try {
+        signerAddress = await currentSigner.getAddress();
+        console.log('✅ Signer created, address:', signerAddress);
+        
+        // Verify the address matches the walletAddress prop
+        if (signerAddress.toLowerCase() !== walletAddress.toLowerCase()) {
+          console.warn('⚠️ Signer address does not match walletAddress prop, using signer address');
+        }
+      } catch (addressError: any) {
+        console.error('❌ Signer validation failed:', addressError);
+        throw new Error('Wallet signer is not valid. Please reconnect your wallet.');
       }
 
       // Verify we're on the correct network using eth_chainId directly
-      const ethereum = (window as any).ethereum;
-      if (!ethereum) {
+      if (!ethereumProvider) {
         throw new Error('MetaMask not found');
       }
 
       let chainId: string;
       try {
-        chainId = await ethereum.request({ method: 'eth_chainId' });
+        chainId = await ethereumProvider.request({ method: 'eth_chainId' });
       } catch (error: any) {
         throw new Error('Failed to get chain ID. Please check MetaMask.');
       }
@@ -125,14 +154,14 @@ export default function PaymentModal({
       if (currentChainId !== expectedChainId) {
         const chainIdHex = accept.network === 'cronos-mainnet' ? '0x19' : '0x152';
         try {
-          await ethereum.request({
+          await ethereumProvider.request({
             method: 'wallet_switchEthereumChain',
             params: [{ chainId: chainIdHex }],
           });
           await new Promise(resolve => setTimeout(resolve, 1000));
         } catch (e: any) {
           if (e?.code === 4902 && accept.network === 'cronos-testnet') {
-            await ethereum.request({
+            await ethereumProvider.request({
               method: 'wallet_addEthereumChain',
               params: [{
                 chainId: '0x152',
@@ -155,37 +184,7 @@ export default function PaymentModal({
       // Verify signer is still valid and get a fresh one if needed
       // Following the official examples pattern: create provider WITHOUT network config
       // Network is ensured separately via ensureCronosChain
-      let currentSigner = signer;
-      if (!currentSigner || !currentSigner.provider) {
-        // Try to get a fresh signer from the wallet
-        const ethereum = (window as any).ethereum;
-        if (!ethereum) {
-          throw new Error('MetaMask not found. Please refresh the page.');
-        }
-
-        try {
-          // Import ethers dynamically to avoid issues
-          const { ethers } = await import('ethers');
-          // Create provider WITHOUT explicit network config (like official examples)
-          // This avoids the _detectNetwork error
-          const provider = new ethers.BrowserProvider(ethereum);
-          // Request accounts to ensure wallet is connected
-          await provider.send('eth_requestAccounts', []);
-          currentSigner = await provider.getSigner();
-        } catch (signerError: any) {
-          throw new Error('Failed to get wallet signer. Please reconnect your wallet.');
-        }
-      }
-
-      // Verify we can get the address from the signer (this validates it's working)
-      let signerAddress: string;
-      try {
-        signerAddress = await currentSigner.getAddress();
-        console.log('✅ Signer validated, address:', signerAddress);
-      } catch (addressError: any) {
-        console.error('❌ Signer validation failed:', addressError);
-        throw new Error('Wallet signer is not valid. Please reconnect your wallet.');
-      }
+      // currentSigner is already created above
 
       // CRITICAL: Import Facilitator dynamically ONLY when needed (inside handlePay)
       // This prevents the SDK from loading on page load, which causes evmAsk error
@@ -276,10 +275,9 @@ export default function PaymentModal({
             await new Promise(resolve => setTimeout(resolve, 1000));
             // Try to get a fresh signer (without network config to avoid _detectNetwork error)
             try {
-              const ethereum = (window as any).ethereum;
               const { ethers } = await import('ethers');
               // Create provider WITHOUT explicit network config (like official examples)
-              const provider = new ethers.BrowserProvider(ethereum);
+              const provider = new ethers.BrowserProvider(ethereumProvider);
               await provider.send('eth_requestAccounts', []);
               currentSigner = await provider.getSigner();
               console.log('Fresh signer obtained:', await currentSigner.getAddress());
