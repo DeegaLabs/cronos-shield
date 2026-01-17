@@ -304,16 +304,6 @@ export default function PaymentModal({
             console.log('🔍 Signer check: signer exists but address check failed');
           }
           
-          // This should trigger MetaMask to open for signing
-          console.log('⏳ Calling facilitator.generatePaymentHeader() - MetaMask should open now...');
-          console.log('📋 Payment parameters:', {
-            to: accept.payTo,
-            value: accept.maxAmountRequired,
-            asset: accept.asset,
-            signerAddress: signerAddress,
-            validBefore,
-          });
-          
           // Check if MetaMask is available and unlocked
           const ethereum = (window as any).ethereum;
           if (ethereum) {
@@ -336,17 +326,12 @@ export default function PaymentModal({
             }, 60000); // 60 seconds timeout
           });
           
-          console.log('🔐 Requesting signature from MetaMask...');
+          console.log('🔐 Verifying signer before requesting signature...');
           console.log('📝 Signer details:', {
             hasSigner: !!currentSigner,
             signerType: currentSigner?.constructor?.name,
             signerAddress: signerAddress,
           });
-          
-          // Verify signer has the _signTypedData method (required for EIP-712)
-          if (!currentSigner || typeof (currentSigner as any)._signTypedData !== 'function') {
-            console.warn('⚠️ Signer may not support EIP-712 signing');
-          }
           
           // Verify signer has signTypedData method before calling
           console.log('🔍 Verifying signer capabilities...');
@@ -419,11 +404,19 @@ export default function PaymentModal({
             console.log('✅ Test signature preview:', testSignature.substring(0, 20) + '...');
           } catch (testError: any) {
             console.error('❌ Test signTypedData failed:', testError);
+            console.error('Test error details:', {
+              message: testError?.message,
+              code: testError?.code,
+              name: testError?.name,
+            });
             if (testError?.code === 4001) {
               throw new Error('Test signature rejected. Please approve the test signature in MetaMask first.');
             }
-            console.warn('⚠️ Test signature failed, but proceeding with Facilitator SDK call...');
-            console.warn('⚠️ This may indicate MetaMask is not responding to signTypedData calls');
+            if (testError?.message?.includes('timed out')) {
+              throw new Error('MetaMask did not respond to test signature. Please check: 1) MetaMask is unlocked, 2) No popup blocker, 3) Check MetaMask extension for pending notifications.');
+            }
+            // Don't proceed if test fails - this indicates a fundamental problem
+            throw new Error(`Test signature failed: ${testError?.message || 'Unknown error'}. Please refresh the page and try again.`);
           }
           
           try {
