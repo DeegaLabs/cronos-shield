@@ -228,6 +228,30 @@ app.get('/health', (_req, res) => {
   });
 });
 
+// Error handling middleware (must be after all routes)
+app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+  console.error('❌ Error:', err);
+  console.error('Error stack:', err.stack);
+  
+  // Default error response
+  const status = err.status || err.statusCode || 500;
+  const message = err.message || 'Internal server error';
+  
+  res.status(status).json({
+    error: err.name || 'Error',
+    message,
+    ...(process.env.NODE_ENV === 'development' && { stack: err.stack }),
+  });
+});
+
+// 404 handler (must be after all routes and error handler)
+app.use((_req, res) => {
+  res.status(404).json({
+    error: 'Not Found',
+    message: 'Endpoint not found',
+  });
+});
+
 // Initialize database migrations before starting server
 async function startServer() {
   // Run migrations if DATABASE_URL is set
