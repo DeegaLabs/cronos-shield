@@ -137,8 +137,6 @@ export default function PaymentModal({
       // Validate chain is Cronos (25 = Mainnet, 338 = Testnet)
       const CRONOS_CHAINS = [25, 338];
       if (!CRONOS_CHAINS.includes(chainId)) {
-        const targetChainId = accept.network === 'cronos-mainnet' ? 25 : 338;
-        const chainIdHex = accept.network === 'cronos-mainnet' ? '0x19' : '0x152';
         throw new Error(`Please switch to Cronos ${accept.network === 'cronos-mainnet' ? 'Mainnet' : 'Testnet'}. Current chain: ${chainId}`);
       }
       console.log('✅ Wallet connected and on correct Cronos network:', chainId);
@@ -157,7 +155,7 @@ export default function PaymentModal({
       }
       
       // Use the signer from useEthersSigner hook (already created, no timeout!)
-      const currentSigner = signer;
+      // No need to create a new signer - useEthersSigner already provides it
 
       // CRITICAL: Import Facilitator dynamically ONLY when needed (inside handlePay)
       // This prevents the SDK from loading on page load, which causes evmAsk error
@@ -213,6 +211,9 @@ export default function PaymentModal({
           } catch (e) {
             console.log('🔍 Signer check: signer exists but address check failed');
           }
+          
+          // Use signer directly (from useEthersSigner hook)
+          const currentSigner = signer;
           
           // Check if MetaMask is available and unlocked
           console.log('🔍 Checking MetaMask availability...');
@@ -420,21 +421,10 @@ export default function PaymentModal({
             console.log('Retrying with fresh signer...');
             // Wait a bit longer before retry
             await new Promise(resolve => setTimeout(resolve, 1000));
-            // Try to get a fresh signer (without network config to avoid _detectNetwork error)
-            try {
-              const { ethers } = await import('ethers');
-              const ethereum = (window as any).ethereum;
-              if (!ethereum) {
-                throw new Error('MetaMask not found');
-              }
-              // Create provider WITHOUT explicit network config (like official examples)
-              const provider = new ethers.BrowserProvider(ethereum);
-              await provider.send('eth_requestAccounts', []);
-              currentSigner = await provider.getSigner();
-              console.log('Fresh signer obtained:', await currentSigner.getAddress());
-            } catch (refreshError) {
-              console.error('Failed to refresh signer:', refreshError);
-              // If we can't refresh, fail
+            // Signer is already available from useEthersSigner hook
+            // No need to recreate - just validate it's still available
+            if (!signer) {
+              console.error('Signer no longer available');
               retries = 0;
             }
             lastError = headerError;
