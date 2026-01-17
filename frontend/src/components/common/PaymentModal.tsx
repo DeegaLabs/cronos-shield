@@ -106,28 +106,47 @@ export default function PaymentModal({
     setTxHash(null);
 
     try {
+      console.log('📦 Step 1: Getting payment requirements...');
       // Get payment requirements first to know which network we need
       const accept = challenge.accepts[0];
       if (!accept) {
         throw new Error('No payment method available');
       }
+      console.log('✅ Payment requirements obtained:', {
+        payTo: accept.payTo,
+        value: accept.maxAmountRequired,
+        network: accept.network,
+      });
 
+      console.log('📦 Step 2: Creating signer from MetaMask...');
       // Always create a fresh signer from window.ethereum to ensure it's valid
       // This avoids issues with wagmi's walletClient not being compatible with ethers
       const ethereumProvider = (window as any).ethereum;
       if (!ethereumProvider) {
         throw new Error('MetaMask not found. Please refresh the page.');
       }
+      console.log('✅ Ethereum provider found');
 
+      console.log('📦 Step 3: Importing ethers...');
       // Import ethers dynamically to avoid issues
       const { ethers } = await import('ethers');
+      console.log('✅ Ethers imported');
       
+      console.log('📦 Step 4: Creating BrowserProvider...');
       // Create provider and signer from window.ethereum
       const provider = new ethers.BrowserProvider(ethereumProvider);
+      console.log('✅ BrowserProvider created');
+      
+      console.log('📦 Step 5: Requesting accounts...');
       // Request accounts to ensure wallet is connected
       await provider.send('eth_requestAccounts', []);
-      let currentSigner = await provider.getSigner();
+      console.log('✅ Accounts requested');
       
+      console.log('📦 Step 6: Getting signer...');
+      let currentSigner = await provider.getSigner();
+      console.log('✅ Signer obtained');
+      
+      console.log('📦 Step 7: Validating signer address...');
       // Verify we can get the address from the signer
       let signerAddress: string;
       try {
@@ -143,6 +162,7 @@ export default function PaymentModal({
         throw new Error('Wallet signer is not valid. Please reconnect your wallet.');
       }
 
+      console.log('📦 Step 8: Checking network...');
       // Verify we're on the correct network using eth_chainId directly
       if (!ethereumProvider) {
         throw new Error('MetaMask not found');
@@ -151,7 +171,9 @@ export default function PaymentModal({
       let chainId: string;
       try {
         chainId = await ethereumProvider.request({ method: 'eth_chainId' });
+        console.log('✅ Current chain ID:', chainId);
       } catch (error: any) {
+        console.error('❌ Failed to get chain ID:', error);
         throw new Error('Failed to get chain ID. Please check MetaMask.');
       }
 
