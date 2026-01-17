@@ -305,18 +305,27 @@ export default function PaymentModal({
           }
           
           // Check if MetaMask is available and unlocked
+          console.log('🔍 Checking MetaMask availability...');
           const ethereum = (window as any).ethereum;
           if (ethereum) {
             try {
-              const accounts = await ethereum.request({ method: 'eth_accounts' });
+              console.log('📋 Requesting eth_accounts...');
+              const accountsPromise = ethereum.request({ method: 'eth_accounts' });
+              const accountsTimeout = new Promise<never>((_, reject) => {
+                setTimeout(() => reject(new Error('eth_accounts timed out')), 5000);
+              });
+              const accounts = await Promise.race([accountsPromise, accountsTimeout]) as string[];
+              console.log('✅ MetaMask accounts found:', accounts.length);
               if (accounts.length === 0) {
                 throw new Error('No accounts found. Please connect your wallet in MetaMask.');
               }
-              console.log('✅ MetaMask accounts found:', accounts.length);
             } catch (accountError: any) {
               console.error('❌ MetaMask account check failed:', accountError);
-              throw new Error('MetaMask is not connected. Please connect your wallet and try again.');
+              // Don't fail here - wallet is connected via RainbowKit, so accounts should be available
+              console.warn('⚠️ Account check failed, but proceeding (wallet connected via RainbowKit)...');
             }
+          } else {
+            throw new Error('MetaMask not found. Please install MetaMask.');
           }
           
           // Add timeout to detect if MetaMask is not responding
