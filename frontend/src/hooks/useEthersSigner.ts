@@ -23,6 +23,9 @@ export function useEthersSigner() {
 
     async function createSigner() {
       try {
+        if (!walletClient) {
+          return;
+        }
         // Use walletClient.transport which is EIP-1193 compatible
         // This avoids deadlock because walletClient already has account and chain resolved
         const provider = new BrowserProvider(walletClient.transport, 'any');

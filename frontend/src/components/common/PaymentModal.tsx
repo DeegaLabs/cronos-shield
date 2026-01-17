@@ -5,7 +5,7 @@
  */
 
 import { useEffect, useState } from 'react';
-import { useWalletClient, useChainId } from 'wagmi';
+import { useChainId } from 'wagmi';
 import { useEthersSigner } from '../../hooks/useEthersSigner';
 import type { PaymentChallenge } from '../../types/x402.types';
 // DO NOT import Facilitator here - it causes evmAsk error on page load
@@ -199,12 +199,15 @@ export default function PaymentModal({
           await new Promise(resolve => setTimeout(resolve, 200));
           
           console.log(`🔄 Attempting to generate payment header (attempt ${3 - retries}/2)...`);
-          // Don't access signer.provider here - it can trigger evmAsk error
-          // Only access signer methods that are safe
+          // Validate signer is still available
+          if (!signer) {
+            throw new Error('Signer no longer available. Please reconnect your wallet.');
+          }
+          
           try {
-            const addr = await currentSigner.getAddress();
+            const addr = await signer.getAddress();
             console.log('🔍 Signer check:', {
-              hasSigner: !!currentSigner,
+              hasSigner: !!signer,
               signerAddress: addr,
             });
           } catch (e) {
@@ -346,11 +349,12 @@ export default function PaymentModal({
             });
             
             // Call generatePaymentHeader with detailed logging
+            // This will internally call signer.signTypedData() which opens MetaMask
             const generateHeaderPromise = facilitator.generatePaymentHeader({
               to: accept.payTo,
               value: accept.maxAmountRequired,
               asset: accept.asset as any,
-              signer: currentSigner,
+              signer: signer, // Use signer from useEthersSigner hook
               validBefore,
               validAfter: 0,
             });
