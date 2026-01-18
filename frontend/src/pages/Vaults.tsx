@@ -607,12 +607,12 @@ export default function VaultsPage() {
                           ⚠️ Risk score exceeds maximum allowed ({vaultInfo?.maxRiskScore || 70}/100). Transaction will be blocked.
                         </div>
                       )}
-                      {riskAnalysis.issues && riskAnalysis.issues.length > 0 && (
+                      {riskAnalysis.details?.warnings && riskAnalysis.details.warnings.length > 0 && (
                         <div className="mt-3">
-                          <div className="text-xs font-semibold text-slate-400 mb-1">Issues Found:</div>
+                          <div className="text-xs font-semibold text-slate-400 mb-1">Warnings:</div>
                           <ul className="text-xs text-slate-300 space-y-1">
-                            {riskAnalysis.issues.slice(0, 3).map((issue: string, idx: number) => (
-                              <li key={idx}>• {issue}</li>
+                            {riskAnalysis.details.warnings.slice(0, 3).map((warning: string, idx: number) => (
+                              <li key={idx}>• {warning}</li>
                             ))}
                           </ul>
                         </div>
