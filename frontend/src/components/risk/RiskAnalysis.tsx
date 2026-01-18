@@ -28,7 +28,7 @@ export default function RiskAnalysis({ contractAddress: initialContract = '', on
   const [paymentId, setPaymentId] = useState<string | null>(null);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
 
-  const handleAnalyze = async () => {
+  const handleAnalyze = async (overridePaymentId?: string) => {
     if (!contract.trim()) {
       setError('Please enter a contract address');
       return;
@@ -40,10 +40,12 @@ export default function RiskAnalysis({ contractAddress: initialContract = '', on
     setShowPaymentModal(false);
 
     try {
+      // Use overridePaymentId if provided, otherwise use state paymentId
+      const currentPaymentId = overridePaymentId || paymentId;
       const headers: Record<string, string> = {};
-      if (paymentId) {
-        headers['x-payment-id'] = paymentId;
-        console.log('📤 Sending analysis request with paymentId:', paymentId);
+      if (currentPaymentId) {
+        headers['x-payment-id'] = currentPaymentId;
+        console.log('📤 Sending analysis request with paymentId:', currentPaymentId);
       } else {
         console.log('📤 Sending analysis request without paymentId (will receive 402)');
       }
@@ -78,9 +80,10 @@ export default function RiskAnalysis({ contractAddress: initialContract = '', on
     setPaymentId(newPaymentId);
     setPaymentChallenge(null);
     // Retry the request automatically after a short delay to ensure backend processed the payment
+    // Pass paymentId directly to avoid React state update timing issues
     setTimeout(() => {
       console.log('🔄 Retrying analysis request with paymentId:', newPaymentId);
-      handleAnalyze();
+      handleAnalyze(newPaymentId);
     }, 1000); // Increased delay to ensure backend processed the payment
   };
 
