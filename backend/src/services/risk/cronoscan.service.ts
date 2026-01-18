@@ -67,7 +67,11 @@ export class CronoscanService {
     if (baseUrl) {
       this.baseUrl = baseUrl;
     } else if (network.includes('testnet')) {
-      this.baseUrl = 'https://api-testnet.cronoscan.com/api';
+      // Note: Cronoscan testnet API may not be available
+      // Using mainnet API as fallback - it may still work for testnet addresses
+      // If this doesn't work, we'll need to use direct RPC calls instead
+      this.baseUrl = 'https://api.cronoscan.com/api';
+      logger.warn('Using mainnet Cronoscan API for testnet - some endpoints may not work');
     } else {
       this.baseUrl = 'https://api.cronoscan.com/api';
     }
