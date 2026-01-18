@@ -6,15 +6,21 @@ import { useWalletBalance } from '../hooks/useWalletBalance'
 import { useVaultTransactions } from '../hooks/useVaultTransactions'
 import { useVaultStats } from '../hooks/useVaultStats'
 import { formatDistanceToNow } from 'date-fns'
+import apiClient from '../lib/api/client'
 
 export default function VaultsPage() {
   const { address, isConnected } = useAccount()
-  const [activeTab, setActiveTab] = useState<'deposit' | 'withdraw'>('deposit')
+  const [activeTab, setActiveTab] = useState<'deposit' | 'withdraw' | 'protected'>('deposit')
   const [depositAmount, setDepositAmount] = useState('')
   const [withdrawAmount, setWithdrawAmount] = useState('')
+  const [protectedTarget, setProtectedTarget] = useState('')
+  const [protectedValue, setProtectedValue] = useState('')
+  const [protectedCallData, setProtectedCallData] = useState('')
   const [isProcessing, setIsProcessing] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
+  const [riskAnalysis, setRiskAnalysis] = useState<any>(null)
+  const [isAnalyzingRisk, setIsAnalyzingRisk] = useState(false)
 
   const {
     vaultInfo,
@@ -22,8 +28,10 @@ export default function VaultsPage() {
     isLoadingBalance,
     deposit,
     withdraw,
+    executeProtectedTransaction,
     isDepositing,
     isWithdrawing,
+    isExecutingProtectedTransaction,
     contractAddress,
   } = useVault()
 
@@ -141,6 +149,103 @@ export default function VaultsPage() {
       setWithdrawAmount('')
     } catch (err: any) {
       setError(err.message || 'Withdrawal failed')
+    } finally {
+      setIsProcessing(false)
+    }
+  }
+
+  const handleCheckRisk = async () => {
+    if (!isConnected || !address) {
+      setError('Please connect your wallet first')
+      return
+    }
+
+    if (!protectedTarget || !protectedTarget.trim()) {
+      setError('Please enter a target contract address')
+      return
+    }
+
+    setIsAnalyzingRisk(true)
+    setError(null)
+    setRiskAnalysis(null)
+
+    try {
+      // Get paymentId from localStorage if available
+      const paymentId = localStorage.getItem('x-payment-id')
+      const headers: Record<string, string> = {}
+      if (paymentId) {
+        headers['x-payment-id'] = paymentId
+      }
+
+      const response = await apiClient.get('/api/risk/risk-analysis', {
+        params: { contract: protectedTarget.trim() },
+        headers,
+      })
+      
+      setRiskAnalysis(response.data)
+      setSuccess(`Risk analysis complete. Score: ${response.data.score}/100`)
+    } catch (err: any) {
+      if (err.response?.status === 402) {
+        setError('Payment required for risk analysis. Please use the Risk Oracle page first.')
+      } else {
+        setError(err.response?.data?.message || 'Failed to analyze risk')
+      }
+    } finally {
+      setIsAnalyzingRisk(false)
+    }
+  }
+
+  const handleExecuteProtectedTransaction = async () => {
+    if (!isConnected || !address) {
+      setError('Please connect your wallet first')
+      return
+    }
+
+    if (!riskAnalysis) {
+      setError('Please check risk first')
+      return
+    }
+
+    if (riskAnalysis.score > (vaultInfo?.maxRiskScore || 70)) {
+      setError(`Risk score (${riskAnalysis.score}) exceeds maximum allowed (${vaultInfo?.maxRiskScore || 70})`)
+      return
+    }
+
+    if (!protectedTarget || !protectedValue || parseFloat(protectedValue) <= 0) {
+      setError('Please enter valid target address and amount')
+      return
+    }
+
+    if (vaultBalance && parseFloat(protectedValue) > parseFloat(vaultBalance.formatted)) {
+      setError('Insufficient balance in vault')
+      return
+    }
+
+    setIsProcessing(true)
+    setError(null)
+    setSuccess(null)
+
+    try {
+      // Convert proof to hex string if needed
+      const proofHex = riskAnalysis.proof || '0x'
+      // Use empty callData if not provided (simple value transfer)
+      const callDataHex = protectedCallData.trim() || '0x'
+
+      const txHash = await executeProtectedTransaction({
+        target: protectedTarget.trim(),
+        callData: callDataHex,
+        value: protectedValue,
+        riskScore: riskAnalysis.score,
+        proof: proofHex,
+      })
+
+      setSuccess(`Protected transaction executed! Transaction: ${txHash.slice(0, 10)}...`)
+      setProtectedTarget('')
+      setProtectedValue('')
+      setProtectedCallData('')
+      setRiskAnalysis(null)
+    } catch (err: any) {
+      setError(err.message || 'Transaction execution failed')
     } finally {
       setIsProcessing(false)
     }
@@ -283,6 +388,12 @@ export default function VaultsPage() {
               >
                 Withdraw
               </button>
+              <button
+                onClick={() => setActiveTab('protected')}
+                className={`tab pb-3 font-semibold ${activeTab === 'protected' ? 'active' : 'text-slate-400'}`}
+              >
+                Protected Transaction
+              </button>
             </div>
 
             {/* Deposit Tab */}
@@ -385,6 +496,130 @@ export default function VaultsPage() {
                   >
                     {isProcessing || isWithdrawing ? 'Processing...' : 'Withdraw CRO'}
                   </button>
+                </div>
+              </div>
+            )}
+
+            {/* Protected Transaction Tab */}
+            {activeTab === 'protected' && (
+              <div>
+                <div className="space-y-4">
+                  <div className="p-4 bg-blue-950/20 border border-blue-900/30 rounded-lg mb-4">
+                    <div className="flex items-center gap-3 mb-2">
+                      <svg className="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+                      </svg>
+                      <div className="font-semibold text-blue-400">Risk-Protected Transaction</div>
+                    </div>
+                    <div className="text-sm text-slate-400">
+                      Execute transactions to external contracts with automatic risk verification. High-risk contracts will be blocked.
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-300 mb-2">Target Contract Address</label>
+                    <input
+                      type="text"
+                      placeholder="0x..."
+                      value={protectedTarget}
+                      onChange={(e) => setProtectedTarget(e.target.value)}
+                      className="w-full px-4 py-3 bg-slate-900 border border-slate-700 rounded-lg focus:border-indigo-500 focus:outline-none transition-colors font-mono text-sm"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-300 mb-2">Amount (CRO)</label>
+                    <input
+                      type="number"
+                      placeholder="0.0"
+                      value={protectedValue}
+                      onChange={(e) => setProtectedValue(e.target.value)}
+                      className="w-full px-4 py-3 bg-slate-900 border border-slate-700 rounded-lg focus:border-indigo-500 focus:outline-none transition-colors"
+                    />
+                    <div className="flex items-center justify-between mt-2 text-xs text-slate-500">
+                      <span>
+                        Available in Vault: {isLoadingBalance ? '...' : (vaultBalance?.formatted ? parseFloat(vaultBalance.formatted).toFixed(4) : '0.0000')} CRO
+                      </span>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-300 mb-2">Call Data (hex, optional)</label>
+                    <input
+                      type="text"
+                      placeholder="0x..."
+                      value={protectedCallData}
+                      onChange={(e) => setProtectedCallData(e.target.value)}
+                      className="w-full px-4 py-3 bg-slate-900 border border-slate-700 rounded-lg focus:border-indigo-500 focus:outline-none transition-colors font-mono text-sm"
+                    />
+                    <div className="text-xs text-slate-500 mt-1">
+                      Leave empty for simple value transfer
+                    </div>
+                  </div>
+
+                  {riskAnalysis && (
+                    <div className={`p-4 rounded-lg border ${
+                      riskAnalysis.score <= (vaultInfo?.maxRiskScore || 70)
+                        ? 'bg-green-950/20 border-green-900/30'
+                        : 'bg-red-950/20 border-red-900/30'
+                    }`}>
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="font-semibold">Risk Score</span>
+                        <span className={`font-bold text-lg ${
+                          riskAnalysis.score <= (vaultInfo?.maxRiskScore || 70)
+                            ? 'text-green-400'
+                            : 'text-red-400'
+                        }`}>
+                          {riskAnalysis.score}/100
+                        </span>
+                      </div>
+                      {riskAnalysis.score > (vaultInfo?.maxRiskScore || 70) && (
+                        <div className="text-sm text-red-400 mt-2">
+                          ⚠️ Risk score exceeds maximum allowed ({vaultInfo?.maxRiskScore || 70}/100). Transaction will be blocked.
+                        </div>
+                      )}
+                      {riskAnalysis.issues && riskAnalysis.issues.length > 0 && (
+                        <div className="mt-3">
+                          <div className="text-xs font-semibold text-slate-400 mb-1">Issues Found:</div>
+                          <ul className="text-xs text-slate-300 space-y-1">
+                            {riskAnalysis.issues.slice(0, 3).map((issue: string, idx: number) => (
+                              <li key={idx}>• {issue}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {error && (
+                    <div className="p-3 bg-red-900/50 border border-red-500 rounded-lg text-red-400 text-sm">
+                      {error}
+                    </div>
+                  )}
+
+                  {success && (
+                    <div className="p-3 bg-green-900/50 border border-green-500 rounded-lg text-green-400 text-sm">
+                      {success}
+                    </div>
+                  )}
+
+                  <div className="space-y-2">
+                    <button
+                      onClick={handleCheckRisk}
+                      disabled={!isConnected || isAnalyzingRisk || !protectedTarget || !protectedValue || parseFloat(protectedValue) <= 0}
+                      className="w-full py-3 bg-blue-600 hover:bg-blue-500 disabled:bg-slate-600 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg font-bold transition-all"
+                    >
+                      {isAnalyzingRisk ? 'Analyzing Risk...' : 'Check Risk First'}
+                    </button>
+
+                    <button
+                      onClick={handleExecuteProtectedTransaction}
+                      disabled={!isConnected || isProcessing || isExecutingProtectedTransaction || !riskAnalysis || !protectedTarget || !protectedValue || parseFloat(protectedValue) <= 0 || riskAnalysis.score > (vaultInfo?.maxRiskScore || 70)}
+                      className="w-full py-4 bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-600 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg font-bold text-lg transition-all"
+                    >
+                      {isProcessing || isExecutingProtectedTransaction ? 'Processing...' : 'Execute Protected Transaction'}
+                    </button>
+                  </div>
                 </div>
               </div>
             )}
