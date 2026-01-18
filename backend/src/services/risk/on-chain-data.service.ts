@@ -69,6 +69,13 @@ export class OnChainDataService {
    */
   private async getHoldersViaRPC(contractAddress: string): Promise<number> {
     try {
+      // First, verify contract has code
+      const code = await this.provider.getCode(contractAddress);
+      if (!code || code === '0x') {
+        logger.warn('Contract has no code, cannot get holders', { contractAddress });
+        return 0;
+      }
+
       const ERC20_TRANSFER_ABI = [
         'event Transfer(address indexed from, address indexed to, uint256 value)',
       ];
@@ -77,12 +84,18 @@ export class OnChainDataService {
       
       // Get current block
       const currentBlock = await this.provider.getBlockNumber();
-      // Limit to last 10k blocks to avoid RPC limits
-      const fromBlock = Math.max(0, currentBlock - 10000);
+      // RPC limit is 2000 blocks, use 1900 to be safe
+      const maxRange = 1900;
+      const fromBlock = Math.max(0, currentBlock - maxRange);
 
-      logger.debug('Querying Transfer events via RPC', { contractAddress, fromBlock, currentBlock });
+      logger.debug('Querying Transfer events via RPC', { 
+        contractAddress, 
+        fromBlock, 
+        currentBlock, 
+        range: currentBlock - fromBlock 
+      });
 
-      // Get all Transfer events
+      // Get all Transfer events (respecting RPC limit of 2000 blocks)
       const transferEvents = await contract.queryFilter(
         contract.filters.Transfer(),
         fromBlock,
@@ -109,9 +122,57 @@ export class OnChainDataService {
       }
 
       const count = uniqueAddresses.size;
-      logger.info(`✅ Found ${count} holders via RPC (from Transfer events in last 10k blocks)`, { contractAddress });
+      logger.info(`✅ Found ${count} holders via RPC (from Transfer events in last ${currentBlock - fromBlock} blocks)`, { 
+        contractAddress,
+        range: currentBlock - fromBlock,
+        eventsFound: transferEvents.length
+      });
       return count;
     } catch (error: any) {
+      // Check if error is about block range limit
+      if (error.message?.includes('maximum') && error.message?.includes('blocks distance')) {
+        logger.warn('RPC block range limit exceeded, trying smaller range', { 
+          error: error.message, 
+          contractAddress 
+        });
+        // Try with even smaller range (1000 blocks)
+        try {
+          const currentBlock = await this.provider.getBlockNumber();
+          const smallRange = 1000;
+          const fromBlock = Math.max(0, currentBlock - smallRange);
+          const code = await this.provider.getCode(contractAddress);
+          if (!code || code === '0x') {
+            return 0;
+          }
+          const ERC20_TRANSFER_ABI = [
+            'event Transfer(address indexed from, address indexed to, uint256 value)',
+          ];
+          const contract = new ethers.Contract(contractAddress, ERC20_TRANSFER_ABI, this.provider);
+          const transferEvents = await contract.queryFilter(
+            contract.filters.Transfer(),
+            fromBlock,
+            currentBlock
+          );
+          const uniqueAddresses = new Set<string>();
+          const zeroAddress = '0x0000000000000000000000000000000000000000';
+          for (const event of transferEvents) {
+            if ('args' in event && event.args) {
+              const from = (event.args as any).from?.toLowerCase();
+              const to = (event.args as any).to?.toLowerCase();
+              if (from && from !== zeroAddress) uniqueAddresses.add(from);
+              if (to && to !== zeroAddress) uniqueAddresses.add(to);
+            }
+          }
+          logger.info(`✅ Found ${uniqueAddresses.size} holders via RPC (smaller range: ${smallRange} blocks)`, { contractAddress });
+          return uniqueAddresses.size;
+        } catch (retryError: any) {
+          logger.warn('Failed to get holders via RPC even with smaller range', { 
+            error: retryError.message, 
+            contractAddress 
+          });
+          return 0;
+        }
+      }
       logger.warn('Failed to get holders via RPC', { error: error.message, contractAddress });
       return 0;
     }
