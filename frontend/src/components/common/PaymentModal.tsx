@@ -215,29 +215,9 @@ export default function PaymentModal({
           // Use signer directly (from useEthersSigner hook)
           const currentSigner = signer;
           
-          // Check if MetaMask is available and unlocked
-          console.log('🔍 Checking MetaMask availability...');
-          const ethereum = (window as any).ethereum;
-          if (ethereum) {
-            try {
-              console.log('📋 Requesting eth_accounts...');
-              const accountsPromise = ethereum.request({ method: 'eth_accounts' });
-              const accountsTimeout = new Promise<never>((_, reject) => {
-                setTimeout(() => reject(new Error('eth_accounts timed out')), 5000);
-              });
-              const accounts = await Promise.race([accountsPromise, accountsTimeout]) as string[];
-              console.log('✅ MetaMask accounts found:', accounts.length);
-              if (accounts.length === 0) {
-                throw new Error('No accounts found. Please connect your wallet in MetaMask.');
-              }
-            } catch (accountError: any) {
-              console.error('❌ MetaMask account check failed:', accountError);
-              // Don't fail here - wallet is connected via RainbowKit, so accounts should be available
-              console.warn('⚠️ Account check failed, but proceeding (wallet connected via RainbowKit)...');
-            }
-          } else {
-            throw new Error('MetaMask not found. Please install MetaMask.');
-          }
+          // MetaMask is already connected via RainbowKit, no need to check again
+          // The signer from useEthersSigner is ready to use
+          console.log('✅ Signer ready, proceeding to generate payment header...');
           
           // Add timeout to detect if MetaMask is not responding
           const timeoutPromise = new Promise<never>((_, reject) => {
