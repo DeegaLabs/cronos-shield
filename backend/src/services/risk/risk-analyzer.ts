@@ -7,6 +7,7 @@
 import type { RiskAnalysisRequest, RiskAnalysisResponse, RiskDetails } from '../../types/risk.types';
 import { OnChainDataService } from './on-chain-data.service';
 import { logger } from '../../lib/utils/logger';
+import { ethers } from 'ethers';
 
 let onChainDataService: OnChainDataService | null = null;
 

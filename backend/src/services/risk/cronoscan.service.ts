@@ -155,7 +155,15 @@ export class CronoscanService {
         throw new Error(`Cronoscan API error: ${response.data.message}`);
       }
     } catch (error: any) {
-      logger.error('❌ Cronoscan API request failed', { 
+      // If DNS error or API not available, let it fail and use RPC fallback
+      // 404 errors are expected when Explorer API doesn't support the old format
+      const is404 = error.response?.status === 404;
+      const logLevel = is404 ? 'debug' : 'warn';
+      const logMessage = is404 
+        ? 'API endpoint not found (expected - Explorer API uses different structure), using RPC fallback'
+        : 'API request failed, will use RPC fallback';
+      
+      logger[logLevel](logMessage, { 
         error: error.message,
         status: error.response?.status,
         statusText: error.response?.statusText,
