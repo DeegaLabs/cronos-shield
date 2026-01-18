@@ -51,9 +51,11 @@ export function useVaultTransactions(limit: number = 50) {
       const toBlock = currentBlock; // Use specific block number, not 'latest'
 
       // Fetch all events in parallel with error handling
+      // Note: Using address.toLowerCase() to ensure case-insensitive matching
+      const normalizedAddress = address.toLowerCase();
       const [depositedEvents, withdrawnEvents, blockedEvents, allowedEvents] = await Promise.all([
         contract.queryFilter(
-          contract.filters.Deposited(address),
+          contract.filters.Deposited(normalizedAddress),
           fromBlock,
           toBlock
         ).catch((err) => {
