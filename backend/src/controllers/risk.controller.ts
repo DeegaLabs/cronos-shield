@@ -48,7 +48,18 @@ export class RiskController {
     try {
       const { paymentId, paymentHeader, paymentRequirements } = req.body;
 
+      console.log('💰 Payment settlement request received:', {
+        paymentId,
+        paymentHeaderLength: paymentHeader?.length,
+        hasPaymentRequirements: !!paymentRequirements,
+      });
+
       if (!paymentId || !paymentHeader || !paymentRequirements) {
+        console.error('❌ Missing required fields:', {
+          hasPaymentId: !!paymentId,
+          hasPaymentHeader: !!paymentHeader,
+          hasPaymentRequirements: !!paymentRequirements,
+        });
         res.status(400).json({ 
           error: 'missing_fields',
           message: 'paymentId, paymentHeader, and paymentRequirements are required' 
@@ -56,19 +67,29 @@ export class RiskController {
         return;
       }
 
+      console.log('⏳ Processing payment settlement...');
       const result = await this.riskService.settlePayment({
         paymentId,
         paymentHeader,
         paymentRequirements,
       });
 
+      console.log('✅ Payment settlement result:', {
+        ok: result.ok,
+        txHash: result.txHash,
+        error: result.error,
+      });
+
       if (!result.ok) {
+        console.error('❌ Payment settlement failed:', result.error);
         res.status(400).json(result);
         return;
       }
 
+      console.log('✅ Payment settled successfully, txHash:', result.txHash);
       res.status(200).json(result);
     } catch (error) {
+      console.error('❌ Payment settlement error:', error);
       next(error);
     }
   }

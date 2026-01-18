@@ -399,6 +399,13 @@ export default function PaymentModal({
       }
 
       const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000';
+      console.log('📤 Sending payment settlement request...');
+      console.log('📋 Settlement payload:', {
+        paymentId,
+        paymentHeaderLength: paymentHeader.length,
+        paymentRequirements: accept,
+      });
+      
       const settleResponse = await fetch(`${backendUrl}/api/${endpoint}/pay`, {
         method: 'POST',
         headers: {
@@ -411,12 +418,16 @@ export default function PaymentModal({
         }),
       });
 
+      console.log('📥 Settlement response status:', settleResponse.status);
+      
       if (!settleResponse.ok) {
-        const error = await settleResponse.json();
+        const error = await settleResponse.json().catch(() => ({ message: 'Failed to parse error response' }));
+        console.error('❌ Settlement failed:', error);
         throw new Error(`Settlement failed: ${JSON.stringify(error)}`);
       }
 
       const settleResult = await settleResponse.json();
+      console.log('✅ Settlement successful:', settleResult);
 
       setIsProcessing(false);
       setError(null);
