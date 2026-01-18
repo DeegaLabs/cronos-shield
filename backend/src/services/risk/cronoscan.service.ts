@@ -122,24 +122,16 @@ export class CronoscanService {
       isExplorerAPI: this.isExplorerAPI()
     });
 
-    let url: string;
-    
-    if (this.isExplorerAPI()) {
-      // New Explorer API format: /api/v1/ethproxy/...
-      // For now, we'll use the old format as fallback since Explorer API structure is different
-      // TODO: Implement proper Explorer API endpoints when documentation is available
-      logger.warn('Explorer API endpoints not yet implemented, using RPC fallback');
-      throw new Error('Explorer API endpoints not yet implemented');
-    } else {
-      // Old Cronoscan API format: ?module=...&action=...
-      const queryParams = new URLSearchParams({
-        module,
-        action,
-        ...params,
-        ...(this.apiKey && { apikey: this.apiKey }),
-      });
-      url = `${this.baseUrl}?${queryParams.toString()}`;
-    }
+    // Note: Explorer API v1 has different structure (/api/v1/ethproxy/...)
+    // But we'll try the old format first - if it fails, RPC fallback will handle it
+    // The Explorer API may support the old format or we'll need to implement new endpoints
+    const queryParams = new URLSearchParams({
+      module,
+      action,
+      ...params,
+      ...(this.apiKey && { apikey: this.apiKey }),
+    });
+    const url = `${this.baseUrl}?${queryParams.toString()}`;
 
     try {
       logger.debug('Cronoscan request URL', { url: url.replace(this.apiKey || '', '***') });
