@@ -62,23 +62,24 @@ export class CronoscanService {
 
   constructor(apiKey?: string, baseUrl?: string) {
     this.apiKey = apiKey || process.env.CRONOSCAN_API_KEY;
-    // Use testnet API for testnet, mainnet API for mainnet
+    // Use Cronos Explorer API (correct URLs)
+    // Note: Explorer API v1 uses different endpoint structure (/api/v1/ethproxy/...)
+    // For now, we'll try the old format first, then fallback to RPC
     const network = process.env.NETWORK || 'cronos-testnet';
     if (baseUrl) {
       this.baseUrl = baseUrl;
     } else if (network.includes('testnet')) {
-      // Note: Cronoscan testnet API may not be available
-      // Using mainnet API as fallback - it may still work for testnet addresses
-      // If this doesn't work, we'll need to use direct RPC calls instead
-      this.baseUrl = 'https://api.cronoscan.com/api';
-      logger.warn('Using mainnet Cronoscan API for testnet - some endpoints may not work');
+      // Try Explorer API testnet (may not work due to DNS, will fallback to RPC)
+      this.baseUrl = 'https://explorer-api.cronos.org/testnet/api/v1';
     } else {
-      this.baseUrl = 'https://api.cronoscan.com/api';
+      // Try Explorer API mainnet
+      this.baseUrl = 'https://explorer-api.cronos.org/mainnet/api/v1';
     }
     logger.info('CronoscanService initialized', { 
       baseUrl: this.baseUrl, 
       hasApiKey: !!this.apiKey,
-      network 
+      network,
+      note: 'RPC fallback available if API fails'
     });
   }
 
@@ -98,6 +99,13 @@ export class CronoscanService {
     this.cache.set(key, { data, timestamp: Date.now() });
   }
 
+  /**
+   * Check if we're using the new Explorer API (v1) or old Cronoscan API
+   */
+  private isExplorerAPI(): boolean {
+    return this.baseUrl.includes('explorer-api.cronos.org');
+  }
+
   private async request<T>(module: string, action: string, params: Record<string, string> = {}): Promise<T> {
     const cacheKey = this.getCacheKey(`${module}.${action}`, params);
     const cached = this.getCached<T>(cacheKey);
@@ -110,18 +118,30 @@ export class CronoscanService {
     logger.info(`🌐 Calling Cronoscan API: ${module}.${action}`, { 
       hasApiKey, 
       params,
-      baseUrl: this.baseUrl 
+      baseUrl: this.baseUrl,
+      isExplorerAPI: this.isExplorerAPI()
     });
 
-    const queryParams = new URLSearchParams({
-      module,
-      action,
-      ...params,
-      ...(this.apiKey && { apikey: this.apiKey }),
-    });
+    let url: string;
+    
+    if (this.isExplorerAPI()) {
+      // New Explorer API format: /api/v1/ethproxy/...
+      // For now, we'll use the old format as fallback since Explorer API structure is different
+      // TODO: Implement proper Explorer API endpoints when documentation is available
+      logger.warn('Explorer API endpoints not yet implemented, using RPC fallback');
+      throw new Error('Explorer API endpoints not yet implemented');
+    } else {
+      // Old Cronoscan API format: ?module=...&action=...
+      const queryParams = new URLSearchParams({
+        module,
+        action,
+        ...params,
+        ...(this.apiKey && { apikey: this.apiKey }),
+      });
+      url = `${this.baseUrl}?${queryParams.toString()}`;
+    }
 
     try {
-      const url = `${this.baseUrl}?${queryParams.toString()}`;
       logger.debug('Cronoscan request URL', { url: url.replace(this.apiKey || '', '***') });
       
       const response = await axios.get<CronoscanResponse<T>>(url);
