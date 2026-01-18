@@ -41,27 +41,162 @@ export class OnChainDataService {
 
   /**
    * Get number of token holders
+   * Tries Cronoscan API first, falls back to RPC if API fails
    */
   async getHolders(contractAddress: string): Promise<number> {
     try {
-      return await this.cronoscanService.getTokenHolders(contractAddress);
+      logger.debug('Getting holders from Cronoscan', { contractAddress });
+      const holders = await this.cronoscanService.getTokenHolders(contractAddress);
+      if (holders > 0) {
+        logger.info(`✅ Found ${holders} holders from Cronoscan`, { contractAddress });
+        return holders;
+      }
     } catch (error: any) {
-      logger.warn('Failed to get holders, using fallback', { error: error.message });
+      logger.warn('Cronoscan API failed, trying RPC fallback', { error: error.message, contractAddress });
+    }
+
+    // Fallback: Try to get holders via RPC (ERC20 Transfer events)
+    try {
+      return await this.getHoldersViaRPC(contractAddress);
+    } catch (error: any) {
+      logger.warn('RPC fallback also failed', { error: error.message, contractAddress });
+      return 0;
+    }
+  }
+
+  /**
+   * Get token holders count via RPC (ERC20 Transfer events)
+   */
+  private async getHoldersViaRPC(contractAddress: string): Promise<number> {
+    try {
+      const ERC20_TRANSFER_ABI = [
+        'event Transfer(address indexed from, address indexed to, uint256 value)',
+      ];
+
+      const contract = new ethers.Contract(contractAddress, ERC20_TRANSFER_ABI, this.provider);
+      
+      // Get current block
+      const currentBlock = await this.provider.getBlockNumber();
+      // Limit to last 10k blocks to avoid RPC limits
+      const fromBlock = Math.max(0, currentBlock - 10000);
+
+      logger.debug('Querying Transfer events via RPC', { contractAddress, fromBlock, currentBlock });
+
+      // Get all Transfer events
+      const transferEvents = await contract.queryFilter(
+        contract.filters.Transfer(),
+        fromBlock,
+        currentBlock
+      );
+
+      // Count unique addresses (both from and to, excluding zero address)
+      const uniqueAddresses = new Set<string>();
+      for (const event of transferEvents) {
+        if (event.args) {
+          const from = event.args.from?.toLowerCase();
+          const to = event.args.to?.toLowerCase();
+          const zeroAddress = '0x0000000000000000000000000000000000000000';
+          
+          if (from && from !== zeroAddress) {
+            uniqueAddresses.add(from);
+          }
+          if (to && to !== zeroAddress) {
+            uniqueAddresses.add(to);
+          }
+        }
+      }
+
+      const count = uniqueAddresses.size;
+      logger.info(`✅ Found ${count} holders via RPC (from Transfer events in last 10k blocks)`, { contractAddress });
+      return count;
+    } catch (error: any) {
+      logger.warn('Failed to get holders via RPC', { error: error.message, contractAddress });
       return 0;
     }
   }
 
   /**
    * Get contract age in days
+   * Tries Cronoscan API first, falls back to RPC if API fails
    */
   async getContractAge(contractAddress: string): Promise<number> {
     try {
       logger.debug('Getting contract age from Cronoscan', { contractAddress });
       const age = await this.cronoscanService.getContractAge(contractAddress);
-      logger.info(`✅ Contract age: ${age} days`, { contractAddress });
-      return age;
+      if (age > 0) {
+        logger.info(`✅ Contract age: ${age} days from Cronoscan`, { contractAddress });
+        return age;
+      }
     } catch (error: any) {
-      logger.warn('Failed to get contract age, using fallback', { error: error.message, contractAddress });
+      logger.warn('Cronoscan API failed, trying RPC fallback', { error: error.message, contractAddress });
+    }
+
+    // Fallback: Get contract creation block via RPC
+    try {
+      return await this.getContractAgeViaRPC(contractAddress);
+    } catch (error: any) {
+      logger.warn('RPC fallback also failed', { error: error.message, contractAddress });
+      return 0;
+    }
+  }
+
+  /**
+   * Get contract age via RPC (find first transaction to contract)
+   */
+  private async getContractAgeViaRPC(contractAddress: string): Promise<number> {
+    try {
+      // Get current block
+      const currentBlock = await this.provider.getBlockNumber();
+      const currentBlockData = await this.provider.getBlock(currentBlock);
+      const currentTimestamp = currentBlockData?.timestamp || Math.floor(Date.now() / 1000);
+
+      // Try to find the contract creation transaction
+      // We'll search backwards from current block
+      const searchRange = 50000; // Search last 50k blocks
+      const fromBlock = Math.max(0, currentBlock - searchRange);
+
+      // Get contract code to verify it exists
+      const code = await this.provider.getCode(contractAddress);
+      if (!code || code === '0x') {
+        logger.warn('Contract has no code', { contractAddress });
+        return 0;
+      }
+
+      // Try to find creation transaction by searching for contract creation
+      // This is a simplified approach - in production you might want to use a more sophisticated method
+      let creationBlock = fromBlock;
+      
+      // Binary search for contract creation (simplified)
+      for (let block = fromBlock; block <= currentBlock; block += 1000) {
+        try {
+          const blockCode = await this.provider.getCode(contractAddress, block);
+          if (blockCode && blockCode !== '0x') {
+            // Contract exists at this block, check previous blocks
+            const prevBlock = Math.max(0, block - 1000);
+            const prevCode = await this.provider.getCode(contractAddress, prevBlock);
+            if (!prevCode || prevCode === '0x') {
+              // Contract was created between prevBlock and block
+              creationBlock = block;
+              break;
+            }
+          }
+        } catch {
+          // Continue searching
+        }
+      }
+
+      // Get block data for creation block
+      const creationBlockData = await this.provider.getBlock(creationBlock);
+      const creationTimestamp = creationBlockData?.timestamp || currentTimestamp;
+
+      // Calculate age in days
+      const ageSeconds = currentTimestamp - creationTimestamp;
+      const ageDays = Math.floor(ageSeconds / (24 * 60 * 60));
+
+      logger.info(`✅ Contract age: ${ageDays} days via RPC (created at block ${creationBlock})`, { contractAddress });
+      return ageDays;
+    } catch (error: any) {
+      logger.warn('Failed to get contract age via RPC', { error: error.message });
       return 0;
     }
   }
