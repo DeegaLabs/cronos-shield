@@ -354,19 +354,38 @@ export class OnChainDataService {
 
   /**
    * Get liquidity for a token contract
-   * Tries multiple DEXs and returns the highest liquidity found
+   * Tries multiple DEXs and quote tokens, returns the highest liquidity found
    */
   async getLiquidity(contractAddress: string, quoteToken: string = 'USDC'): Promise<LiquidityInfo> {
     try {
-      // Try VVS Finance first
-      const vvsLiquidity = await this.getVVSFinanceLiquidity(contractAddress, quoteToken);
-      if (vvsLiquidity && parseFloat(vvsLiquidity.available) > 0) {
-        return vvsLiquidity;
+      // Try multiple quote tokens in parallel to find best liquidity
+      const quoteTokens = ['USDC', 'USDT', 'CRO'];
+      const liquidityPromises = quoteTokens.map(token => 
+        this.getVVSFinanceLiquidity(contractAddress, token).catch(() => null)
+      );
+
+      const liquidityResults = await Promise.all(liquidityPromises);
+      
+      // Find the highest liquidity
+      let bestLiquidity: LiquidityInfo | null = null;
+      let maxLiquidity = 0;
+
+      for (const result of liquidityResults) {
+        if (result && parseFloat(result.available) > maxLiquidity) {
+          maxLiquidity = parseFloat(result.available);
+          bestLiquidity = result;
+        }
+      }
+
+      if (bestLiquidity && maxLiquidity > 0) {
+        logger.info(`✅ Found liquidity: ${bestLiquidity.available} from ${bestLiquidity.source}`, { contractAddress });
+        return bestLiquidity;
       }
 
       // Fallback: try to get token balance as proxy for liquidity
       const tokenBalance = await this.getTokenBalance(contractAddress);
       if (parseFloat(tokenBalance) > 0) {
+        logger.info(`✅ Using token balance as liquidity proxy: ${tokenBalance}`, { contractAddress });
         return {
           available: tokenBalance,
           depth: parseFloat(tokenBalance) > 10000 ? 'HIGH' : parseFloat(tokenBalance) > 1000 ? 'MEDIUM' : 'LOW',
@@ -374,13 +393,14 @@ export class OnChainDataService {
         };
       }
 
+      logger.warn('No liquidity found for contract', { contractAddress });
       return {
         available: '0',
         depth: 'LOW',
         source: 'none',
       };
     } catch (error: any) {
-      logger.warn('Failed to get liquidity, using fallback', { error: error.message });
+      logger.warn('Failed to get liquidity, using fallback', { error: error.message, contractAddress });
       return {
         available: '0',
         depth: 'LOW',
@@ -453,9 +473,10 @@ export class OnChainDataService {
    */
   private getQuoteTokenAddress(quoteToken: string): string {
     const addresses: Record<string, string> = {
-      USDC: process.env.USDC_TOKEN_ADDRESS || '0xc01efAaF7C5C61bEbFAeb358E1161b537b8bC0e0', // Testnet
+      USDC: process.env.USDC_TOKEN_ADDRESS || '0xc01efAaF7C5C61bEbFAeb358E1161b537b8bC0e0', // Testnet devUSDC
       USDT: process.env.USDT_TOKEN_ADDRESS || '0x66e428c3f67a68878562e79A0234c1F83c208770', // Testnet
-      CRO: process.env.CRO_TOKEN_ADDRESS || '0x5C7F8A570d578ED84E63fdFA7b1eE72dEae1AE23', // Testnet (Wrapped)
+      CRO: process.env.CRO_TOKEN_ADDRESS || '0x6a3173618859C7cd40fAF6921b5E9eB6A76f1fD4', // Testnet WCRO
+      WCRO: process.env.WCRO_TOKEN_ADDRESS || '0x6a3173618859C7cd40fAF6921b5E9eB6A76f1fD4', // Testnet WCRO (same as CRO)
     };
 
     return addresses[quoteToken.toUpperCase()] || addresses.USDC;

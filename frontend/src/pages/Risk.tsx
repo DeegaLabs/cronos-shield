@@ -4,6 +4,7 @@ import { GlassCard } from '../components/cards/GlassCard'
 import { RiskScoreBar } from '../components/risk/RiskScoreBar'
 import { RecentAnalysisCard } from '../components/risk/RecentAnalysisCard'
 import RiskAnalysis from '../components/risk/RiskAnalysis'
+import { InfoTooltip } from '../components/common/Tooltip'
 import apiClient from '../lib/api/client'
 import type { RiskAnalysis as RiskAnalysisType } from '../types'
 import type { LogEntry } from '../types'
@@ -211,7 +212,9 @@ export default function RiskPage() {
               </svg>
               Contract Details
             </h4>
-            <div className="bg-slate-900/50 p-4 rounded-lg space-y-2">
+            
+            {/* Basic Info Grid */}
+            <div className="bg-slate-900/50 p-4 rounded-lg space-y-2 mb-4">
               <div className="flex justify-between">
                 <span className="text-slate-400">Liquidity:</span>
                 <span className="text-slate-200 capitalize">{analysisResult.details.liquidity || 'N/A'}</span>
@@ -222,7 +225,7 @@ export default function RiskPage() {
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-400">Holders:</span>
-                <span className="text-slate-200">{analysisResult.details.holders || 'N/A'}</span>
+                <span className="text-slate-200">{analysisResult.details.holders !== undefined ? analysisResult.details.holders.toLocaleString() : 'N/A'}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-400">Verified:</span>
@@ -231,6 +234,82 @@ export default function RiskPage() {
                 </span>
               </div>
             </div>
+
+            {/* Additional Metrics Grid */}
+            {(analysisResult.details.transactionCount !== undefined || 
+              analysisResult.details.recentActivity !== undefined || 
+              analysisResult.details.totalSupply || 
+              analysisResult.details.marketCap) && (
+              <div className="grid grid-cols-2 gap-4">
+                {analysisResult.details.transactionCount !== undefined && (
+                  <div className="bg-slate-900/50 p-4 rounded-lg">
+                    <div className="flex items-center gap-2 mb-2">
+                      <svg className="w-4 h-4 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+                      </svg>
+                      <span className="text-xs text-slate-400">Total Transactions</span>
+                      <InfoTooltip content="Total number of Transfer events found in the last 10,000 blocks. Higher transaction count indicates more active token usage." />
+                    </div>
+                    <div className="text-2xl font-bold text-slate-200">
+                      {analysisResult.details.transactionCount.toLocaleString()}
+                    </div>
+                  </div>
+                )}
+
+                {analysisResult.details.recentActivity !== undefined && (
+                  <div className="bg-slate-900/50 p-4 rounded-lg">
+                    <div className="flex items-center gap-2 mb-2">
+                      <svg className="w-4 h-4 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/>
+                      </svg>
+                      <span className="text-xs text-slate-400">Activity (24h)</span>
+                      <InfoTooltip content="Number of Transfer events in the last 24 hours. High recent activity indicates active trading and healthy token ecosystem." />
+                    </div>
+                    <div className="text-2xl font-bold text-slate-200">
+                      {analysisResult.details.recentActivity.toLocaleString()}
+                    </div>
+                  </div>
+                )}
+
+                {analysisResult.details.totalSupply && (
+                  <div className="bg-slate-900/50 p-4 rounded-lg">
+                    <div className="flex items-center gap-2 mb-2">
+                      <svg className="w-4 h-4 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
+                      </svg>
+                      <span className="text-xs text-slate-400">Total Supply</span>
+                      <InfoTooltip content="Total token supply from the ERC20 contract. This is the maximum number of tokens that can exist for this contract." />
+                    </div>
+                    <div className="text-2xl font-bold text-slate-200">
+                      {parseFloat(analysisResult.details.totalSupply).toLocaleString(undefined, {
+                        maximumFractionDigits: 2,
+                        notation: 'compact',
+                        compactDisplay: 'short'
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {analysisResult.details.marketCap && (
+                  <div className="bg-slate-900/50 p-4 rounded-lg">
+                    <div className="flex items-center gap-2 mb-2">
+                      <svg className="w-4 h-4 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                      </svg>
+                      <span className="text-xs text-slate-400">Market Cap (Est.)</span>
+                      <InfoTooltip content="Estimated market capitalization calculated from liquidity and total supply. This is an approximation and may not reflect the actual market value." />
+                    </div>
+                    <div className="text-2xl font-bold text-slate-200">
+                      ${parseFloat(analysisResult.details.marketCap).toLocaleString(undefined, {
+                        maximumFractionDigits: 2,
+                        notation: 'compact',
+                        compactDisplay: 'short'
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* On-chain Proof */}

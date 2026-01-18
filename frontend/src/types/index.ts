@@ -11,6 +11,11 @@ export interface RiskAnalysis {
     holders?: number;
     verified?: boolean;
     warnings?: string[];
+    // Additional metrics
+    transactionCount?: number;
+    recentActivity?: number;
+    totalSupply?: string;
+    marketCap?: string;
   };
   timestamp: number;
   contract: string;
