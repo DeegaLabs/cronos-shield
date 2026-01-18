@@ -67,7 +67,7 @@ export class CronoscanService {
     if (baseUrl) {
       this.baseUrl = baseUrl;
     } else if (network.includes('testnet')) {
-      this.baseUrl = 'https://testnet.cronoscan.com/api';
+      this.baseUrl = 'https://api-testnet.cronoscan.com/api';
     } else {
       this.baseUrl = 'https://api.cronoscan.com/api';
     }
