@@ -4,7 +4,8 @@
  * Catches React errors and displays a fallback UI
  */
 
-import React, { Component, ErrorInfo, ReactNode } from 'react';
+import { Component } from 'react';
+import type { ErrorInfo, ReactNode } from 'react';
 import { GlassCard } from '../cards/GlassCard';
 
 interface Props {

@@ -4,6 +4,7 @@
 
 import { useState, lazy, Suspense } from 'react';
 import apiClient from '../../lib/api/client';
+import { logger } from '../../lib/logger';
 import { useAccount, useWalletClient } from 'wagmi';
 import { GlassCard } from '../cards/GlassCard';
 import type { RiskAnalysis as RiskAnalysisType } from '../../types';
