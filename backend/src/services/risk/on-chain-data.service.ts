@@ -91,11 +91,13 @@ export class OnChainDataService {
 
       // Count unique addresses (both from and to, excluding zero address)
       const uniqueAddresses = new Set<string>();
+      const zeroAddress = '0x0000000000000000000000000000000000000000';
+      
       for (const event of transferEvents) {
-        if (event.args) {
-          const from = event.args.from?.toLowerCase();
-          const to = event.args.to?.toLowerCase();
-          const zeroAddress = '0x0000000000000000000000000000000000000000';
+        // Check if it's an EventLog (has args) vs Log (no args)
+        if ('args' in event && event.args) {
+          const from = (event.args as any).from?.toLowerCase();
+          const to = (event.args as any).to?.toLowerCase();
           
           if (from && from !== zeroAddress) {
             uniqueAddresses.add(from);
