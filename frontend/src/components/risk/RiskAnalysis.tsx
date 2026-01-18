@@ -129,7 +129,7 @@ export default function RiskAnalysis({ contractAddress: initialContract = '', on
 
           {/* Analyze Button */}
           <button
-            onClick={handleAnalyze}
+            onClick={() => handleAnalyze()}
             disabled={isAnalyzing}
             className="btn-analyze w-full py-4 bg-green-600 hover:bg-green-500 disabled:bg-slate-600 rounded-lg text-lg font-bold transition-all transform hover:scale-[1.02] relative overflow-hidden"
           >
