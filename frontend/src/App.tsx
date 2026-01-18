@@ -10,6 +10,7 @@ import { WagmiProvider } from 'wagmi';
 import { RainbowKitProvider } from '@rainbow-me/rainbowkit';
 import { config } from './lib/wagmi';
 import { ToastProvider } from './components/common/Toast';
+import { ErrorBoundary } from './components/common/ErrorBoundary';
 import Layout from './components/common/Layout';
 import { Landing } from './pages/Landing';
 import DashboardPage from './pages/Dashboard';
@@ -29,22 +30,24 @@ const queryClient = new QueryClient({
 
 function App() {
   return (
-    <WagmiProvider config={config}>
-      <QueryClientProvider client={queryClient}>
-        <RainbowKitProvider>
-          <ToastProvider />
-          <BrowserRouter>
-            <Routes>
-              <Route path="/" element={<Landing />} />
-              <Route path="/dashboard" element={<Layout><DashboardPage /></Layout>} />
-              <Route path="/risk" element={<Layout><RiskPage /></Layout>} />
-              <Route path="/vaults" element={<Layout><VaultsPage /></Layout>} />
-              <Route path="/divergence" element={<Layout><DivergencePage /></Layout>} />
-            </Routes>
-          </BrowserRouter>
-        </RainbowKitProvider>
-      </QueryClientProvider>
-    </WagmiProvider>
+    <ErrorBoundary>
+      <WagmiProvider config={config}>
+        <QueryClientProvider client={queryClient}>
+          <RainbowKitProvider>
+            <ToastProvider />
+            <BrowserRouter>
+              <Routes>
+                <Route path="/" element={<Landing />} />
+                <Route path="/dashboard" element={<Layout><DashboardPage /></Layout>} />
+                <Route path="/risk" element={<Layout><RiskPage /></Layout>} />
+                <Route path="/vaults" element={<Layout><VaultsPage /></Layout>} />
+                <Route path="/divergence" element={<Layout><DivergencePage /></Layout>} />
+              </Routes>
+            </BrowserRouter>
+          </RainbowKitProvider>
+        </QueryClientProvider>
+      </WagmiProvider>
+    </ErrorBoundary>
   );
 }
 

@@ -9,6 +9,7 @@
 import express from 'express';
 import { RiskController } from '../controllers/risk.controller';
 import { requirePaidAccess } from '../lib/x402/require.util';
+import { analysisRateLimiter, paymentRateLimiter } from '../lib/middlewares/rate-limit.middleware';
 
 const router = express.Router();
 
@@ -77,6 +78,7 @@ export function createRiskRoutes(riskController: RiskController) {
    */
   router.get(
     '/risk-analysis',
+    analysisRateLimiter,
     requirePaidAccess({ 
       description: 'Risk analysis for smart contract',
       serviceMetadata: {
@@ -132,7 +134,7 @@ export function createRiskRoutes(riskController: RiskController) {
    *             schema:
    *               $ref: '#/components/schemas/Error'
    */
-  router.post('/pay', riskController.pay.bind(riskController));
+  router.post('/pay', paymentRateLimiter, riskController.pay.bind(riskController));
 
   return router;
 }

@@ -7,6 +7,7 @@
 import { useEffect, useState } from 'react';
 import { useChainId } from 'wagmi';
 import { useEthersSigner } from '../../hooks/useEthersSigner';
+import { logger } from '../../lib/logger';
 import type { PaymentChallenge } from '../../types/x402.types';
 // DO NOT import Facilitator here - it causes evmAsk error on page load
 // Import it dynamically only when needed (inside handlePay)
@@ -88,15 +89,14 @@ export default function PaymentModal({
   }
 
   const handlePay = async () => {
-    console.log('🚀 handlePay called');
-    console.log('📋 Initial state:', {
+    logger.debug('handlePay called', {
       walletAddress,
       hasChallenge: !!challenge,
       isProcessing,
     });
     
     if (!walletAddress || !challenge) {
-      console.error('❌ Missing requirements:', { walletAddress, challenge: !!challenge });
+      logger.error('Missing requirements for payment', undefined, { walletAddress, challenge: !!challenge });
       return;
     }
     
@@ -105,19 +105,19 @@ export default function PaymentModal({
       window.dispatchEvent(new Event('payment-flow-start'));
     }
     
-    console.log('⏳ Starting payment process...');
+    logger.info('Starting payment process');
     setIsProcessing(true);
     setError(null);
     setTxHash(null);
 
     try {
-      console.log('📦 Step 1: Getting payment requirements...');
+      logger.debug('Step 1: Getting payment requirements');
       // Get payment requirements first to know which network we need
       const accept = challenge.accepts[0];
       if (!accept) {
         throw new Error('No payment method available');
       }
-      console.log('✅ Payment requirements obtained:', {
+      logger.debug('Payment requirements obtained', {
         payTo: accept.payTo,
         value: accept.maxAmountRequired,
         network: accept.network,
@@ -128,7 +128,7 @@ export default function PaymentModal({
         throw new Error('Wallet signer not available. Please ensure your wallet is connected.');
       }
 
-      console.log('📦 Step 2: Validating wallet connection and network...');
+      logger.debug('Step 2: Validating wallet connection and network');
       // Validate that signer is available (from useEthersSigner hook)
       if (!signer) {
         throw new Error('Wallet not connected. Please connect your wallet first.');
@@ -139,18 +139,21 @@ export default function PaymentModal({
       if (!CRONOS_CHAINS.includes(chainId)) {
         throw new Error(`Please switch to Cronos ${accept.network === 'cronos-mainnet' ? 'Mainnet' : 'Testnet'}. Current chain: ${chainId}`);
       }
-      console.log('✅ Wallet connected and on correct Cronos network:', chainId);
+      logger.debug('Wallet connected and on correct Cronos network', { chainId });
       
       // Get signer address for validation
       let signerAddress: string;
       try {
         signerAddress = await signer.getAddress();
-        console.log('✅ Signer address:', signerAddress);
+        logger.debug('Signer address obtained', { signerAddress });
         if (signerAddress.toLowerCase() !== walletAddress.toLowerCase()) {
-          console.warn('⚠️ Signer address does not match walletAddress prop');
+          logger.warn('Signer address does not match walletAddress prop', {
+            signerAddress,
+            walletAddress,
+          });
         }
       } catch (addressError: any) {
-        console.error('❌ Failed to get signer address:', addressError);
+        logger.error('Failed to get signer address', addressError);
         throw new Error('Wallet signer is not valid. Please reconnect your wallet.');
       }
       
@@ -159,9 +162,9 @@ export default function PaymentModal({
 
       // CRITICAL: Import Facilitator dynamically ONLY when needed (inside handlePay)
       // This prevents the SDK from loading on page load, which causes evmAsk error
-      console.log('📦 Importing Facilitator SDK...');
+      logger.debug('Importing Facilitator SDK');
       const { Facilitator, CronosNetwork } = await import('@crypto.com/facilitator-client');
-      console.log('✅ Facilitator SDK imported');
+      logger.debug('Facilitator SDK imported');
       
       // Map network string to CronosNetwork enum (following official docs)
       const cronosNetwork = accept.network === 'cronos-mainnet' 
@@ -169,7 +172,7 @@ export default function PaymentModal({
         : CronosNetwork.CronosTestnet;
       
       const facilitator = new Facilitator({ network: cronosNetwork });
-      console.log('✅ Facilitator instance created for network:', accept.network);
+      logger.debug('Facilitator instance created', { network: accept.network });
 
       // Get payment ID from challenge
       const paymentId = accept.extra?.paymentId;
@@ -179,7 +182,7 @@ export default function PaymentModal({
 
       // Generate payment header with retry logic
       const validBefore = Math.floor(Date.now() / 1000) + accept.maxTimeoutSeconds;
-      console.log('💰 Payment parameters:', {
+      logger.debug('Payment parameters', {
         to: accept.payTo,
         value: accept.maxAmountRequired,
         asset: accept.asset,
@@ -196,7 +199,7 @@ export default function PaymentModal({
           // Small delay before attempting to generate header
           await new Promise(resolve => setTimeout(resolve, 200));
           
-          console.log(`🔄 Attempting to generate payment header (attempt ${3 - retries}/2)...`);
+          logger.debug(`Attempting to generate payment header (attempt ${3 - retries}/2)`);
           // Validate signer is still available
           if (!signer) {
             throw new Error('Signer no longer available. Please reconnect your wallet.');
@@ -204,12 +207,12 @@ export default function PaymentModal({
           
           try {
             const addr = await signer.getAddress();
-            console.log('🔍 Signer check:', {
+            logger.debug('Signer check', {
               hasSigner: !!signer,
               signerAddress: addr,
             });
           } catch (e) {
-            console.log('🔍 Signer check: signer exists but address check failed');
+            logger.debug('Signer check: signer exists but address check failed');
           }
           
           // Use signer directly (from useEthersSigner hook)
@@ -217,7 +220,7 @@ export default function PaymentModal({
           
           // MetaMask is already connected via RainbowKit, no need to check again
           // The signer from useEthersSigner is ready to use
-          console.log('✅ Signer ready, proceeding to generate payment header...');
+          logger.debug('Signer ready, proceeding to generate payment header');
           
           // Add timeout to detect if MetaMask is not responding
           const timeoutPromise = new Promise<never>((_, reject) => {
@@ -226,16 +229,14 @@ export default function PaymentModal({
             }, 60000); // 60 seconds timeout
           });
           
-          console.log('🔐 Verifying signer before requesting signature...');
-          console.log('📝 Signer details:', {
+          logger.debug('Verifying signer before requesting signature', {
             hasSigner: !!currentSigner,
             signerType: currentSigner?.constructor?.name,
             signerAddress: signerAddress,
           });
           
           // Verify signer has signTypedData method before calling
-          console.log('🔍 Verifying signer capabilities...');
-          console.log('📋 Signer details:', {
+          logger.debug('Verifying signer capabilities', {
             hasSigner: !!currentSigner,
             signerType: currentSigner?.constructor?.name,
             hasSignTypedData: typeof currentSigner?.signTypedData === 'function',
@@ -244,18 +245,19 @@ export default function PaymentModal({
           
           // Check if signer has signTypedData (required for EIP-712)
           if (!currentSigner || typeof currentSigner.signTypedData !== 'function') {
-            console.error('❌ Signer does not have signTypedData method');
-            console.error('Available methods:', Object.getOwnPropertyNames(Object.getPrototypeOf(currentSigner)));
+            logger.error('Signer does not have signTypedData method', undefined, {
+              availableMethods: Object.getOwnPropertyNames(Object.getPrototypeOf(currentSigner)),
+            });
             throw new Error('Signer does not support EIP-712 signing. Please reconnect your wallet.');
           }
-          console.log('✅ Signer has signTypedData method');
+          logger.debug('Signer has signTypedData method');
           
           // Test if we can get the address (this should work)
           try {
             const testAddress = await currentSigner.getAddress();
-            console.log('✅ Signer address verification:', testAddress);
+            logger.debug('Signer address verification', { testAddress });
           } catch (addrError: any) {
-            console.error('❌ Failed to get signer address:', addrError);
+            logger.error('Failed to get signer address', addrError);
             throw new Error('Signer is not valid. Please reconnect your wallet.');
           }
           
@@ -263,27 +265,26 @@ export default function PaymentModal({
           try {
             const provider = currentSigner.provider;
             if (provider) {
-              console.log('✅ Signer has provider:', provider.constructor?.name);
+              logger.debug('Signer has provider', { providerType: provider.constructor?.name });
               // Try to get network to ensure provider is working
               try {
                 const network = await provider.getNetwork();
-                console.log('✅ Provider network:', network.chainId.toString());
+                logger.debug('Provider network', { chainId: network.chainId.toString() });
               } catch (networkError: any) {
-                console.warn('⚠️ Failed to get network from provider:', networkError);
+                logger.warn('Failed to get network from provider', { error: networkError.message });
               }
             } else {
-              console.warn('⚠️ Signer does not have provider');
+              logger.warn('Signer does not have provider');
             }
           } catch (providerError: any) {
-            console.warn('⚠️ Could not access signer.provider:', providerError);
+            logger.warn('Could not access signer.provider', { error: providerError.message });
           }
           
           // Call facilitator.generatePaymentHeader() directly
           // This will internally call signer.signTypedData() which opens MetaMask
           // No need for a test signature - the Facilitator SDK handles everything
           try {
-            console.log('📝 Calling facilitator.generatePaymentHeader()...');
-            console.log('📋 Payment parameters:', {
+            logger.debug('Calling facilitator.generatePaymentHeader', {
               to: accept.payTo,
               value: accept.maxAmountRequired,
               asset: accept.asset,
@@ -302,26 +303,20 @@ export default function PaymentModal({
               validAfter: 0,
             });
             
-            console.log('⏳ Waiting for MetaMask signature (this may take a moment)...');
-            console.log('💡 MetaMask should open now for EIP-712 signature');
-            console.log('💡 If MetaMask does not open, check:');
-            console.log('   1. MetaMask is unlocked');
-            console.log('   2. No other popup is blocking it');
-            console.log('   3. Browser popup blocker is disabled');
-            console.log('   4. Check MetaMask extension icon for pending notifications');
+            logger.info('Waiting for MetaMask signature - MetaMask should open now');
             
             paymentHeader = await Promise.race([generateHeaderPromise, timeoutPromise]);
             
-            console.log('✅ Payment header generated successfully!');
-            console.log('✅ Payment header length:', paymentHeader.length);
-            console.log('✅ Payment header preview:', paymentHeader.substring(0, 50) + '...');
+            logger.info('Payment header generated successfully', {
+              length: paymentHeader.length,
+              preview: paymentHeader.substring(0, 50) + '...',
+            });
           } catch (signError: any) {
-            console.error('❌ Signature error caught:', signError);
-            console.error('Error type:', signError?.constructor?.name);
-            console.error('Error message:', signError?.message);
-            console.error('Error code:', signError?.code);
-            console.error('Error name:', signError?.name);
-            console.error('Error stack:', signError?.stack);
+            logger.error('Signature error caught', signError, {
+              errorType: signError?.constructor?.name,
+              errorCode: signError?.code,
+              errorName: signError?.name,
+            });
             
             // Check if it's a user rejection
             if (signError?.code === 4001 || signError?.message?.includes('rejected') || signError?.message?.includes('denied') || signError?.message?.includes('User rejected')) {
@@ -344,10 +339,9 @@ export default function PaymentModal({
           // Success, break out of retry loop
           break;
         } catch (headerError: any) {
-          console.error('Payment header generation failed:', headerError);
-          console.error('Error details:', {
-            message: headerError?.message,
-            stack: headerError?.stack,
+          logger.error('Payment header generation failed', headerError, {
+            attempt: 3 - retries,
+            retriesLeft: retries - 1,
             code: headerError?.code,
             name: headerError?.name,
           });
@@ -360,13 +354,13 @@ export default function PaymentModal({
                                     errorMsg.includes('_detectNetwork');
           
           if (isUnexpectedError && retries > 0) {
-            console.log('Retrying with fresh signer...');
+            logger.debug('Retrying with fresh signer');
             // Wait a bit longer before retry
             await new Promise(resolve => setTimeout(resolve, 1000));
             // Signer is already available from useEthersSigner hook
             // No need to recreate - just validate it's still available
             if (!signer) {
-              console.error('Signer no longer available');
+              logger.error('Signer no longer available');
               retries = 0;
             }
             lastError = headerError;
@@ -399,8 +393,7 @@ export default function PaymentModal({
       }
 
       const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000';
-      console.log('📤 Sending payment settlement request...');
-      console.log('📋 Settlement payload:', {
+      logger.debug('Sending payment settlement request', {
         paymentId,
         paymentHeaderLength: paymentHeader.length,
         paymentRequirements: accept,
@@ -418,16 +411,16 @@ export default function PaymentModal({
         }),
       });
 
-      console.log('📥 Settlement response status:', settleResponse.status);
+      logger.debug('Settlement response status', { status: settleResponse.status });
       
       if (!settleResponse.ok) {
         const error = await settleResponse.json().catch(() => ({ message: 'Failed to parse error response' }));
-        console.error('❌ Settlement failed:', error);
+        logger.error('Settlement failed', undefined, { error });
         throw new Error(`Settlement failed: ${JSON.stringify(error)}`);
       }
 
       const settleResult = await settleResponse.json();
-      console.log('✅ Settlement successful:', settleResult);
+      logger.info('Settlement successful', { txHash: settleResult.txHash });
 
       setIsProcessing(false);
       setError(null);
@@ -436,19 +429,18 @@ export default function PaymentModal({
       // Store payment ID for retry
       localStorage.setItem('x-payment-id', paymentId);
 
-      console.log('✅ Payment completed successfully, calling onSuccess with paymentId:', paymentId);
+      logger.debug('Payment completed successfully, calling onSuccess', { paymentId });
       if (paymentId) {
         onSuccess(paymentId);
       } else {
-        console.error('❌ PaymentId is null/undefined, cannot call onSuccess!');
+        logger.error('PaymentId is null/undefined, cannot call onSuccess');
       }
     } catch (error: any) {
       const errorMessage = error instanceof Error ? error.message : 'Payment failed';
       setIsProcessing(false);
       setError(errorMessage);
       setTxHash(null);
-      console.error('Payment error:', error); // Log full error during payment
-      console.error('Full error details:', {
+      logger.error('Payment error', error, {
         message: error?.message,
         stack: error?.stack,
         code: error?.code,

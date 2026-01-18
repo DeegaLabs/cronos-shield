@@ -9,6 +9,7 @@
 import express from 'express';
 import { DivergenceController } from '../controllers/divergence.controller';
 import { requirePaidAccess } from '../lib/x402/require.util';
+import { analysisRateLimiter, paymentRateLimiter } from '../lib/middlewares/rate-limit.middleware';
 
 const router = express.Router();
 
@@ -72,6 +73,7 @@ export function createDivergenceRoutes(divergenceController: DivergenceControlle
    */
   router.get(
     '/analyze',
+    analysisRateLimiter,
     requirePaidAccess({
       description: 'CEX-DEX price divergence analysis',
       serviceMetadata: {
@@ -127,7 +129,7 @@ export function createDivergenceRoutes(divergenceController: DivergenceControlle
    *             schema:
    *               $ref: '#/components/schemas/Error'
    */
-  router.post('/pay', divergenceController.settlePayment.bind(divergenceController));
+  router.post('/pay', paymentRateLimiter, divergenceController.settlePayment.bind(divergenceController));
 
   return router;
 }

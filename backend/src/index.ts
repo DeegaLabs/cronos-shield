@@ -10,6 +10,9 @@ import cors from 'cors';
 import swaggerJsdoc from 'swagger-jsdoc';
 import swaggerUi from 'swagger-ui-express';
 import { runMigrations } from './lib/database/migrations';
+import { printEnvironmentStatus } from './lib/utils/env-validator';
+import { logger } from './lib/utils/logger';
+import { apiRateLimiter } from './lib/middlewares/rate-limit.middleware';
 
 // Services
 import { RiskService } from './services/risk/risk.service';
@@ -50,6 +53,9 @@ const corsOptions = {
 };
 app.use(cors(corsOptions));
 app.use(express.json());
+
+// Apply rate limiting to all API routes
+app.use('/api', apiRateLimiter);
 
 // Swagger Configuration
 const swaggerOptions = {
@@ -191,16 +197,20 @@ app.use('/api/divergence', createDivergenceRoutes(divergenceController));
 app.use('/api/vault', createVaultRoutes(vaultController));
 app.use('/api/observability', createObservabilityRoutes(observabilityController));
 
+import { performHealthCheck } from './lib/utils/health-check';
+
+const startTime = Date.now();
+
 /**
  * @swagger
  * /health:
  *   get:
  *     summary: Health check endpoint
- *     description: Returns the health status of the API
+ *     description: Returns the health status of the API and dependencies
  *     tags: [Health]
  *     responses:
  *       200:
- *         description: Service is healthy
+ *         description: Health status
  *         content:
  *           application/json:
  *             schema:
@@ -208,30 +218,41 @@ app.use('/api/observability', createObservabilityRoutes(observabilityController)
  *               properties:
  *                 status:
  *                   type: string
- *                   example: ok
- *                 service:
- *                   type: string
- *                   example: Cronos Shield Backend
- *                 version:
- *                   type: string
- *                   example: 1.0.0
+ *                   enum: [healthy, degraded, unhealthy]
+ *                 checks:
+ *                   type: object
  *                 timestamp:
  *                   type: string
  *                   format: date-time
+ *                 uptime:
+ *                   type: number
  */
-app.get('/health', (_req, res) => {
-  res.json({ 
-    status: 'ok',
-    service: 'Cronos Shield Backend',
-    version: '1.0.0',
-    timestamp: new Date().toISOString(),
-  });
+app.get('/health', async (_req, res) => {
+  try {
+    const health = await performHealthCheck();
+    const statusCode = health.status === 'healthy' ? 200 : health.status === 'degraded' ? 200 : 503;
+    res.status(statusCode).json(health);
+  } catch (error: any) {
+    logger.error('Health check failed', error);
+    res.status(503).json({
+      status: 'unhealthy',
+      checks: {
+        server: { status: 'error', message: 'Health check failed' },
+      },
+      timestamp: new Date().toISOString(),
+      uptime: Math.floor((Date.now() - startTime) / 1000),
+    });
+  }
 });
 
 // Error handling middleware (must be after all routes)
-app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
-  console.error('❌ Error:', err);
-  console.error('Error stack:', err.stack);
+app.use((err: any, req: express.Request, res: express.Response, _next: express.NextFunction) => {
+  logger.error('Request error', err, {
+    method: req.method,
+    path: req.path,
+    url: req.url,
+    status: err.status || err.statusCode || 500,
+  });
   
   // Default error response
   const status = err.status || err.statusCode || 500;
@@ -254,34 +275,39 @@ app.use((_req, res) => {
 
 // Initialize database migrations before starting server
 async function startServer() {
+  // Validate environment variables
+  printEnvironmentStatus();
+
   // Run migrations if DATABASE_URL is set
   if (process.env.DATABASE_URL) {
     try {
       await runMigrations();
+      logger.info('Database migrations completed successfully');
     } catch (error: any) {
-      console.error('❌ Database migration failed:', error.message);
-      console.error('⚠️  Continuing with in-memory storage...');
+      logger.error('Database migration failed', error, { 
+        message: 'Continuing with in-memory storage' 
+      });
     }
   } else {
-    console.log('ℹ️  DATABASE_URL not set, using in-memory storage');
+    logger.info('DATABASE_URL not set, using in-memory storage');
   }
 
   // Start Server
   app.listen(PORT, () => {
-    console.log('═══════════════════════════════════════');
-    console.log('🚀 Cronos Shield Backend');
-    console.log('═══════════════════════════════════════');
-    console.log(`📍 Server running on http://localhost:${PORT}`);
-    console.log(`📚 Swagger docs: http://localhost:${PORT}/api-doc`);
-    console.log(`📖 Redoc docs: http://localhost:${PORT}/docs`);
-    console.log(`🌐 Network: ${network}`);
-    console.log(`✅ Risk Oracle: ${process.env.RISK_ORACLE_CONTRACT_ADDRESS || 'Not configured'}`);
-    console.log(`💾 Database: ${process.env.DATABASE_URL ? 'PostgreSQL' : 'In-Memory'}`);
-    console.log('═══════════════════════════════════════');
+    logger.info('═══════════════════════════════════════');
+    logger.info('🚀 Cronos Shield Backend');
+    logger.info('═══════════════════════════════════════');
+    logger.info(`📍 Server running on http://localhost:${PORT}`);
+    logger.info(`📚 Swagger docs: http://localhost:${PORT}/api-doc`);
+    logger.info(`📖 Redoc docs: http://localhost:${PORT}/docs`);
+    logger.info(`🌐 Network: ${network}`);
+    logger.info(`✅ Risk Oracle: ${process.env.RISK_ORACLE_CONTRACT_ADDRESS || 'Not configured'}`);
+    logger.info(`💾 Database: ${process.env.DATABASE_URL ? 'PostgreSQL' : 'In-Memory'}`);
+    logger.info('═══════════════════════════════════════');
   });
 }
 
 startServer().catch((error) => {
-  console.error('❌ Failed to start server:', error);
+  logger.error('Failed to start server', error);
   process.exit(1);
 });

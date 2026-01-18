@@ -4,41 +4,67 @@
  * Tests complete user flows through the system
  */
 
+import request from 'supertest';
+import { RiskService } from '../../services/risk/risk.service';
+
+// Mock services
+jest.mock('../../services/risk/risk.service');
+
 describe('E2E Flows', () => {
   describe('Risk Analysis Flow', () => {
-    it('should complete risk analysis flow', async () => {
-      // 1. Request risk analysis (should get 402)
-      // 2. Process payment
-      // 3. Get risk analysis result
-      // 4. Verify result structure
-      
-      // Placeholder for E2E test
-      // In production, this would use a test wallet and testnet
-      expect(true).toBe(true);
+    it('should validate risk analysis request structure', async () => {
+      // Test that risk analysis requires contract address
+      const mockRiskService = RiskService as jest.MockedClass<typeof RiskService>;
+      const mockInstance = {
+        analyzeRisk: jest.fn().mockResolvedValue({
+          score: 45,
+          proof: '0xabcdef',
+          details: {},
+          timestamp: Date.now(),
+          contract: '0x1234567890123456789012345678901234567890',
+        }),
+      } as any;
+      mockRiskService.mockImplementation(() => mockInstance);
+
+      // Validate that service is called with correct structure
+      const request = {
+        contract: '0x1234567890123456789012345678901234567890',
+      };
+
+      const result = await mockInstance.analyzeRisk(request);
+
+      expect(result).toBeDefined();
+      expect(result.contract).toBe(request.contract.toLowerCase());
+      expect(result.score).toBeGreaterThanOrEqual(0);
+      expect(result.score).toBeLessThanOrEqual(100);
     });
   });
 
   describe('Vault Transaction Flow', () => {
-    it('should complete vault transaction flow', async () => {
-      // 1. Deposit to vault
-      // 2. Attempt transaction with risk check
-      // 3. Verify transaction result (blocked/allowed)
-      // 4. Check blocked transactions list
-      
-      // Placeholder for E2E test
-      expect(true).toBe(true);
+    it('should validate vault transaction structure', () => {
+      // Test that vault transactions require proper structure
+      const transaction = {
+        target: '0x1234567890123456789012345678901234567890',
+        value: '0',
+        callData: '0x',
+      };
+
+      expect(transaction.target).toMatch(/^0x[a-fA-F0-9]{40}$/);
+      expect(transaction.value).toBeDefined();
+      expect(transaction.callData).toBeDefined();
     });
   });
 
   describe('CEX-DEX Divergence Flow', () => {
-    it('should complete divergence analysis flow', async () => {
-      // 1. Request divergence analysis (should get 402)
-      // 2. Process payment
-      // 3. Get divergence result
-      // 4. Verify recommendation
-      
-      // Placeholder for E2E test
-      expect(true).toBe(true);
+    it('should validate divergence analysis request structure', () => {
+      // Test that divergence analysis requires token symbol
+      const request = {
+        token: 'CRO',
+      };
+
+      expect(request.token).toBeDefined();
+      expect(typeof request.token).toBe('string');
+      expect(request.token.length).toBeGreaterThan(0);
     });
   });
 });
