@@ -213,7 +213,46 @@ export class OnChainDataService {
   }
 
   /**
+   * Get cached creation block or null if not cached/expired
+   */
+  private getCachedCreationBlock(contractAddress: string): CachedCreationBlock | null {
+    const cached = this.creationBlockCache.get(contractAddress.toLowerCase());
+    if (!cached) {
+      return null;
+    }
+
+    // Check if cache is still valid (within TTL)
+    const now = Date.now();
+    if (now - cached.cachedAt > this.CACHE_TTL) {
+      // Cache expired, remove it
+      this.creationBlockCache.delete(contractAddress.toLowerCase());
+      logger.debug('Creation block cache expired', { contractAddress });
+      return null;
+    }
+
+    return cached;
+  }
+
+  /**
+   * Cache creation block for a contract
+   */
+  private setCachedCreationBlock(contractAddress: string, blockNumber: number, timestamp: number): void {
+    this.creationBlockCache.set(contractAddress.toLowerCase(), {
+      blockNumber,
+      timestamp,
+      cachedAt: Date.now(),
+    });
+    logger.debug('Cached creation block', { 
+      contractAddress, 
+      blockNumber, 
+      timestamp,
+      cacheSize: this.creationBlockCache.size 
+    });
+  }
+
+  /**
    * Get contract age via RPC (optimized binary search)
+   * Uses cache to avoid expensive RPC calls for previously analyzed contracts
    */
   private async getContractAgeViaRPC(contractAddress: string): Promise<number> {
     try {
