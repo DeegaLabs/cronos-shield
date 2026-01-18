@@ -101,10 +101,20 @@ export function requireX402Payment(options: RequireX402Options) {
   return (req: Request, res: Response, next: NextFunction): void => {
     const entitlementKey = (req.header('x-payment-id') ?? '').trim();
 
+    console.log('🔍 x402 middleware check:', {
+      entitlementKey,
+      hasEntitlementKey: !!entitlementKey,
+      paymentRecord: entitlementKey ? paid.get(entitlementKey) : null,
+      isSettled: entitlementKey ? paid.get(entitlementKey)?.settled : false,
+    });
+
     if (entitlementKey && paid.get(entitlementKey)?.settled) {
+      console.log('✅ Payment verified, allowing access');
       next();
       return;
     }
+
+    console.log('❌ Payment required or not settled, returning 402');
 
     const paymentId = newPaymentId();
     const decimals = asset === '0xc01efAaF7C5C61bEbFAeb358E1161b537b8bC0e0' ? 6 : 18;

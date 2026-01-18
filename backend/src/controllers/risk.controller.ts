@@ -12,8 +12,15 @@ export class RiskController {
 
   async analyzeRisk(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
+      console.log('🔍 analyzeRisk called:', {
+        contract: req.query.contract,
+        paymentId: req.header('x-payment-id'),
+        query: req.query,
+      });
+
       const { contract, amount, tokenAddress, verify } = req.query;
 
+      console.log('✅ Validating contract address...');
       validateAddress(contract as string, 'contract');
       
       if (tokenAddress) {
@@ -26,7 +33,13 @@ export class RiskController {
         tokenAddress: tokenAddress as string | undefined,
       };
 
+      console.log('⏳ Calling riskService.analyzeRisk...');
       const analysis = await this.riskService.analyzeRisk(request);
+      console.log('✅ Risk analysis completed:', {
+        score: analysis.score,
+        contract: analysis.contract,
+        hasProof: !!analysis.proof,
+      });
 
       if (verify === 'true' && analysis.timestamp) {
         const timestamp = Math.floor(analysis.timestamp / 1000);
