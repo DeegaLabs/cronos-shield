@@ -25,7 +25,10 @@ export function validateAddress(address: string, fieldName: string = 'address'):
     throw new Error(`${fieldName} is required`);
   }
   
-  if (!isValidAddress(address)) {
+  // Normalize address to lowercase for validation (ethers.isAddress is case-sensitive for checksums)
+  const normalizedAddress = address.toLowerCase();
+  
+  if (!isValidAddress(normalizedAddress)) {
     throw new Error(`${fieldName} must be a valid Ethereum address`);
   }
 }

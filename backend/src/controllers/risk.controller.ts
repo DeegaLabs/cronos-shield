@@ -21,16 +21,18 @@ export class RiskController {
       const { contract, amount, tokenAddress, verify } = req.query;
 
       console.log('✅ Validating contract address...');
-      validateAddress(contract as string, 'contract');
+      // Normalize address to lowercase before validation
+      const normalizedContract = (contract as string).toLowerCase();
+      validateAddress(normalizedContract, 'contract');
       
       if (tokenAddress) {
         validateAddress(tokenAddress as string, 'tokenAddress');
       }
 
       const request: RiskAnalysisRequest = {
-        contract: contract as string,
+        contract: normalizedContract, // Use normalized address
         amount: amount as string | undefined,
-        tokenAddress: tokenAddress as string | undefined,
+        tokenAddress: tokenAddress ? (tokenAddress as string).toLowerCase() : undefined,
       };
 
       console.log('⏳ Calling riskService.analyzeRisk...');
