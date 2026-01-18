@@ -22,7 +22,8 @@ const SHIELDED_VAULT_ABI = [
   'event TransactionAllowed(address indexed user, address indexed target, uint256 riskScore)',
 ] as const;
 
-const VAULT_CONTRACT_ADDRESS = import.meta.env.VITE_SHIELDED_VAULT_ADDRESS || '';
+// Get contract address from env and trim any whitespace/newlines
+const VAULT_CONTRACT_ADDRESS = (import.meta.env.VITE_SHIELDED_VAULT_ADDRESS || '').trim();
 
 export function useVault() {
   const { address } = useAccount();
