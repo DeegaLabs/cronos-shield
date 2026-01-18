@@ -121,13 +121,14 @@ export async function performHealthCheck(): Promise<HealthStatus> {
   }
 
   // Determine overall status
-  const hasErrors = Object.values(checks).some(check => {
-    if (check.status === 'error') return true;
-    if ('contracts' in check && check.contracts) {
-      return Object.values(check.contracts).some((c: any) => c.status === 'error');
-    }
-    return false;
-  });
+  const hasErrors = 
+    checks.server.status === 'error' ||
+    checks.rpc.status === 'error' ||
+    (checks.database && checks.database.status === 'error') ||
+    (checks.contracts && (
+      (checks.contracts.riskOracle && checks.contracts.riskOracle.status === 'error') ||
+      (checks.contracts.shieldedVault && checks.contracts.shieldedVault.status === 'error')
+    ));
   
   const hasWarnings = checks.rpc.status === 'error';
 
