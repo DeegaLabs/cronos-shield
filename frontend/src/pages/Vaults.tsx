@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { useAccount } from 'wagmi'
+import { useState, lazy, Suspense } from 'react'
+import { useAccount, useWalletClient } from 'wagmi'
 import { GlassCard } from '../components/cards/GlassCard'
 import { useVault } from '../hooks/useVault'
 import { useWalletBalance } from '../hooks/useWalletBalance'
@@ -7,9 +7,14 @@ import { useVaultTransactions } from '../hooks/useVaultTransactions'
 import { useVaultStats } from '../hooks/useVaultStats'
 import { formatDistanceToNow } from 'date-fns'
 import apiClient from '../lib/api/client'
+import type { PaymentChallenge } from '../types/x402.types'
+
+// Lazy load PaymentModal
+const PaymentModalLazy = lazy(() => import('../components/common/PaymentModal'))
 
 export default function VaultsPage() {
   const { address, isConnected } = useAccount()
+  const { data: walletClient } = useWalletClient()
   const [activeTab, setActiveTab] = useState<'deposit' | 'withdraw' | 'protected'>('deposit')
   const [depositAmount, setDepositAmount] = useState('')
   const [withdrawAmount, setWithdrawAmount] = useState('')
@@ -21,6 +26,9 @@ export default function VaultsPage() {
   const [success, setSuccess] = useState<string | null>(null)
   const [riskAnalysis, setRiskAnalysis] = useState<any>(null)
   const [isAnalyzingRisk, setIsAnalyzingRisk] = useState(false)
+  const [paymentChallenge, setPaymentChallenge] = useState<PaymentChallenge | null>(null)
+  const [showPaymentModal, setShowPaymentModal] = useState(false)
+  const [paymentId, setPaymentId] = useState<string | null>(null)
 
   const {
     vaultInfo,
@@ -154,7 +162,7 @@ export default function VaultsPage() {
     }
   }
 
-  const handleCheckRisk = async () => {
+  const handleCheckRisk = async (overridePaymentId?: string) => {
     if (!isConnected || !address) {
       setError('Please connect your wallet first')
       return
@@ -168,13 +176,15 @@ export default function VaultsPage() {
     setIsAnalyzingRisk(true)
     setError(null)
     setRiskAnalysis(null)
+    setPaymentChallenge(null)
+    setShowPaymentModal(false)
 
     try {
-      // Get paymentId from localStorage if available
-      const paymentId = localStorage.getItem('x-payment-id')
+      // Use overridePaymentId if provided, otherwise use state paymentId or localStorage
+      const currentPaymentId = overridePaymentId || paymentId || localStorage.getItem('x-payment-id')
       const headers: Record<string, string> = {}
-      if (paymentId) {
-        headers['x-payment-id'] = paymentId
+      if (currentPaymentId) {
+        headers['x-payment-id'] = currentPaymentId
       }
 
       const response = await apiClient.get('/api/risk/risk-analysis', {
@@ -183,16 +193,35 @@ export default function VaultsPage() {
       })
       
       setRiskAnalysis(response.data)
+      setPaymentId(null) // Reset after successful request
       setSuccess(`Risk analysis complete. Score: ${response.data.score}/100`)
     } catch (err: any) {
       if (err.response?.status === 402) {
-        setError('Payment required for risk analysis. Please use the Risk Oracle page first.')
+        const paymentData = err.response?.data as PaymentChallenge
+        setPaymentChallenge(paymentData)
+        if (!isConnected || !address || !walletClient) {
+          setError('Please connect your wallet first to make payments')
+        } else {
+          setShowPaymentModal(true)
+        }
       } else {
         setError(err.response?.data?.message || 'Failed to analyze risk')
       }
     } finally {
       setIsAnalyzingRisk(false)
     }
+  }
+
+  const handlePaymentSuccess = (newPaymentId: string) => {
+    console.log('✅ Payment successful, paymentId:', newPaymentId)
+    setPaymentId(newPaymentId)
+    setPaymentChallenge(null)
+    setShowPaymentModal(false)
+    // Retry the risk analysis request automatically after payment
+    setTimeout(() => {
+      console.log('🔄 Retrying risk analysis with paymentId:', newPaymentId)
+      handleCheckRisk(newPaymentId)
+    }, 1000)
   }
 
   const handleExecuteProtectedTransaction = async () => {
@@ -603,13 +632,50 @@ export default function VaultsPage() {
                     </div>
                   )}
 
+                  {paymentChallenge && !showPaymentModal && (
+                    <div className="p-4 bg-yellow-950/20 border border-yellow-900/30 rounded-lg mb-4">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h4 className="text-lg font-bold text-yellow-400 mb-2">💰 Payment Required</h4>
+                          <p className="text-slate-300 text-sm">{paymentChallenge.message}</p>
+                        </div>
+                        <button
+                          onClick={() => setShowPaymentModal(true)}
+                          className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-sm font-semibold transition-colors"
+                        >
+                          Pay with x402
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {showPaymentModal && paymentChallenge && (
+                    <Suspense fallback={
+                      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+                        <div className="bg-slate-800 p-6 rounded-lg">Loading payment modal...</div>
+                      </div>
+                    }>
+                      <PaymentModalLazy
+                        challenge={paymentChallenge}
+                        walletAddress={address || null}
+                        signer={walletClient as any}
+                        isOpen={showPaymentModal}
+                        onClose={() => {
+                          setShowPaymentModal(false)
+                          setPaymentChallenge(null)
+                        }}
+                        onSuccess={handlePaymentSuccess}
+                      />
+                    </Suspense>
+                  )}
+
                   <div className="space-y-2">
                     <button
-                      onClick={handleCheckRisk}
+                      onClick={() => handleCheckRisk()}
                       disabled={!isConnected || isAnalyzingRisk || !protectedTarget || !protectedValue || parseFloat(protectedValue) <= 0}
                       className="w-full py-3 bg-blue-600 hover:bg-blue-500 disabled:bg-slate-600 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg font-bold transition-all"
                     >
-                      {isAnalyzingRisk ? 'Analyzing Risk...' : 'Check Risk First'}
+                      {isAnalyzingRisk ? 'Analyzing Risk...' : paymentChallenge ? 'Payment Required - Click to Pay' : 'Check Risk First'}
                     </button>
 
                     <button
