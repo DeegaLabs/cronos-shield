@@ -1,18 +1,42 @@
-import { useState } from 'react'
+import { useState, lazy, Suspense } from 'react'
+import { useAccount, useWalletClient } from 'wagmi'
 import { GlassCard } from '../components/cards/GlassCard'
 import { DivergenceBar } from '../components/divergence/DivergenceBar'
 import { LineChart } from '../components/charts/LineChart'
+import { useDivergence } from '../hooks/useDivergence'
+import type { DivergenceResponse } from '../types/divergence.types'
+import type { PaymentChallenge } from '../types/x402.types'
+
+// Lazy load PaymentModal
+const PaymentModalLazy = lazy(() => import('../components/common/PaymentModal'))
 
 export default function DivergencePage() {
-  const [selectedPair, setSelectedPair] = useState('CRO/USDC')
+  const { address, isConnected } = useAccount()
+  const { data: walletClient } = useWalletClient()
+  const [selectedPair, setSelectedPair] = useState('CRO')
+  const [divergenceData, setDivergenceData] = useState<DivergenceResponse | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [success, setSuccess] = useState<string | null>(null)
+  const [paymentChallenge, setPaymentChallenge] = useState<PaymentChallenge | null>(null)
+  const [showPaymentModal, setShowPaymentModal] = useState(false)
+  const [paymentId, setPaymentId] = useState<string | null>(null)
 
-  // Mock data
-  const cexPrice = 0.0850
-  const dexPrice = 0.0920
-  const divergencePercentage = ((dexPrice - cexPrice) / cexPrice) * 100
+  const { analyzeDivergence, isAnalyzing } = useDivergence()
+
+  // Extract token from pair (e.g., "CRO/USDC" -> "CRO")
+  const getTokenFromPair = (pair: string) => pair.split('/')[0]
+
+  // Calculate divergence percentage from data
+  const divergencePercentage = divergenceData
+    ? parseFloat(divergenceData.divergence)
+    : 0
+
+  // Use real data if available, otherwise use defaults
+  const cexPrice = divergenceData ? parseFloat(divergenceData.cexPrice) : 0.0850
+  const dexPrice = divergenceData ? parseFloat(divergenceData.dexPrice) : 0.0920
 
   const chartLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
-  const divergenceData = [1.2, 2.3, 1.8, 4.5, 3.2, 6.7, 8.2]
+  const divergenceChartData = [1.2, 2.3, 1.8, 4.5, 3.2, 6.7, 8.2] // Mock chart data
 
   const recentAlerts = [
     {
@@ -37,6 +61,73 @@ export default function DivergencePage() {
       description: 'Price divergence within normal range',
     },
   ]
+
+  const handleAnalyze = async (overridePaymentId?: string) => {
+    if (!isConnected || !address) {
+      setError('Please connect your wallet first')
+      return
+    }
+
+    if (!selectedPair) {
+      setError('Please select a token pair')
+      return
+    }
+
+    setError(null)
+    setSuccess(null)
+    setDivergenceData(null)
+    setPaymentChallenge(null)
+    setShowPaymentModal(false)
+
+    try {
+      const token = getTokenFromPair(selectedPair)
+      const currentPaymentId = overridePaymentId || paymentId
+
+      const result = await analyzeDivergence({
+        token,
+        paymentId: currentPaymentId || undefined,
+      })
+
+      setDivergenceData(result)
+      setPaymentId(null) // Reset after successful request
+      setSuccess(`Divergence analysis complete. ${result.divergence}% difference detected.`)
+    } catch (err: any) {
+      if (err.response?.status === 402) {
+        const paymentData = err.response?.data as PaymentChallenge
+        setPaymentChallenge(paymentData)
+        if (!isConnected || !address || !walletClient) {
+          setError('Please connect your wallet first to make payments')
+        } else {
+          setShowPaymentModal(true)
+        }
+      } else {
+        setError(err.response?.data?.message || err.message || 'Failed to analyze divergence')
+      }
+    }
+  }
+
+  const handlePaymentSuccess = (newPaymentId: string) => {
+    setPaymentId(newPaymentId)
+    setPaymentChallenge(null)
+    setShowPaymentModal(false)
+    setTimeout(() => {
+      handleAnalyze(newPaymentId)
+    }, 1000)
+  }
+
+
+  const getRecommendationText = (recommendation: string) => {
+    switch (recommendation) {
+      case 'buy_on_cex':
+        return 'Buy on CEX (CEX price is lower)'
+      case 'buy_on_dex':
+        return 'Buy on DEX (DEX price is lower)'
+      case 'no_arbitrage':
+        return 'No significant arbitrage opportunity'
+      default:
+        return 'Analyze to get recommendation'
+    }
+  }
 
   const getSeverityColors = (severity: string) => {
     if (severity === 'high') {
@@ -91,21 +182,26 @@ export default function DivergencePage() {
 
         <div className="flex gap-4">
           <div className="flex-1">
-            <label className="block text-sm font-semibold text-slate-300 mb-2">Token Pair</label>
+            <label className="block text-sm font-semibold text-slate-300 mb-2">Token</label>
             <select
               value={selectedPair}
               onChange={(e) => setSelectedPair(e.target.value)}
               className="w-full px-4 py-3 bg-slate-900 border border-slate-700 rounded-lg focus:border-indigo-500 focus:outline-none transition-colors"
+              disabled={isAnalyzing}
             >
-              <option>CRO/USDC</option>
-              <option>WETH/USDC</option>
-              <option>WBTC/USDC</option>
-              <option>ATOM/USDC</option>
+              <option value="CRO">CRO</option>
+              <option value="WETH">WETH</option>
+              <option value="WBTC">WBTC</option>
+              <option value="ATOM">ATOM</option>
             </select>
           </div>
 
-          <button className="px-8 py-3 bg-purple-600 hover:bg-purple-500 rounded-lg font-bold transition-all transform hover:scale-105 self-end">
-            Analyze Divergence →
+          <button
+            onClick={() => handleAnalyze()}
+            disabled={isAnalyzing || !isConnected}
+            className="px-8 py-3 bg-purple-600 hover:bg-purple-500 disabled:bg-slate-600 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg font-bold transition-all transform hover:scale-105 self-end"
+          >
+            {isAnalyzing ? 'Analyzing...' : 'Analyze Divergence →'}
           </button>
         </div>
       </GlassCard>
@@ -130,28 +226,29 @@ export default function DivergencePage() {
           </div>
 
           <div className="mb-6">
-            <div className="text-5xl font-bold mb-2 price-flash">${cexPrice.toFixed(4)}</div>
-            <div className="flex items-center gap-2">
-              <span className="px-2 py-1 bg-green-500/10 text-green-400 rounded text-sm font-semibold">
-                ↗ +2.5%
-              </span>
-              <span className="text-sm text-slate-400">24h Change</span>
+            <div className="text-5xl font-bold mb-2 price-flash">
+              {divergenceData ? `$${cexPrice.toFixed(4)}` : '$0.0000'}
             </div>
+            {!divergenceData && (
+              <div className="text-sm text-slate-500">Connect wallet and analyze to see live prices</div>
+            )}
           </div>
 
           <div className="space-y-3 text-sm">
             <div className="flex items-center justify-between">
-              <span className="text-slate-400">24h High</span>
-              <span className="font-semibold">$0.0872</span>
+              <span className="text-slate-400">Exchange</span>
+              <span className="font-semibold">
+                {divergenceData?.details.cexExchange || 'Crypto.com'}
+              </span>
             </div>
-            <div className="flex items-center justify-between">
-              <span className="text-slate-400">24h Low</span>
-              <span className="font-semibold">$0.0821</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-slate-400">Volume</span>
-              <span className="font-semibold">$12.4M</span>
-            </div>
+            {divergenceData && (
+              <div className="flex items-center justify-between">
+                <span className="text-slate-400">Liquidity</span>
+                <span className="font-semibold">
+                  {divergenceData.details.liquidity.cex || 'N/A'}
+                </span>
+              </div>
+            )}
           </div>
         </GlassCard>
 
@@ -173,77 +270,142 @@ export default function DivergencePage() {
           </div>
 
           <div className="mb-6">
-            <div className="text-5xl font-bold mb-2 price-flash">${dexPrice.toFixed(4)}</div>
-            <div className="flex items-center gap-2">
-              <span className="px-2 py-1 bg-green-500/10 text-green-400 rounded text-sm font-semibold">
-                ↗ +3.2%
-              </span>
-              <span className="text-sm text-slate-400">24h Change</span>
+            <div className="text-5xl font-bold mb-2 price-flash">
+              {divergenceData ? `$${dexPrice.toFixed(4)}` : '$0.0000'}
             </div>
+            {!divergenceData && (
+              <div className="text-sm text-slate-500">Connect wallet and analyze to see live prices</div>
+            )}
           </div>
 
           <div className="space-y-3 text-sm">
             <div className="flex items-center justify-between">
-              <span className="text-slate-400">Liquidity</span>
-              <span className="font-semibold">$3.2M</span>
+              <span className="text-slate-400">Exchange</span>
+              <span className="font-semibold">
+                {divergenceData?.details.dexExchange || 'VVS Finance'}
+              </span>
             </div>
-            <div className="flex items-center justify-between">
-              <span className="text-slate-400">24h Volume</span>
-              <span className="font-semibold">$856K</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-slate-400">Fee Tier</span>
-              <span className="font-semibold">0.3%</span>
-            </div>
+            {divergenceData && (
+              <div className="flex items-center justify-between">
+                <span className="text-slate-400">Liquidity</span>
+                <span className="font-semibold">
+                  {divergenceData.details.liquidity.dex || 'N/A'}
+                </span>
+              </div>
+            )}
           </div>
         </GlassCard>
       </div>
 
-      {/* Divergence Alert */}
-      <GlassCard className="rounded-2xl p-8 mb-8 border-2 border-red-500/30 alert-pulse">
-        <div className="flex items-start gap-4 mb-6">
-          <div className="w-12 h-12 rounded-full bg-red-500 flex items-center justify-center flex-shrink-0">
-            <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+      {/* Error Message */}
+      {error && (
+        <GlassCard className="rounded-2xl p-4 mb-8 border-2 border-red-500/30">
+          <div className="flex items-center gap-3 text-red-400">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
             </svg>
+            <span>{error}</span>
           </div>
-          <div className="flex-1">
-            <div className="flex items-center gap-3 mb-2">
-              <h3 className="text-2xl font-bold">8.2% Price Divergence Detected</h3>
-              <span className="px-3 py-1 bg-red-500 text-white rounded-lg text-sm font-bold">🔴 HIGH RISK</span>
-            </div>
-            <p className="text-slate-400 mb-4">DEX price is 8.2% higher than CEX price. High risk of arbitrage opportunities and potential market manipulation.</p>
-            
-            {/* Divergence Bar */}
-            <DivergenceBar percentage={divergencePercentage} />
+        </GlassCard>
+      )}
 
-            {/* Details */}
-            <div className="grid grid-cols-3 gap-4 p-4 bg-slate-900/50 rounded-lg">
-              <div>
-                <div className="text-xs text-slate-400 mb-1">CEX Price</div>
-                <div className="font-bold">${cexPrice.toFixed(4)}</div>
+      {/* Success Message */}
+      {success && (
+        <GlassCard className="rounded-2xl p-4 mb-8 border-2 border-green-500/30">
+          <div className="flex items-center gap-3 text-green-400">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+            <span>{success}</span>
+          </div>
+        </GlassCard>
+      )}
+
+      {/* Divergence Alert - Only show if we have data */}
+      {divergenceData && (
+        <GlassCard className={`rounded-2xl p-8 mb-8 border-2 ${
+          Math.abs(divergencePercentage) >= 5.0
+            ? 'border-red-500/30 alert-pulse'
+            : Math.abs(divergencePercentage) >= 2.0
+            ? 'border-orange-500/30'
+            : 'border-green-500/30'
+        }`}>
+          <div className="flex items-start gap-4 mb-6">
+            <div className={`w-12 h-12 rounded-full ${
+              Math.abs(divergencePercentage) >= 5.0
+                ? 'bg-red-500'
+                : Math.abs(divergencePercentage) >= 2.0
+                ? 'bg-orange-500'
+                : 'bg-green-500'
+            } flex items-center justify-center flex-shrink-0`}>
+              <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+              </svg>
+            </div>
+            <div className="flex-1">
+              <div className="flex items-center gap-3 mb-2">
+                <h3 className="text-2xl font-bold">
+                  {Math.abs(divergencePercentage).toFixed(2)}% Price Divergence Detected
+                </h3>
+                <span className={`px-3 py-1 ${
+                  Math.abs(divergencePercentage) >= 5.0
+                    ? 'bg-red-500 text-white'
+                    : Math.abs(divergencePercentage) >= 2.0
+                    ? 'bg-orange-500 text-white'
+                    : 'bg-green-500/20 text-green-300'
+                } rounded-lg text-sm font-bold`}>
+                  {Math.abs(divergencePercentage) >= 5.0
+                    ? '🔴 HIGH RISK'
+                    : Math.abs(divergencePercentage) >= 2.0
+                    ? '🟠 MEDIUM RISK'
+                    : '🟢 LOW RISK'}
+                </span>
               </div>
-              <div>
-                <div className="text-xs text-slate-400 mb-1">DEX Price</div>
-                <div className="font-bold">${dexPrice.toFixed(4)}</div>
+              <p className="text-slate-400 mb-4">
+                {divergencePercentage > 0
+                  ? `DEX price is ${Math.abs(divergencePercentage).toFixed(2)}% higher than CEX price.`
+                  : `CEX price is ${Math.abs(divergencePercentage).toFixed(2)}% higher than DEX price.`}
+                {' '}
+                {getRecommendationText(divergenceData.recommendation)}
+              </p>
+              
+              {/* Divergence Bar */}
+              <DivergenceBar percentage={divergencePercentage} />
+
+              {/* Details */}
+              <div className="grid grid-cols-3 gap-4 p-4 bg-slate-900/50 rounded-lg mb-4">
+                <div>
+                  <div className="text-xs text-slate-400 mb-1">CEX Price ({divergenceData.details.cexExchange})</div>
+                  <div className="font-bold">${cexPrice.toFixed(4)}</div>
+                </div>
+                <div>
+                  <div className="text-xs text-slate-400 mb-1">DEX Price ({divergenceData.details.dexExchange})</div>
+                  <div className="font-bold">${dexPrice.toFixed(4)}</div>
+                </div>
+                <div>
+                  <div className="text-xs text-slate-400 mb-1">Difference</div>
+                  <div className={`font-bold ${divergencePercentage > 0 ? 'text-red-400' : 'text-green-400'}`}>
+                    {divergencePercentage > 0 ? '+' : ''}${(dexPrice - cexPrice).toFixed(4)}
+                  </div>
+                </div>
               </div>
-              <div>
-                <div className="text-xs text-slate-400 mb-1">Difference</div>
-                <div className="font-bold text-red-400">+${(dexPrice - cexPrice).toFixed(4)}</div>
+
+              {/* Recommendation */}
+              <div className="p-4 bg-indigo-500/10 border border-indigo-500/30 rounded-lg">
+                <div className="text-sm text-slate-400 mb-1">Recommendation</div>
+                <div className="font-semibold text-indigo-400">
+                  {getRecommendationText(divergenceData.recommendation)}
+                </div>
+                {divergenceData.details.liquidity.dex && (
+                  <div className="text-xs text-slate-500 mt-2">
+                    DEX Liquidity: {divergenceData.details.liquidity.dex}
+                  </div>
+                )}
               </div>
             </div>
           </div>
-        </div>
-
-        <div className="flex gap-3">
-          <button className="flex-1 py-3 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg font-semibold transition-colors">
-            View Details
-          </button>
-          <button className="flex-1 py-3 bg-red-600 hover:bg-red-500 rounded-lg font-semibold transition-colors">
-            Set Alert
-          </button>
-        </div>
-      </GlassCard>
+        </GlassCard>
+      )}
 
       {/* Divergence Chart */}
       <GlassCard className="rounded-2xl p-8 mb-8">
@@ -258,7 +420,7 @@ export default function DivergencePage() {
         <div className="chart-container-large">
           <LineChart
             labels={chartLabels}
-            data={divergenceData}
+            data={divergenceChartData}
             color="#a855f7"
             title="Divergence"
           />
@@ -301,6 +463,26 @@ export default function DivergencePage() {
           View All Alerts
         </button>
       </GlassCard>
+
+      {/* Payment Modal */}
+      {showPaymentModal && paymentChallenge && (
+        <Suspense fallback={
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+            <div className="bg-slate-800 p-6 rounded-lg">Loading payment modal...</div>
+          </div>
+        }>
+          <PaymentModalLazy
+            challenge={paymentChallenge}
+            walletAddress={address || null}
+            isOpen={showPaymentModal}
+            onClose={() => {
+              setShowPaymentModal(false)
+              setPaymentChallenge(null)
+            }}
+            onSuccess={handlePaymentSuccess}
+          />
+        </Suspense>
+      )}
     </>
   )
 }
