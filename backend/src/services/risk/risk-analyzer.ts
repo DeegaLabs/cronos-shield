@@ -32,7 +32,31 @@ export async function analyzeRisk(request: RiskAnalysisRequest): Promise<Omit<Ri
   logger.debug('Starting risk analysis', { contract });
 
   try {
-    logger.info('🔍 Fetching real on-chain data from Cronoscan...', { contract });
+    // First, verify this is actually a contract (has code)
+    const rpcUrl = process.env.RPC_URL || 'https://evm-t3.cronos.org';
+    const provider = new ethers.JsonRpcProvider(rpcUrl);
+    const code = await provider.getCode(contract);
+    
+    if (!code || code === '0x') {
+      logger.warn('⚠️ Address is not a contract (no code found)', { contract });
+      return {
+        score: 100, // Maximum risk for non-contract addresses
+        details: {
+          liquidity: 'unknown',
+          contractAge: 'N/A',
+          holders: 0,
+          verified: false,
+          warnings: [
+            'Address is not a smart contract (no code found)',
+            'This address may be an externally owned account (EOA)',
+            'Cannot perform contract risk analysis on non-contract addresses',
+          ],
+        },
+        contract,
+      };
+    }
+
+    logger.info('🔍 Fetching real on-chain data...', { contract });
     
     // Fetch real on-chain data in parallel
     const [holders, contractAge, verified, liquidity, complexity] = await Promise.all([
