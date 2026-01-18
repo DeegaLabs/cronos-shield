@@ -519,32 +519,83 @@ export class OnChainDataService {
         
         // Get recent transfers (last 24h) - limit to 1900 blocks for RPC limit
         const recentFromBlock = Math.max(0, currentBlock - Math.min(blocksPerDay, 1900));
-        const recentTransfers = await contract.queryFilter(
-          contract.filters.Transfer(),
-          recentFromBlock,
-          currentBlock
-        );
+        let recentTransfers: (ethers.EventLog | ethers.Log)[] = [];
+        
+        try {
+          recentTransfers = await contract.queryFilter(
+            contract.filters.Transfer(),
+            recentFromBlock,
+            currentBlock
+          );
+        } catch (error: any) {
+          logger.debug('Failed to query recent transfers, trying smaller range', {
+            error: error.message,
+            contractAddress,
+            range: recentFromBlock,
+          });
+          // Try smaller range if initial query fails
+          const smallerRange = Math.max(0, currentBlock - 500);
+          try {
+            recentTransfers = await contract.queryFilter(
+              contract.filters.Transfer(),
+              smallerRange,
+              currentBlock
+            );
+          } catch {
+            // If still fails, return 0
+            logger.debug('Failed to query transfers even with smaller range', { contractAddress });
+          }
+        }
         
         // Get total transfers (last 10k blocks as estimate)
+        // Try in chunks to avoid RPC limits
         const totalFromBlock = Math.max(0, currentBlock - 10000);
-        const totalTransfers = await contract.queryFilter(
-          contract.filters.Transfer(),
-          totalFromBlock,
-          currentBlock
-        );
+        let totalTransfers: (ethers.EventLog | ethers.Log)[] = [];
         
-        logger.debug('Transaction activity fetched', {
+        try {
+          totalTransfers = await contract.queryFilter(
+            contract.filters.Transfer(),
+            totalFromBlock,
+            currentBlock
+          );
+        } catch (error: any) {
+          logger.debug('Failed to query total transfers, trying smaller range', {
+            error: error.message,
+            contractAddress,
+          });
+          // Try smaller range
+          const smallerTotalRange = Math.max(0, currentBlock - 5000);
+          try {
+            totalTransfers = await contract.queryFilter(
+              contract.filters.Transfer(),
+              smallerTotalRange,
+              currentBlock
+            );
+          } catch {
+            // If still fails, use recent transfers as estimate
+            totalTransfers = recentTransfers;
+            logger.debug('Using recent transfers as total estimate', { contractAddress });
+          }
+        }
+        
+        logger.info('Transaction activity fetched', {
           contractAddress,
           recent24h: recentTransfers.length,
           totalEstimate: totalTransfers.length,
+          recentFromBlock,
+          totalFromBlock: totalTransfers.length > 0 ? totalFromBlock : 'N/A',
         });
         
         return {
           total: totalTransfers.length,
           recent24h: recentTransfers.length,
         };
-      } catch {
+      } catch (error: any) {
         // Not an ERC20 token or can't query events
+        logger.debug('Contract may not be ERC20 or events not queryable', {
+          error: error.message,
+          contractAddress,
+        });
         return { total: 0, recent24h: 0 };
       }
     } catch (error: any) {

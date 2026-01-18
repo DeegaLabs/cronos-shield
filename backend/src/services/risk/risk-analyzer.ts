@@ -164,18 +164,49 @@ export async function analyzeRisk(request: RiskAnalysisRequest): Promise<Omit<Ri
       warnings.push('Very few token holders');
     }
 
-    // Calculate estimated market cap (liquidity * 2 for DEX pairs, or supply * price estimate)
+    // Calculate estimated market cap
+    // Market Cap estimation based on liquidity and supply
+    // Note: This is a rough estimate. Real market cap depends on token price discovery
     const liquidityValue = parseFloat(liquidity.available);
     const supplyValue = parseFloat(totalSupply);
     let estimatedMarketCap = '0';
+    
     if (liquidityValue > 0 && supplyValue > 0) {
-      // Rough estimate: if we have liquidity, estimate price per token
-      // This is a simplified calculation
-      const estimatedPrice = liquidityValue / (supplyValue || 1);
-      estimatedMarketCap = (supplyValue * estimatedPrice).toFixed(2);
+      // Method 1: Estimate based on liquidity depth
+      // In DEX pools, liquidity represents both sides of the pair
+      // Token side liquidity ≈ total liquidity / 2
+      // Market cap is typically 3-10x the liquidity (depending on token distribution)
+      // We'll use a conservative 4x multiplier for estimation
+      const tokenSideLiquidity = liquidityValue / 2;
+      const conservativeMarketCap = tokenSideLiquidity * 4;
+      
+      // Method 2: Estimate price from liquidity/supply ratio
+      // Price per token ≈ (token side liquidity) / (circulating supply)
+      // For simplicity, assume 50% of supply is in circulation
+      const estimatedCirculatingSupply = supplyValue * 0.5;
+      const estimatedPricePerToken = tokenSideLiquidity / (estimatedCirculatingSupply || 1);
+      const priceBasedMarketCap = supplyValue * estimatedPricePerToken;
+      
+      // Use the higher of the two estimates (more conservative)
+      estimatedMarketCap = Math.max(conservativeMarketCap, priceBasedMarketCap).toFixed(2);
+      
+      logger.debug('Market cap calculation', {
+        liquidityValue,
+        tokenSideLiquidity,
+        supplyValue,
+        estimatedCirculatingSupply,
+        estimatedPricePerToken,
+        conservativeMarketCap,
+        priceBasedMarketCap,
+        estimatedMarketCap,
+      });
     } else if (liquidityValue > 0) {
-      // If we have liquidity but no supply, use liquidity as proxy
-      estimatedMarketCap = (liquidityValue * 2).toFixed(2); // DEX pairs typically have 2x liquidity
+      // If we have liquidity but no supply, estimate based on liquidity depth
+      // Market cap is typically 3-10x the total liquidity
+      estimatedMarketCap = (liquidityValue * 5).toFixed(2);
+    } else if (supplyValue > 0) {
+      // If we have supply but no liquidity, can't estimate market cap accurately
+      estimatedMarketCap = '0';
     }
 
     const details: RiskDetails = {
