@@ -226,19 +226,41 @@ export class OnChainDataService {
       // Start with a reasonable search range (last 50k blocks for testnet)
       const maxSearchRange = 50000;
       let fromBlock = Math.max(0, currentBlock - maxSearchRange);
-      let toBlock = currentBlock;
       
       // First, check if contract exists at the start of our search range
       const startCode = await this.provider.getCode(contractAddress, fromBlock);
       if (startCode && startCode !== '0x') {
-        // Contract exists at start of range, use binary search to find exact creation
+        // Contract exists at start of range, use optimized binary search
         let low = 0;
         let high = fromBlock;
         let creationBlock = fromBlock;
         
-        // Binary search: find the first block where contract has code
+        // Optimized binary search with larger initial steps
+        // First pass: large steps to narrow down quickly
+        let step = Math.floor(high / 10); // Start with 10% steps
+        let lastFoundBlock = high;
+        
+        for (let block = high; block >= 0; block -= step) {
+          try {
+            const blockCode = await this.provider.getCode(contractAddress, block);
+            if (blockCode && blockCode !== '0x') {
+              lastFoundBlock = block;
+            } else {
+              // Found the boundary, now do fine-grained search
+              low = block;
+              high = lastFoundBlock;
+              break;
+            }
+          } catch {
+            // Continue
+          }
+        }
+        
+        // Second pass: fine-grained binary search in the narrowed range
         while (low <= high) {
           const mid = Math.floor((low + high) / 2);
+          if (mid === low || mid === high) break; // Avoid infinite loops
+          
           try {
             const midCode = await this.provider.getCode(contractAddress, mid);
             if (midCode && midCode !== '0x') {
