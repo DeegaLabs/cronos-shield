@@ -42,12 +42,19 @@ export default function RiskAnalysis({ contractAddress: initialContract = '', on
     try {
       // Use overridePaymentId if provided, otherwise use state paymentId
       const currentPaymentId = overridePaymentId || paymentId;
+      console.log('🔍 handleAnalyze called:', {
+        overridePaymentId,
+        statePaymentId: paymentId,
+        currentPaymentId,
+      });
+      
       const headers: Record<string, string> = {};
       if (currentPaymentId) {
         headers['x-payment-id'] = currentPaymentId;
         console.log('📤 Sending analysis request with paymentId:', currentPaymentId);
       } else {
         console.log('📤 Sending analysis request without paymentId (will receive 402)');
+        console.warn('⚠️ No paymentId available! overridePaymentId:', overridePaymentId, 'state paymentId:', paymentId);
       }
 
       const response = await apiClient.get('/api/risk/risk-analysis', {

@@ -436,8 +436,11 @@ export default function PaymentModal({
       // Store payment ID for retry
       localStorage.setItem('x-payment-id', paymentId);
 
+      console.log('✅ Payment completed successfully, calling onSuccess with paymentId:', paymentId);
       if (paymentId) {
         onSuccess(paymentId);
+      } else {
+        console.error('❌ PaymentId is null/undefined, cannot call onSuccess!');
       }
     } catch (error: any) {
       const errorMessage = error instanceof Error ? error.message : 'Payment failed';
