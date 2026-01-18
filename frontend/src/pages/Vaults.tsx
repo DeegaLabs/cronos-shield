@@ -4,6 +4,7 @@ import { GlassCard } from '../components/cards/GlassCard'
 import { useVault } from '../hooks/useVault'
 import { useWalletBalance } from '../hooks/useWalletBalance'
 import { useVaultTransactions } from '../hooks/useVaultTransactions'
+import { useVaultStats } from '../hooks/useVaultStats'
 import { formatDistanceToNow } from 'date-fns'
 
 export default function VaultsPage() {
@@ -28,6 +29,7 @@ export default function VaultsPage() {
 
   const { balance: walletBalance, isLoading: isLoadingWalletBalance } = useWalletBalance()
   const { transactions, isLoading: isLoadingTransactions } = useVaultTransactions(20)
+  const { stats: vaultStats, isLoading: isLoadingStats } = useVaultStats()
 
   // Check if contract is configured
   const isContractConfigured = !!contractAddress
@@ -492,36 +494,44 @@ export default function VaultsPage() {
           <GlassCard className="rounded-2xl p-6">
             <h3 className="text-lg font-bold mb-4">Vault Stats</h3>
             
-            <div className="space-y-4">
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm text-slate-400">Total Value Locked</span>
-                  <svg className="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                  </svg>
-                </div>
-                <div className="text-2xl font-bold">0.0000 CRO</div>
-                <div className="text-xs text-slate-500">~$0.00 USD</div>
+            {isLoadingStats ? (
+              <div className="text-center py-8">
+                <div className="text-slate-400">Loading stats...</div>
               </div>
-
-              <div className="h-px bg-slate-700"></div>
-
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm text-slate-400">Total Depositors</span>
+            ) : (
+              <div className="space-y-4">
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm text-slate-400">Total Value Locked</span>
+                    <svg className="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                  </div>
+                  <div className="text-2xl font-bold">
+                    {parseFloat(vaultStats.totalValueLockedFormatted).toFixed(4)} CRO
+                  </div>
+                  <div className="text-xs text-slate-500">~$0.00 USD</div>
                 </div>
-                <div className="text-2xl font-bold">0</div>
-              </div>
 
-              <div className="h-px bg-slate-700"></div>
+                <div className="h-px bg-slate-700"></div>
 
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm text-slate-400">Transactions Blocked</span>
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm text-slate-400">Total Depositors</span>
+                  </div>
+                  <div className="text-2xl font-bold">{vaultStats.totalDepositors}</div>
                 </div>
-                <div className="text-2xl font-bold text-red-400">0</div>
+
+                <div className="h-px bg-slate-700"></div>
+
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm text-slate-400">Transactions Blocked</span>
+                  </div>
+                  <div className="text-2xl font-bold text-red-400">{vaultStats.transactionsBlocked}</div>
+                </div>
               </div>
-            </div>
+            )}
           </GlassCard>
 
           {/* Security Features */}
