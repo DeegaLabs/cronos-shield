@@ -278,47 +278,9 @@ export default function PaymentModal({
             console.warn('⚠️ Could not access signer.provider:', providerError);
           }
           
-          // CRITICAL: Test signTypedData directly before calling Facilitator SDK
-          // This ensures MetaMask can actually open for signing
-          console.log('🧪 Testing signTypedData directly to ensure MetaMask opens...');
-          try {
-            const testDomain = {
-              name: 'Test',
-              version: '1',
-              chainId: 338,
-              verifyingContract: '0x0000000000000000000000000000000000000000' as `0x${string}`,
-            };
-            const testTypes = {
-              Test: [{ name: 'message', type: 'string' }],
-            };
-            const testMessage = { message: 'test' };
-            
-            console.log('📝 Calling signer.signTypedData() directly...');
-            const testSignaturePromise = currentSigner.signTypedData(testDomain, testTypes, testMessage);
-            const testTimeout = new Promise<never>((_, reject) => {
-              setTimeout(() => reject(new Error('Test signTypedData timed out')), 10000);
-            });
-            
-            const testSignature = await Promise.race([testSignaturePromise, testTimeout]);
-            console.log('✅ Test signature successful! MetaMask opened and signed.');
-            console.log('✅ Test signature preview:', testSignature.substring(0, 20) + '...');
-          } catch (testError: any) {
-            console.error('❌ Test signTypedData failed:', testError);
-            console.error('Test error details:', {
-              message: testError?.message,
-              code: testError?.code,
-              name: testError?.name,
-            });
-            if (testError?.code === 4001) {
-              throw new Error('Test signature rejected. Please approve the test signature in MetaMask first.');
-            }
-            if (testError?.message?.includes('timed out')) {
-              throw new Error('MetaMask did not respond to test signature. Please check: 1) MetaMask is unlocked, 2) No popup blocker, 3) Check MetaMask extension for pending notifications.');
-            }
-            // Don't proceed if test fails - this indicates a fundamental problem
-            throw new Error(`Test signature failed: ${testError?.message || 'Unknown error'}. Please refresh the page and try again.`);
-          }
-          
+          // Call facilitator.generatePaymentHeader() directly
+          // This will internally call signer.signTypedData() which opens MetaMask
+          // No need for a test signature - the Facilitator SDK handles everything
           try {
             console.log('📝 Calling facilitator.generatePaymentHeader()...');
             console.log('📋 Payment parameters:', {
