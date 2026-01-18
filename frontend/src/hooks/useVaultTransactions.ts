@@ -44,9 +44,10 @@ export function useVaultTransactions(limit: number = 50) {
 
       // Get current block number
       const currentBlock = await signer.provider!.getBlockNumber();
-      // Look back 1,500 blocks (approximately 2.5 hours on Cronos)
+      // Look back 1,900 blocks (approximately 3 hours on Cronos)
+      // Using 1,900 to stay safely under the 2,000 block RPC limit
       // Must use specific block number, not 'latest', to respect RPC limit of 2000 blocks
-      const fromBlock = Math.max(0, currentBlock - 1500);
+      const fromBlock = Math.max(0, currentBlock - 1900);
       const toBlock = currentBlock; // Use specific block number, not 'latest'
 
       // Fetch all events in parallel with error handling
@@ -60,7 +61,7 @@ export function useVaultTransactions(limit: number = 50) {
           return [];
         }),
         contract.queryFilter(
-          contract.filters.Withdrawn(address),
+          contract.filters.Withdrawn(normalizedAddress),
           fromBlock,
           toBlock
         ).catch((err) => {
@@ -68,7 +69,7 @@ export function useVaultTransactions(limit: number = 50) {
           return [];
         }),
         contract.queryFilter(
-          contract.filters.TransactionBlocked(address),
+          contract.filters.TransactionBlocked(normalizedAddress),
           fromBlock,
           toBlock
         ).catch((err) => {
@@ -76,7 +77,7 @@ export function useVaultTransactions(limit: number = 50) {
           return [];
         }),
         contract.queryFilter(
-          contract.filters.TransactionAllowed(address),
+          contract.filters.TransactionAllowed(normalizedAddress),
           fromBlock,
           toBlock
         ).catch((err) => {

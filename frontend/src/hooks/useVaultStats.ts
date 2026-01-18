@@ -35,9 +35,9 @@ export function useVaultStats() {
 
       // Get current block number
       const currentBlock = await signer.provider!.getBlockNumber();
-      // Reduced to 1,500 blocks to avoid RPC errors
+      // Using 1,900 blocks to stay safely under the 2,000 block RPC limit
       // Must use specific block number, not 'latest', to respect RPC limit of 2000 blocks
-      const fromBlock = Math.max(0, currentBlock - 1500); // Last 1,500 blocks (~2.5 hours)
+      const fromBlock = Math.max(0, currentBlock - 1900); // Last 1,900 blocks (~3 hours)
       const toBlock = currentBlock; // Use specific block number, not 'latest'
 
       // Fetch Deposited events to get all depositors
