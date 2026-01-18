@@ -43,6 +43,9 @@ export default function RiskAnalysis({ contractAddress: initialContract = '', on
       const headers: Record<string, string> = {};
       if (paymentId) {
         headers['x-payment-id'] = paymentId;
+        console.log('📤 Sending analysis request with paymentId:', paymentId);
+      } else {
+        console.log('📤 Sending analysis request without paymentId (will receive 402)');
       }
 
       const response = await apiClient.get('/api/risk/risk-analysis', {
@@ -71,12 +74,14 @@ export default function RiskAnalysis({ contractAddress: initialContract = '', on
   };
 
   const handlePaymentSuccess = (newPaymentId: string) => {
+    console.log('✅ Payment successful, paymentId:', newPaymentId);
     setPaymentId(newPaymentId);
     setPaymentChallenge(null);
-    // Retry the request automatically
+    // Retry the request automatically after a short delay to ensure backend processed the payment
     setTimeout(() => {
+      console.log('🔄 Retrying analysis request with paymentId:', newPaymentId);
       handleAnalyze();
-    }, 500);
+    }, 1000); // Increased delay to ensure backend processed the payment
   };
 
   return (
