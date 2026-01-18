@@ -60,9 +60,22 @@ export class CronoscanService {
   private cache: Map<string, { data: any; timestamp: number }> = new Map();
   private cacheTTL: number = 5 * 60 * 1000; // 5 minutes
 
-  constructor(apiKey?: string, baseUrl: string = 'https://api.cronoscan.com/api') {
+  constructor(apiKey?: string, baseUrl?: string) {
     this.apiKey = apiKey || process.env.CRONOSCAN_API_KEY;
-    this.baseUrl = baseUrl;
+    // Use testnet API for testnet, mainnet API for mainnet
+    const network = process.env.NETWORK || 'cronos-testnet';
+    if (baseUrl) {
+      this.baseUrl = baseUrl;
+    } else if (network.includes('testnet')) {
+      this.baseUrl = 'https://testnet.cronoscan.com/api';
+    } else {
+      this.baseUrl = 'https://api.cronoscan.com/api';
+    }
+    logger.info('CronoscanService initialized', { 
+      baseUrl: this.baseUrl, 
+      hasApiKey: !!this.apiKey,
+      network 
+    });
   }
 
   private getCacheKey(method: string, params: Record<string, string>): string {

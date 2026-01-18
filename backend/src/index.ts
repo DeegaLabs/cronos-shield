@@ -40,8 +40,9 @@ import { FacilitatorService } from './lib/x402/facilitator.service';
 
 const app = express();
 
-// Trust proxy for Railway/Heroku (fixes rate limiting warnings)
-app.set('trust proxy', true);
+// Trust proxy for Railway/Heroku (only trust first proxy for security)
+// This fixes rate limiting warnings while maintaining security
+app.set('trust proxy', 1);
 
 const PORT = process.env.PORT || 3000;
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
