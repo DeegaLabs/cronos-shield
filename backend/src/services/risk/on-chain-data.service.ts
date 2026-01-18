@@ -453,6 +453,92 @@ export class OnChainDataService {
   }
 
   /**
+   * Get transaction count and recent activity for a contract
+   */
+  async getTransactionActivity(contractAddress: string): Promise<{ total: number; recent24h: number }> {
+    try {
+      const currentBlock = await this.provider.getBlockNumber();
+      const currentBlockData = await this.provider.getBlock(currentBlock);
+      const currentTimestamp = currentBlockData?.timestamp || Math.floor(Date.now() / 1000);
+      const oneDayAgo = currentTimestamp - (24 * 60 * 60);
+      
+      // Estimate blocks per day (assuming ~2s per block on Cronos)
+      const blocksPerDay = Math.floor((24 * 60 * 60) / 2);
+      const fromBlock24h = Math.max(0, currentBlock - blocksPerDay);
+      
+      // Get Transfer events (for ERC20 tokens)
+      const ERC20_TRANSFER_ABI = [
+        'event Transfer(address indexed from, address indexed to, uint256 value)',
+      ];
+      
+      try {
+        const contract = new ethers.Contract(contractAddress, ERC20_TRANSFER_ABI, this.provider);
+        
+        // Get recent transfers (last 24h) - limit to 1900 blocks for RPC limit
+        const recentFromBlock = Math.max(0, currentBlock - Math.min(blocksPerDay, 1900));
+        const recentTransfers = await contract.queryFilter(
+          contract.filters.Transfer(),
+          recentFromBlock,
+          currentBlock
+        );
+        
+        // Get total transfers (last 10k blocks as estimate)
+        const totalFromBlock = Math.max(0, currentBlock - 10000);
+        const totalTransfers = await contract.queryFilter(
+          contract.filters.Transfer(),
+          totalFromBlock,
+          currentBlock
+        );
+        
+        logger.debug('Transaction activity fetched', {
+          contractAddress,
+          recent24h: recentTransfers.length,
+          totalEstimate: totalTransfers.length,
+        });
+        
+        return {
+          total: totalTransfers.length,
+          recent24h: recentTransfers.length,
+        };
+      } catch {
+        // Not an ERC20 token or can't query events
+        return { total: 0, recent24h: 0 };
+      }
+    } catch (error: any) {
+      logger.warn('Failed to get transaction activity', { error: error.message, contractAddress });
+      return { total: 0, recent24h: 0 };
+    }
+  }
+
+  /**
+   * Get token total supply (if ERC20)
+   */
+  async getTokenSupply(contractAddress: string): Promise<string> {
+    try {
+      const ERC20_ABI = [
+        'function totalSupply() external view returns (uint256)',
+        'function decimals() external view returns (uint8)',
+      ];
+      
+      const contract = new ethers.Contract(contractAddress, ERC20_ABI, this.provider);
+      const [totalSupply, decimals] = await Promise.all([
+        contract.totalSupply().catch(() => null),
+        contract.decimals().catch(() => 18), // Default to 18 if not available
+      ]);
+      
+      if (totalSupply === null) {
+        return '0';
+      }
+      
+      const formatted = ethers.formatUnits(totalSupply, decimals);
+      return formatted;
+    } catch (error: any) {
+      logger.debug('Failed to get token supply (may not be ERC20)', { error: error.message, contractAddress });
+      return '0';
+    }
+  }
+
+  /**
    * Analyze contract complexity from bytecode
    */
   async analyzeContractComplexity(contractAddress: string): Promise<{
