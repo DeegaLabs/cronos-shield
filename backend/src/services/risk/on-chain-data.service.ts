@@ -214,8 +214,9 @@ export class OnChainDataService {
       const currentTimestamp = currentBlockData?.timestamp || Math.floor(Date.now() / 1000);
 
       // Try to find the contract creation transaction
-      // We'll search backwards from current block
-      const searchRange = 50000; // Search last 50k blocks
+      // Search backwards from current block (using smaller range for efficiency)
+      // Note: getCode() doesn't have the 2000 block limit, but we'll limit search for performance
+      const searchRange = 10000; // Search last 10k blocks (reasonable for most contracts)
       const fromBlock = Math.max(0, currentBlock - searchRange);
 
       // Get contract code to verify it exists
