@@ -6,7 +6,6 @@ import { useAccount } from 'wagmi';
 import { useEthersSigner } from './useEthersSigner';
 import { Contract, formatEther, parseEther } from 'ethers';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
 
 const SHIELDED_VAULT_ABI = [
   'function deposit() payable',

@@ -16,7 +16,6 @@ export default function VaultsPage() {
   const {
     vaultInfo,
     balance: vaultBalance,
-    isLoadingInfo,
     isLoadingBalance,
     deposit,
     withdraw,
