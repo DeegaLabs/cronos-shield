@@ -35,14 +35,16 @@ export function useVaultStats() {
 
       // Get current block number
       const currentBlock = await signer.provider!.getBlockNumber();
-      // Reduced to 2,000 blocks to avoid RPC errors
-      const fromBlock = Math.max(0, currentBlock - 2000); // Last 2,000 blocks (~3-4 hours)
+      // Reduced to 1,500 blocks to avoid RPC errors
+      // Must use specific block number, not 'latest', to respect RPC limit of 2000 blocks
+      const fromBlock = Math.max(0, currentBlock - 1500); // Last 1,500 blocks (~2.5 hours)
+      const toBlock = currentBlock; // Use specific block number, not 'latest'
 
       // Fetch Deposited events to get all depositors
       const depositedEvents = await contract.queryFilter(
         contract.filters.Deposited(),
         fromBlock,
-        'latest'
+        toBlock
       ).catch((err) => {
         console.warn('Failed to fetch Deposited events for stats:', err);
         return [];
@@ -82,7 +84,7 @@ export function useVaultStats() {
       const blockedEvents = await contract.queryFilter(
         contract.filters.TransactionBlocked(),
         fromBlock,
-        'latest'
+        toBlock
       ).catch((err) => {
         console.warn('Failed to fetch TransactionBlocked events for stats:', err);
         return [];

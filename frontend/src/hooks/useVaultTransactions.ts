@@ -44,16 +44,17 @@ export function useVaultTransactions(limit: number = 50) {
 
       // Get current block number
       const currentBlock = await signer.provider!.getBlockNumber();
-      // Look back 2,000 blocks (approximately 3-4 hours on Cronos)
-      // Reduced to avoid RPC errors with large ranges
-      const fromBlock = Math.max(0, currentBlock - 2000);
+      // Look back 1,500 blocks (approximately 2.5 hours on Cronos)
+      // Must use specific block number, not 'latest', to respect RPC limit of 2000 blocks
+      const fromBlock = Math.max(0, currentBlock - 1500);
+      const toBlock = currentBlock; // Use specific block number, not 'latest'
 
       // Fetch all events in parallel with error handling
       const [depositedEvents, withdrawnEvents, blockedEvents, allowedEvents] = await Promise.all([
         contract.queryFilter(
           contract.filters.Deposited(address),
           fromBlock,
-          'latest'
+          toBlock
         ).catch((err) => {
           console.warn('Failed to fetch Deposited events:', err);
           return [];
@@ -61,7 +62,7 @@ export function useVaultTransactions(limit: number = 50) {
         contract.queryFilter(
           contract.filters.Withdrawn(address),
           fromBlock,
-          'latest'
+          toBlock
         ).catch((err) => {
           console.warn('Failed to fetch Withdrawn events:', err);
           return [];
@@ -69,7 +70,7 @@ export function useVaultTransactions(limit: number = 50) {
         contract.queryFilter(
           contract.filters.TransactionBlocked(address),
           fromBlock,
-          'latest'
+          toBlock
         ).catch((err) => {
           console.warn('Failed to fetch TransactionBlocked events:', err);
           return [];
@@ -77,7 +78,7 @@ export function useVaultTransactions(limit: number = 50) {
         contract.queryFilter(
           contract.filters.TransactionAllowed(address),
           fromBlock,
-          'latest'
+          toBlock
         ).catch((err) => {
           console.warn('Failed to fetch TransactionAllowed events:', err);
           return [];
