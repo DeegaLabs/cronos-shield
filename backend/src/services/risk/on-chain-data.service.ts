@@ -26,9 +26,18 @@ interface LiquidityInfo {
   source: string;
 }
 
+interface CachedCreationBlock {
+  blockNumber: number;
+  timestamp: number;
+  cachedAt: number; // Timestamp when cached
+}
+
 export class OnChainDataService {
   private provider: ethers.JsonRpcProvider;
   private cronoscanService: CronoscanService;
+  // Cache for contract creation blocks (persists for 24 hours)
+  private creationBlockCache: Map<string, CachedCreationBlock> = new Map();
+  private readonly CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
 
   constructor(rpcUrl: string, cronoscanApiKey?: string) {
     this.provider = new ethers.JsonRpcProvider(rpcUrl);
@@ -281,6 +290,9 @@ export class OnChainDataService {
         const creationBlockData = await this.provider.getBlock(creationBlock);
         const creationTimestamp = creationBlockData?.timestamp || currentTimestamp;
 
+        // Cache the creation block for future use
+        this.setCachedCreationBlock(contractAddress, creationBlock, creationTimestamp);
+
         // Calculate age in days
         const ageSeconds = currentTimestamp - creationTimestamp;
         const ageDays = Math.floor(ageSeconds / (24 * 60 * 60));
@@ -288,7 +300,8 @@ export class OnChainDataService {
         const duration = Date.now() - startTime;
         logger.info(`✅ Contract age: ${ageDays} days via RPC (created at block ${creationBlock}, found in ${duration}ms)`, { 
           contractAddress,
-          duration 
+          duration,
+          cacheHit: false
         });
         return ageDays;
       } else {
@@ -321,13 +334,18 @@ export class OnChainDataService {
         
         const creationBlockData = await this.provider.getBlock(creationBlock);
         const creationTimestamp = creationBlockData?.timestamp || currentTimestamp;
+        
+        // Cache the creation block for future use
+        this.setCachedCreationBlock(contractAddress, creationBlock, creationTimestamp);
+        
         const ageSeconds = currentTimestamp - creationTimestamp;
         const ageDays = Math.floor(ageSeconds / (24 * 60 * 60));
         
         const duration = Date.now() - startTime;
         logger.info(`✅ Contract age: ${ageDays} days via RPC (created at block ${creationBlock}, found in ${duration}ms)`, { 
           contractAddress,
-          duration 
+          duration,
+          cacheHit: false
         });
         return ageDays;
       }
