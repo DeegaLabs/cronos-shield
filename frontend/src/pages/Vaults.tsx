@@ -3,6 +3,8 @@ import { useAccount } from 'wagmi'
 import { GlassCard } from '../components/cards/GlassCard'
 import { useVault } from '../hooks/useVault'
 import { useWalletBalance } from '../hooks/useWalletBalance'
+import { useVaultTransactions } from '../hooks/useVaultTransactions'
+import { formatDistanceToNow } from 'date-fns'
 
 export default function VaultsPage() {
   const { address, isConnected } = useAccount()
@@ -25,6 +27,7 @@ export default function VaultsPage() {
   } = useVault()
 
   const { balance: walletBalance, isLoading: isLoadingWalletBalance } = useWalletBalance()
+  const { transactions, isLoading: isLoadingTransactions } = useVaultTransactions(20)
 
   // Check if contract is configured
   const isContractConfigured = !!contractAddress
@@ -389,13 +392,97 @@ export default function VaultsPage() {
           <GlassCard className="rounded-2xl p-6">
             <h3 className="text-lg font-bold mb-4">Transaction History</h3>
             
-            <div className="text-center py-12">
-              <svg className="w-16 h-16 text-slate-700 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
-              </svg>
-              <p className="text-slate-400 mb-2">No transactions yet</p>
-              <p className="text-sm text-slate-500">Your transaction history will appear here</p>
-            </div>
+            {isLoadingTransactions ? (
+              <div className="text-center py-12">
+                <div className="text-slate-400">Loading transactions...</div>
+              </div>
+            ) : transactions.length === 0 ? (
+              <div className="text-center py-12">
+                <svg className="w-16 h-16 text-slate-700 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+                </svg>
+                <p className="text-slate-400 mb-2">No transactions yet</p>
+                <p className="text-sm text-slate-500">Your transaction history will appear here</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {transactions.map((tx) => (
+                  <div
+                    key={tx.id}
+                    className="p-4 bg-slate-800/50 rounded-lg border border-slate-700/50 hover:border-slate-600 transition-colors"
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-3">
+                        {tx.type === 'deposit' && (
+                          <div className="w-8 h-8 rounded-full bg-green-500/10 flex items-center justify-center">
+                            <svg className="w-4 h-4 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"/>
+                            </svg>
+                          </div>
+                        )}
+                        {tx.type === 'withdraw' && (
+                          <div className="w-8 h-8 rounded-full bg-orange-500/10 flex items-center justify-center">
+                            <svg className="w-4 h-4 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20 12H4"/>
+                            </svg>
+                          </div>
+                        )}
+                        {tx.type === 'blocked' && (
+                          <div className="w-8 h-8 rounded-full bg-red-500/10 flex items-center justify-center">
+                            <svg className="w-4 h-4 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"/>
+                            </svg>
+                          </div>
+                        )}
+                        {tx.type === 'allowed' && (
+                          <div className="w-8 h-8 rounded-full bg-blue-500/10 flex items-center justify-center">
+                            <svg className="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"/>
+                            </svg>
+                          </div>
+                        )}
+                        <div>
+                          <div className="font-semibold capitalize">{tx.type}</div>
+                          <div className="text-xs text-slate-400">
+                            {formatDistanceToNow(tx.timestamp, { addSuffix: true })}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        {tx.formattedAmount && (
+                          <div className="font-bold">
+                            {parseFloat(tx.formattedAmount).toFixed(4)} CRO
+                          </div>
+                        )}
+                        {tx.riskScore !== undefined && (
+                          <div className="text-xs text-slate-400">
+                            Risk: {tx.riskScore}/100
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    {tx.target && (
+                      <div className="text-xs text-slate-500 font-mono mt-2">
+                        Target: {formatAddressShort(tx.target)}
+                      </div>
+                    )}
+                    {tx.reason && (
+                      <div className="text-xs text-red-400 mt-1">
+                        {tx.reason}
+                      </div>
+                    )}
+                    <a
+                      href={`https://testnet.cronoscan.com/tx/${tx.txHash}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs text-indigo-400 hover:text-indigo-300 mt-2 inline-block"
+                    >
+                      View on Explorer →
+                    </a>
+                  </div>
+                ))}
+              </div>
+            )}
           </GlassCard>
         </div>
 
