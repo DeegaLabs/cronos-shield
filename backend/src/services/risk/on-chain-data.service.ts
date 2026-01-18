@@ -257,6 +257,30 @@ export class OnChainDataService {
   private async getContractAgeViaRPC(contractAddress: string): Promise<number> {
     try {
       const startTime = Date.now();
+
+      // Check cache first
+      const cached = this.getCachedCreationBlock(contractAddress);
+      if (cached) {
+        // Get current block to calculate age
+        const currentBlock = await this.provider.getBlockNumber();
+        const currentBlockData = await this.provider.getBlock(currentBlock);
+        const currentTimestamp = currentBlockData?.timestamp || Math.floor(Date.now() / 1000);
+        
+        // Calculate age from cached creation block
+        const ageSeconds = currentTimestamp - cached.timestamp;
+        const ageDays = Math.floor(ageSeconds / (24 * 60 * 60));
+        
+        const duration = Date.now() - startTime;
+        logger.info(`✅ Contract age: ${ageDays} days via CACHE (created at block ${cached.blockNumber}, found in ${duration}ms)`, { 
+          contractAddress,
+          duration,
+          cacheHit: true
+        });
+        return ageDays;
+      }
+
+      // Cache miss - need to search for creation block
+      logger.debug('Cache miss for contract creation block, searching via RPC', { contractAddress });
       
       // Get current block
       const currentBlock = await this.provider.getBlockNumber();
