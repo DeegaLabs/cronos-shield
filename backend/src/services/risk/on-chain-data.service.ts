@@ -204,20 +204,16 @@ export class OnChainDataService {
   }
 
   /**
-   * Get contract age via RPC (find first transaction to contract)
+   * Get contract age via RPC (optimized binary search)
    */
   private async getContractAgeViaRPC(contractAddress: string): Promise<number> {
     try {
+      const startTime = Date.now();
+      
       // Get current block
       const currentBlock = await this.provider.getBlockNumber();
       const currentBlockData = await this.provider.getBlock(currentBlock);
       const currentTimestamp = currentBlockData?.timestamp || Math.floor(Date.now() / 1000);
-
-      // Try to find the contract creation transaction
-      // Search backwards from current block (using smaller range for efficiency)
-      // Note: getCode() doesn't have the 2000 block limit, but we'll limit search for performance
-      const searchRange = 10000; // Search last 10k blocks (reasonable for most contracts)
-      const fromBlock = Math.max(0, currentBlock - searchRange);
 
       // Get contract code to verify it exists
       const code = await this.provider.getCode(contractAddress);
@@ -226,41 +222,95 @@ export class OnChainDataService {
         return 0;
       }
 
-      // Try to find creation transaction by searching for contract creation
-      // This is a simplified approach - in production you might want to use a more sophisticated method
-      let creationBlock = fromBlock;
+      // Optimized binary search for contract creation
+      // Start with a reasonable search range (last 50k blocks for testnet)
+      const maxSearchRange = 50000;
+      let fromBlock = Math.max(0, currentBlock - maxSearchRange);
+      let toBlock = currentBlock;
       
-      // Binary search for contract creation (simplified)
-      for (let block = fromBlock; block <= currentBlock; block += 1000) {
-        try {
-          const blockCode = await this.provider.getCode(contractAddress, block);
-          if (blockCode && blockCode !== '0x') {
-            // Contract exists at this block, check previous blocks
-            const prevBlock = Math.max(0, block - 1000);
-            const prevCode = await this.provider.getCode(contractAddress, prevBlock);
-            if (!prevCode || prevCode === '0x') {
-              // Contract was created between prevBlock and block
+      // First, check if contract exists at the start of our search range
+      const startCode = await this.provider.getCode(contractAddress, fromBlock);
+      if (startCode && startCode !== '0x') {
+        // Contract exists at start of range, use binary search to find exact creation
+        let low = 0;
+        let high = fromBlock;
+        let creationBlock = fromBlock;
+        
+        // Binary search: find the first block where contract has code
+        while (low <= high) {
+          const mid = Math.floor((low + high) / 2);
+          try {
+            const midCode = await this.provider.getCode(contractAddress, mid);
+            if (midCode && midCode !== '0x') {
+              // Contract exists at mid, search earlier
+              creationBlock = mid;
+              high = mid - 1;
+            } else {
+              // Contract doesn't exist at mid, search later
+              low = mid + 1;
+            }
+          } catch {
+            // If we can't check this block, assume contract exists and search earlier
+            high = mid - 1;
+          }
+        }
+        
+        // Get block data for creation block
+        const creationBlockData = await this.provider.getBlock(creationBlock);
+        const creationTimestamp = creationBlockData?.timestamp || currentTimestamp;
+
+        // Calculate age in days
+        const ageSeconds = currentTimestamp - creationTimestamp;
+        const ageDays = Math.floor(ageSeconds / (24 * 60 * 60));
+        
+        const duration = Date.now() - startTime;
+        logger.info(`✅ Contract age: ${ageDays} days via RPC (created at block ${creationBlock}, found in ${duration}ms)`, { 
+          contractAddress,
+          duration 
+        });
+        return ageDays;
+      } else {
+        // Contract doesn't exist at start of range, it's newer
+        // Use a simpler approach: search backwards from current block in larger steps
+        let creationBlock = currentBlock;
+        const stepSize = 5000; // Larger steps for faster search
+        
+        for (let block = currentBlock; block >= fromBlock; block -= stepSize) {
+          try {
+            const blockCode = await this.provider.getCode(contractAddress, block);
+            if (blockCode && blockCode !== '0x') {
               creationBlock = block;
+              // Found a block with code, now narrow down
+              // Search backwards in smaller steps from this point
+              for (let fineBlock = block; fineBlock >= Math.max(0, block - stepSize); fineBlock -= 100) {
+                const fineCode = await this.provider.getCode(contractAddress, fineBlock);
+                if (!fineCode || fineCode === '0x') {
+                  creationBlock = fineBlock + 100; // Contract was created after this block
+                  break;
+                }
+                creationBlock = fineBlock;
+              }
               break;
             }
+          } catch {
+            // Continue searching
           }
-        } catch {
-          // Continue searching
         }
+        
+        const creationBlockData = await this.provider.getBlock(creationBlock);
+        const creationTimestamp = creationBlockData?.timestamp || currentTimestamp;
+        const ageSeconds = currentTimestamp - creationTimestamp;
+        const ageDays = Math.floor(ageSeconds / (24 * 60 * 60));
+        
+        const duration = Date.now() - startTime;
+        logger.info(`✅ Contract age: ${ageDays} days via RPC (created at block ${creationBlock}, found in ${duration}ms)`, { 
+          contractAddress,
+          duration 
+        });
+        return ageDays;
       }
-
-      // Get block data for creation block
-      const creationBlockData = await this.provider.getBlock(creationBlock);
-      const creationTimestamp = creationBlockData?.timestamp || currentTimestamp;
-
-      // Calculate age in days
-      const ageSeconds = currentTimestamp - creationTimestamp;
-      const ageDays = Math.floor(ageSeconds / (24 * 60 * 60));
-
-      logger.info(`✅ Contract age: ${ageDays} days via RPC (created at block ${creationBlock})`, { contractAddress });
-      return ageDays;
     } catch (error: any) {
-      logger.warn('Failed to get contract age via RPC', { error: error.message });
+      logger.warn('Failed to get contract age via RPC', { error: error.message, contractAddress });
       return 0;
     }
   }

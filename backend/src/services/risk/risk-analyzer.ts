@@ -85,7 +85,7 @@ export async function analyzeRisk(request: RiskAnalysisRequest): Promise<Omit<Ri
     logger.info('🔍 Fetching real on-chain data...', { contract });
     
     // Fetch real on-chain data in parallel
-    const [holders, contractAge, verified, liquidity, complexity] = await Promise.all([
+    const [holders, contractAge, verified, liquidity, complexity, activity, totalSupply] = await Promise.all([
       dataService.getHolders(contract).catch((err) => {
         logger.warn('Failed to get holders', { error: err.message, contract });
         return 0;
@@ -111,6 +111,14 @@ export async function analyzeRisk(request: RiskAnalysisRequest): Promise<Omit<Ri
           complexity: 'low' as const,
         };
       }),
+      dataService.getTransactionActivity(contract).catch((err) => {
+        logger.warn('Failed to get transaction activity', { error: err.message, contract });
+        return { total: 0, recent24h: 0 };
+      }),
+      dataService.getTokenSupply(contract).catch((err) => {
+        logger.warn('Failed to get token supply', { error: err.message, contract });
+        return '0';
+      }),
     ]);
 
     logger.info('✅ On-chain data fetched successfully', {
@@ -122,6 +130,9 @@ export async function analyzeRisk(request: RiskAnalysisRequest): Promise<Omit<Ri
       complexity: complexity.complexity,
       isProxy: complexity.isProxy,
       hasSelfDestruct: complexity.hasSelfDestruct,
+      transactionCount: activity.total,
+      recentActivity: activity.recent24h,
+      totalSupply,
     });
 
     // Calculate risk score based on real data
@@ -153,6 +164,20 @@ export async function analyzeRisk(request: RiskAnalysisRequest): Promise<Omit<Ri
       warnings.push('Very few token holders');
     }
 
+    // Calculate estimated market cap (liquidity * 2 for DEX pairs, or supply * price estimate)
+    const liquidityValue = parseFloat(liquidity.available);
+    const supplyValue = parseFloat(totalSupply);
+    let estimatedMarketCap = '0';
+    if (liquidityValue > 0 && supplyValue > 0) {
+      // Rough estimate: if we have liquidity, estimate price per token
+      // This is a simplified calculation
+      const estimatedPrice = liquidityValue / (supplyValue || 1);
+      estimatedMarketCap = (supplyValue * estimatedPrice).toFixed(2);
+    } else if (liquidityValue > 0) {
+      // If we have liquidity but no supply, use liquidity as proxy
+      estimatedMarketCap = (liquidityValue * 2).toFixed(2); // DEX pairs typically have 2x liquidity
+    }
+
     const details: RiskDetails = {
       liquidity: parseFloat(liquidity.available) > 10000 ? 'sufficient' : 
                  parseFloat(liquidity.available) > 1000 ? 'moderate' : 'low',
@@ -160,6 +185,10 @@ export async function analyzeRisk(request: RiskAnalysisRequest): Promise<Omit<Ri
       holders,
       verified,
       warnings,
+      transactionCount: activity.total,
+      recentActivity: activity.recent24h,
+      totalSupply: totalSupply !== '0' ? totalSupply : undefined,
+      marketCap: estimatedMarketCap !== '0' ? estimatedMarketCap : undefined,
     };
 
     logger.info('Risk analysis completed', { contract, score, holders, contractAge, verified });

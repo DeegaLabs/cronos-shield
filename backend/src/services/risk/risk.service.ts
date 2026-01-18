@@ -36,6 +36,9 @@ export class RiskService {
   private facilitatorService: FacilitatorService;
   private signer: ethers.Wallet | null = null;
   private riskOracleContract: ethers.Contract | null = null;
+  // Cache for risk analysis results (5 minutes TTL)
+  private analysisCache: Map<string, { result: RiskAnalysisResponse; timestamp: number }> = new Map();
+  private readonly CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
   constructor(
     network: string,
@@ -61,6 +64,18 @@ export class RiskService {
 
   async analyzeRisk(request: RiskAnalysisRequest): Promise<RiskAnalysisResponse> {
     logger.debug('RiskService.analyzeRisk called', { contract: request.contract });
+    
+    // Check cache first
+    const cacheKey = request.contract.toLowerCase();
+    const cached = this.analysisCache.get(cacheKey);
+    if (cached && Date.now() - cached.timestamp < this.CACHE_TTL) {
+      logger.info('✅ Returning cached risk analysis', { 
+        contract: request.contract,
+        score: cached.result.score,
+        cacheAge: `${Math.round((Date.now() - cached.timestamp) / 1000)}s`
+      });
+      return cached.result;
+    }
     
     logger.debug('Calling analyzeRisk function');
     const analysis = await analyzeRisk(request);
@@ -105,12 +120,30 @@ export class RiskService {
       // Don't fail the request if logging fails
     }
 
-    console.log('✅ Returning analysis result');
-    return {
+    const result: RiskAnalysisResponse = {
       ...analysis,
       proof,
       timestamp: timestamp * 1000,
     };
+    
+    // Cache the result
+    this.analysisCache.set(cacheKey, {
+      result,
+      timestamp: Date.now(),
+    });
+    
+    // Clean up old cache entries (keep cache size reasonable)
+    if (this.analysisCache.size > 100) {
+      const now = Date.now();
+      for (const [key, value] of this.analysisCache.entries()) {
+        if (now - value.timestamp > this.CACHE_TTL) {
+          this.analysisCache.delete(key);
+        }
+      }
+    }
+    
+    logger.debug('✅ Returning analysis result (cached)', { contract: request.contract });
+    return result;
   }
 
   async settlePayment(request: PaymentSettlementRequest): Promise<PaymentSettlementResponse> {

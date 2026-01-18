@@ -23,4 +23,9 @@ export interface RiskDetails {
   holders?: number;
   verified?: boolean;
   warnings?: string[];
+  // Additional metrics
+  transactionCount?: number; // Total transactions
+  recentActivity?: number; // Transactions in last 24h
+  totalSupply?: string; // Token total supply (if ERC20)
+  marketCap?: string; // Estimated market cap
 }
