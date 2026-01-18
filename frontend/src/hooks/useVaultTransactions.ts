@@ -44,31 +44,44 @@ export function useVaultTransactions(limit: number = 50) {
 
       // Get current block number
       const currentBlock = await signer.provider!.getBlockNumber();
-      // Look back 10,000 blocks (approximately 1-2 days on Cronos)
-      const fromBlock = Math.max(0, currentBlock - 10000);
+      // Look back 2,000 blocks (approximately 3-4 hours on Cronos)
+      // Reduced to avoid RPC errors with large ranges
+      const fromBlock = Math.max(0, currentBlock - 2000);
 
-      // Fetch all events in parallel
+      // Fetch all events in parallel with error handling
       const [depositedEvents, withdrawnEvents, blockedEvents, allowedEvents] = await Promise.all([
         contract.queryFilter(
           contract.filters.Deposited(address),
           fromBlock,
           'latest'
-        ),
+        ).catch((err) => {
+          console.warn('Failed to fetch Deposited events:', err);
+          return [];
+        }),
         contract.queryFilter(
           contract.filters.Withdrawn(address),
           fromBlock,
           'latest'
-        ),
+        ).catch((err) => {
+          console.warn('Failed to fetch Withdrawn events:', err);
+          return [];
+        }),
         contract.queryFilter(
           contract.filters.TransactionBlocked(address),
           fromBlock,
           'latest'
-        ),
+        ).catch((err) => {
+          console.warn('Failed to fetch TransactionBlocked events:', err);
+          return [];
+        }),
         contract.queryFilter(
           contract.filters.TransactionAllowed(address),
           fromBlock,
           'latest'
-        ),
+        ).catch((err) => {
+          console.warn('Failed to fetch TransactionAllowed events:', err);
+          return [];
+        }),
       ]);
 
       // Get block timestamps for all unique block numbers
@@ -182,7 +195,9 @@ export function useVaultTransactions(limit: number = 50) {
       return allTransactions.slice(0, limit);
     },
     enabled: !!signer && !!address && !!VAULT_CONTRACT_ADDRESS,
-    refetchInterval: 30000, // Refetch every 30 seconds
+    refetchInterval: 60000, // Refetch every 60 seconds (reduced frequency)
+    retry: 2, // Retry failed requests up to 2 times
+    retryDelay: 1000, // Wait 1 second between retries
   });
 
   return {

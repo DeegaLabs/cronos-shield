@@ -35,14 +35,18 @@ export function useVaultStats() {
 
       // Get current block number
       const currentBlock = await signer.provider!.getBlockNumber();
-      const fromBlock = Math.max(0, currentBlock - 10000); // Last 10,000 blocks
+      // Reduced to 2,000 blocks to avoid RPC errors
+      const fromBlock = Math.max(0, currentBlock - 2000); // Last 2,000 blocks (~3-4 hours)
 
       // Fetch Deposited events to get all depositors
       const depositedEvents = await contract.queryFilter(
         contract.filters.Deposited(),
         fromBlock,
         'latest'
-      );
+      ).catch((err) => {
+        console.warn('Failed to fetch Deposited events for stats:', err);
+        return [];
+      });
 
       // Get unique depositors
       const depositorAddresses = new Set<string>();
@@ -79,7 +83,10 @@ export function useVaultStats() {
         contract.filters.TransactionBlocked(),
         fromBlock,
         'latest'
-      );
+      ).catch((err) => {
+        console.warn('Failed to fetch TransactionBlocked events for stats:', err);
+        return [];
+      });
 
       return {
         totalValueLocked: totalValueLocked.toString(),
@@ -89,7 +96,9 @@ export function useVaultStats() {
       };
     },
     enabled: !!signer && !!VAULT_CONTRACT_ADDRESS,
-    refetchInterval: 60000, // Refetch every 60 seconds
+    refetchInterval: 120000, // Refetch every 2 minutes (reduced frequency)
+    retry: 2, // Retry failed requests up to 2 times
+    retryDelay: 1000, // Wait 1 second between retries
   });
 
   return {
