@@ -90,13 +90,21 @@ export class RiskService {
     }
 
     // Log risk analysis
-    logRiskAnalysis('risk-oracle', {
-      contract: request.contract,
-      score: analysis.score,
-      proof,
-      verified: false,
-    });
+    console.log('⏳ Logging risk analysis...');
+    try {
+      logRiskAnalysis('risk-oracle', {
+        contract: request.contract,
+        score: analysis.score,
+        proof,
+        verified: false,
+      });
+      console.log('✅ Risk analysis logged');
+    } catch (logError) {
+      console.error('⚠️ Failed to log risk analysis (non-critical):', logError);
+      // Don't fail the request if logging fails
+    }
 
+    console.log('✅ Returning analysis result');
     return {
       ...analysis,
       proof,
