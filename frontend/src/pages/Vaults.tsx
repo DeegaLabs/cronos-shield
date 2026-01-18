@@ -1,29 +1,154 @@
 import { useState } from 'react'
+import { useAccount } from 'wagmi'
 import { GlassCard } from '../components/cards/GlassCard'
+import { useVault } from '../hooks/useVault'
+import { useWalletBalance } from '../hooks/useWalletBalance'
 
 export default function VaultsPage() {
+  const { address, isConnected } = useAccount()
   const [activeTab, setActiveTab] = useState<'deposit' | 'withdraw'>('deposit')
   const [depositAmount, setDepositAmount] = useState('')
   const [withdrawAmount, setWithdrawAmount] = useState('')
+  const [isProcessing, setIsProcessing] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [success, setSuccess] = useState<string | null>(null)
 
-  const vaultAddress = '0x8b58f3A33AFDF...F6071Dc364'
-  const riskOracleAddress = '0x391e8fA8d8...7C73452A'
-  const ownerAddress = '0xae4fF89Ac2...dC8Fd8ad'
-  const balance = '0.0000'
-  const maxRiskScore = 30
+  const {
+    vaultInfo,
+    balance: vaultBalance,
+    isLoadingInfo,
+    isLoadingBalance,
+    deposit,
+    withdraw,
+    isDepositing,
+    isWithdrawing,
+    contractAddress,
+  } = useVault()
+
+  const { balance: walletBalance, isLoading: isLoadingWalletBalance } = useWalletBalance()
+
+  // Check if contract is configured
+  const isContractConfigured = !!contractAddress
 
   const handleMaxDeposit = () => {
-    // Get wallet balance and set as max
-    setDepositAmount('0.0000')
+    console.log('🔵 handleMaxDeposit called', { walletBalance, isLoadingWalletBalance, isConnected })
+    if (!isConnected) {
+      setError('Please connect your wallet first')
+      return
+    }
+    if (isLoadingWalletBalance) {
+      setError('Loading wallet balance...')
+      return
+    }
+    if (walletBalance?.formatted) {
+      // Leave a small amount for gas (0.01 CRO)
+      const maxAmount = Math.max(0, parseFloat(walletBalance.formatted) - 0.01)
+      const amountToSet = maxAmount > 0 ? maxAmount.toFixed(4) : '0'
+      console.log('✅ Setting deposit amount to:', amountToSet)
+      setDepositAmount(amountToSet)
+      setError(null)
+    } else {
+      const errorMsg = 'Wallet balance not available. Please wait a moment for balance to load.'
+      console.error('❌', errorMsg)
+      setError(errorMsg)
+    }
   }
 
   const handleMaxWithdraw = () => {
-    // Get vault balance and set as max
-    setWithdrawAmount(balance)
+    if (vaultBalance?.formatted) {
+      setWithdrawAmount(vaultBalance.formatted)
+    }
+  }
+
+  const handleDeposit = async () => {
+    console.log('🔵 handleDeposit called', { 
+      isConnected, 
+      address, 
+      depositAmount, 
+      hasDepositFn: !!deposit,
+      contractAddress,
+      isContractConfigured
+    })
+    
+    if (!isConnected || !address) {
+      setError('Please connect your wallet first')
+      return
+    }
+
+    if (!isContractConfigured) {
+      setError('Vault contract not configured. Please set VITE_SHIELDED_VAULT_ADDRESS in environment variables.')
+      console.error('❌ Contract address not configured')
+      return
+    }
+
+    if (!depositAmount || parseFloat(depositAmount) <= 0) {
+      setError('Please enter a valid amount')
+      return
+    }
+
+    if (!deposit) {
+      setError('Deposit function not available. Please check your wallet connection.')
+      console.error('❌ deposit function is not available')
+      return
+    }
+
+    setIsProcessing(true)
+    setError(null)
+    setSuccess(null)
+
+    try {
+      console.log('📤 Calling deposit function with amount:', depositAmount)
+      const txHash = await deposit(depositAmount)
+      console.log('✅ Deposit successful, txHash:', txHash)
+      setSuccess(`Deposit successful! Transaction: ${txHash.slice(0, 10)}...`)
+      setDepositAmount('')
+    } catch (err: any) {
+      console.error('❌ Deposit error:', err)
+      const errorMessage = err.message || err.reason || 'Deposit failed. Check console for details.'
+      setError(errorMessage)
+    } finally {
+      setIsProcessing(false)
+    }
+  }
+
+  const handleWithdraw = async () => {
+    if (!isConnected || !address) {
+      setError('Please connect your wallet first')
+      return
+    }
+
+    if (!withdrawAmount || parseFloat(withdrawAmount) <= 0) {
+      setError('Please enter a valid amount')
+      return
+    }
+
+    if (vaultBalance && parseFloat(withdrawAmount) > parseFloat(vaultBalance.formatted)) {
+      setError('Insufficient balance')
+      return
+    }
+
+    setIsProcessing(true)
+    setError(null)
+    setSuccess(null)
+
+    try {
+      const txHash = await withdraw(withdrawAmount)
+      setSuccess(`Withdrawal successful! Transaction: ${txHash.slice(0, 10)}...`)
+      setWithdrawAmount('')
+    } catch (err: any) {
+      setError(err.message || 'Withdrawal failed')
+    } finally {
+      setIsProcessing(false)
+    }
   }
 
   const handleCopy = (text: string) => {
     navigator.clipboard.writeText(text)
+  }
+
+  const formatAddressShort = (addr: string) => {
+    if (!addr) return 'N/A'
+    return `${addr.slice(0, 6)}...${addr.slice(-4)}`
   }
 
   return (
@@ -59,15 +184,19 @@ export default function VaultsPage() {
               <div className="flex items-center justify-between p-4 bg-slate-800/50 rounded-lg">
                 <span className="text-sm text-slate-400">Contract Address</span>
                 <div className="flex items-center gap-2">
-                  <span className="font-mono text-sm">{vaultAddress}</span>
-                  <button
-                    onClick={() => handleCopy(vaultAddress)}
-                    className="text-indigo-400 hover:text-indigo-300"
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>
-                    </svg>
-                  </button>
+                  <span className="font-mono text-sm">
+                    {contractAddress ? formatAddressShort(contractAddress) : 'Not configured'}
+                  </span>
+                  {contractAddress && (
+                    <button
+                      onClick={() => handleCopy(contractAddress)}
+                      className="text-indigo-400 hover:text-indigo-300"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+                      </svg>
+                    </button>
+                  )}
                 </div>
               </div>
 
@@ -75,21 +204,30 @@ export default function VaultsPage() {
                 <span className="text-sm text-slate-400">Maximum Risk Score</span>
                 <div className="flex items-center gap-3">
                   <div className="w-32 h-2 bg-slate-700 rounded-full overflow-hidden">
-                    <div className="w-[30%] h-full bg-green-500"></div>
+                    <div 
+                      className="h-full bg-green-500 transition-all"
+                      style={{ width: `${vaultInfo ? (vaultInfo.maxRiskScore / 100) * 100 : 30}%` }}
+                    ></div>
                   </div>
-                  <span className="font-bold text-green-400">{maxRiskScore}/100</span>
+                  <span className="font-bold text-green-400">
+                    {vaultInfo?.maxRiskScore ?? '...'}/100
+                  </span>
                   <span className="px-2 py-1 bg-green-500/10 text-green-400 rounded text-xs font-bold">🟢 Safe</span>
                 </div>
               </div>
 
               <div className="flex items-center justify-between p-4 bg-slate-800/50 rounded-lg">
                 <span className="text-sm text-slate-400">Risk Oracle</span>
-                <span className="font-mono text-sm">{riskOracleAddress}</span>
+                <span className="font-mono text-sm">
+                  {vaultInfo?.riskOracleAddress ? formatAddressShort(vaultInfo.riskOracleAddress) : '...'}
+                </span>
               </div>
 
               <div className="flex items-center justify-between p-4 bg-slate-800/50 rounded-lg">
                 <span className="text-sm text-slate-400">Owner</span>
-                <span className="font-mono text-sm">{ownerAddress}</span>
+                <span className="font-mono text-sm">
+                  {vaultInfo?.owner ? formatAddressShort(vaultInfo.owner) : '...'}
+                </span>
               </div>
             </div>
           </GlassCard>
@@ -100,10 +238,18 @@ export default function VaultsPage() {
             
             <div className="text-center mb-8">
               <div className="text-sm text-slate-400 mb-2">Your Balance</div>
-              <div className="text-5xl font-bold mb-2">
-                <span className="gradient-text">0.0000</span>
-                <span className="text-2xl text-slate-400 ml-2">CRO</span>
-              </div>
+              {isLoadingBalance ? (
+                <div className="text-5xl font-bold mb-2">
+                  <span className="gradient-text">...</span>
+                </div>
+              ) : (
+                <div className="text-5xl font-bold mb-2">
+                  <span className="gradient-text">
+                    {vaultBalance?.formatted ? parseFloat(vaultBalance.formatted).toFixed(4) : '0.0000'}
+                  </span>
+                  <span className="text-2xl text-slate-400 ml-2">CRO</span>
+                </div>
+              )}
               <div className="text-slate-500">~$0.00 USD</div>
             </div>
 
@@ -157,13 +303,31 @@ export default function VaultsPage() {
                       </button>
                     </div>
                     <div className="flex items-center justify-between mt-2 text-xs text-slate-500">
-                      <span>Available: 0.0000 CRO</span>
+                      <span>
+                        Available: {isLoadingWalletBalance ? '...' : (walletBalance?.formatted ? parseFloat(walletBalance.formatted).toFixed(4) : '0.0000')} CRO
+                      </span>
                       <span>~$0.00 USD</span>
                     </div>
                   </div>
 
-                  <button className="w-full py-4 bg-orange-600 hover:bg-orange-500 rounded-lg font-bold text-lg transition-all transform hover:scale-[1.02]">
-                    Deposit CRO
+                  {error && (
+                    <div className="p-3 bg-red-900/50 border border-red-500 rounded-lg text-red-400 text-sm">
+                      {error}
+                    </div>
+                  )}
+
+                  {success && (
+                    <div className="p-3 bg-green-900/50 border border-green-500 rounded-lg text-green-400 text-sm">
+                      {success}
+                    </div>
+                  )}
+
+                  <button
+                    onClick={handleDeposit}
+                    disabled={!isConnected || isProcessing || isDepositing || !depositAmount || parseFloat(depositAmount) <= 0}
+                    className="w-full py-4 bg-orange-600 hover:bg-orange-500 disabled:bg-slate-600 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg font-bold text-lg transition-all transform hover:scale-[1.02] disabled:transform-none"
+                  >
+                    {isProcessing || isDepositing ? 'Processing...' : 'Deposit CRO'}
                   </button>
                 </div>
               </div>
@@ -191,13 +355,31 @@ export default function VaultsPage() {
                       </button>
                     </div>
                     <div className="flex items-center justify-between mt-2 text-xs text-slate-500">
-                      <span>Deposited: 0.0000 CRO</span>
+                      <span>
+                        Deposited: {isLoadingBalance ? '...' : (vaultBalance?.formatted ? parseFloat(vaultBalance.formatted).toFixed(4) : '0.0000')} CRO
+                      </span>
                       <span>~$0.00 USD</span>
                     </div>
                   </div>
 
-                  <button className="w-full py-4 bg-slate-700 hover:bg-slate-600 rounded-lg font-bold text-lg transition-all">
-                    Withdraw CRO
+                  {error && (
+                    <div className="p-3 bg-red-900/50 border border-red-500 rounded-lg text-red-400 text-sm">
+                      {error}
+                    </div>
+                  )}
+
+                  {success && (
+                    <div className="p-3 bg-green-900/50 border border-green-500 rounded-lg text-green-400 text-sm">
+                      {success}
+                    </div>
+                  )}
+
+                  <button
+                    onClick={handleWithdraw}
+                    disabled={!isConnected || isProcessing || isWithdrawing || !withdrawAmount || parseFloat(withdrawAmount) <= 0 || (vaultBalance && parseFloat(withdrawAmount) > parseFloat(vaultBalance.formatted))}
+                    className="w-full py-4 bg-slate-700 hover:bg-slate-600 disabled:bg-slate-600 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg font-bold text-lg transition-all"
+                  >
+                    {isProcessing || isWithdrawing ? 'Processing...' : 'Withdraw CRO'}
                   </button>
                 </div>
               </div>
