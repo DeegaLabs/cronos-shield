@@ -59,14 +59,21 @@ export class RiskService {
   }
 
   async analyzeRisk(request: RiskAnalysisRequest): Promise<RiskAnalysisResponse> {
+    console.log('🔍 RiskService.analyzeRisk called:', { contract: request.contract });
+    
+    console.log('⏳ Calling analyzeRisk function...');
     const analysis = await analyzeRisk(request);
+    console.log('✅ Analysis result:', { score: analysis.score, contract: analysis.contract });
+    
     const timestamp = Math.floor(Date.now() / 1000);
+    console.log('⏳ Generating proof of risk...');
 
     const proof = await this.generateProofOfRisk({
       contract: request.contract,
       score: analysis.score,
       timestamp,
     });
+    console.log('✅ Proof generated:', proof.substring(0, 20) + '...');
 
     if (this.riskOracleContract && this.signer) {
       try {
