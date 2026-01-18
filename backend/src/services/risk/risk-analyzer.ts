@@ -36,10 +36,28 @@ export async function analyzeRisk(request: RiskAnalysisRequest): Promise<Omit<Ri
     // First, verify this is actually a contract (has code)
     const rpcUrl = process.env.RPC_URL || 'https://evm-t3.cronos.org';
     const provider = new ethers.JsonRpcProvider(rpcUrl);
+    
+    logger.debug('Checking if address is a contract', { contract, rpcUrl });
     const code = await provider.getCode(contract);
+    const codeLength = code ? code.length : 0;
+    
+    logger.debug('Contract code check result', { 
+      contract, 
+      hasCode: code && code !== '0x',
+      codeLength,
+      codePreview: code ? code.substring(0, 20) + '...' : 'none'
+    });
     
     if (!code || code === '0x') {
-      logger.warn('⚠️ Address is not a contract (no code found)', { contract });
+      // Try to get balance to see if address exists at all
+      const balance = await provider.getBalance(contract).catch(() => null);
+      logger.warn('⚠️ Address is not a contract (no code found)', { 
+        contract,
+        hasBalance: balance !== null,
+        balance: balance ? ethers.formatEther(balance) : 'unknown',
+        note: 'This address may be an EOA or may not exist on this network'
+      });
+      
       return {
         score: 100, // Maximum risk for non-contract addresses
         details: {
@@ -49,13 +67,20 @@ export async function analyzeRisk(request: RiskAnalysisRequest): Promise<Omit<Ri
           verified: false,
           warnings: [
             'Address is not a smart contract (no code found)',
-            'This address may be an externally owned account (EOA)',
+            'This address may be an externally owned account (EOA) or may not exist on this network',
             'Cannot perform contract risk analysis on non-contract addresses',
+            `Network: ${process.env.NETWORK || 'unknown'}`,
           ],
         },
         contract,
       };
     }
+    
+    logger.info('✅ Address is a valid contract', { 
+      contract, 
+      codeLength: code.length,
+      estimatedSize: `${Math.round(code.length / 2)} bytes`
+    });
 
     logger.info('🔍 Fetching real on-chain data...', { contract });
     
