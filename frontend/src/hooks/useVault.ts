@@ -4,7 +4,7 @@
 
 import { useAccount } from 'wagmi';
 import { useEthersSigner } from './useEthersSigner';
-import { Contract, formatEther, parseEther } from 'ethers';
+import { Contract, formatEther, parseEther, getAddress } from 'ethers';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
 const SHIELDED_VAULT_ABI = [
@@ -34,7 +34,17 @@ export function useVault() {
     if (!signer || !VAULT_CONTRACT_ADDRESS) {
       return null;
     }
-    return new Contract(VAULT_CONTRACT_ADDRESS, SHIELDED_VAULT_ABI, signer);
+    try {
+      // Trim whitespace and normalize address using getAddress
+      // getAddress validates and normalizes without ENS resolution
+      const normalizedAddress = getAddress(VAULT_CONTRACT_ADDRESS.trim());
+      // Create contract with normalized address
+      // Pass address directly to avoid ENS resolution
+      return new Contract(normalizedAddress, SHIELDED_VAULT_ABI, signer);
+    } catch (error) {
+      console.error('Error creating contract:', error);
+      return null;
+    }
   };
 
   // Get vault info (maxRiskScore, riskOracleAddress, etc.)
