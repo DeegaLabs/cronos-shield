@@ -9,6 +9,7 @@ import { analyzeRisk } from './risk-analyzer';
 import { FacilitatorService } from '../../lib/x402/facilitator.service';
 import { recordPayment } from '../../lib/x402/require-x402.middleware';
 import { logRiskAnalysis, logPayment } from '../../lib/utils/logger.util';
+import { logger } from '../../lib/utils/logger';
 import type { 
   RiskAnalysisRequest, 
   RiskAnalysisResponse, 
@@ -59,21 +60,21 @@ export class RiskService {
   }
 
   async analyzeRisk(request: RiskAnalysisRequest): Promise<RiskAnalysisResponse> {
-    console.log('🔍 RiskService.analyzeRisk called:', { contract: request.contract });
+    logger.debug('RiskService.analyzeRisk called', { contract: request.contract });
     
-    console.log('⏳ Calling analyzeRisk function...');
+    logger.debug('Calling analyzeRisk function');
     const analysis = await analyzeRisk(request);
-    console.log('✅ Analysis result:', { score: analysis.score, contract: analysis.contract });
+    logger.info('Analysis result', { score: analysis.score, contract: analysis.contract });
     
     const timestamp = Math.floor(Date.now() / 1000);
-    console.log('⏳ Generating proof of risk...');
+    logger.debug('Generating proof of risk');
 
     const proof = await this.generateProofOfRisk({
       contract: request.contract,
       score: analysis.score,
       timestamp,
     });
-    console.log('✅ Proof generated:', proof.substring(0, 20) + '...');
+    logger.debug('Proof generated', { proofPreview: proof.substring(0, 20) + '...' });
 
     if (this.riskOracleContract && this.signer) {
       try {
@@ -90,15 +91,15 @@ export class RiskService {
     }
 
     // Log risk analysis
-    console.log('⏳ Logging risk analysis...');
-    try {
-      logRiskAnalysis('risk-oracle', {
-        contract: request.contract,
-        score: analysis.score,
-        proof,
-        verified: false,
-      });
-      console.log('✅ Risk analysis logged');
+      logger.debug('Logging risk analysis');
+      try {
+        logRiskAnalysis('risk-oracle', {
+          contract: request.contract,
+          score: analysis.score,
+          proof,
+          verified: analysis.details.verified || false,
+        });
+        logger.debug('Risk analysis logged');
     } catch (logError) {
       console.error('⚠️ Failed to log risk analysis (non-critical):', logError);
       // Don't fail the request if logging fails

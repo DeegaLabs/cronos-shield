@@ -39,6 +39,10 @@ import { createVaultRoutes } from './routes/vault.routes';
 import { FacilitatorService } from './lib/x402/facilitator.service';
 
 const app = express();
+
+// Trust proxy for Railway/Heroku (fixes rate limiting warnings)
+app.set('trust proxy', true);
+
 const PORT = process.env.PORT || 3000;
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
 
