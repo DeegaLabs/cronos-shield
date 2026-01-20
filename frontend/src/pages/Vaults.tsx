@@ -192,6 +192,13 @@ export default function VaultsPage() {
         headers,
       })
       
+      console.log('🔍 Risk analysis response received:', {
+        score: response.data.score,
+        contract: response.data.contract,
+        details: response.data.details,
+        fullResponse: response.data,
+      })
+      
       setRiskAnalysis(response.data)
       setPaymentId(null) // Reset after successful request
       setSuccess(`Risk analysis complete. Score: ${response.data.score}/100`)
@@ -599,7 +606,16 @@ export default function VaultsPage() {
                     </div>
                   ) : riskAnalysis && (() => {
                     const maxAllowed = vaultInfo?.maxRiskScore ?? 30; // Default to 30 if not loaded
-                    const isAllowed = riskAnalysis.score <= maxAllowed;
+                    const score = riskAnalysis.score ?? 0;
+                    const isAllowed = score <= maxAllowed;
+                    
+                    console.log('📊 Displaying risk score:', {
+                      score,
+                      maxAllowed,
+                      isAllowed,
+                      riskAnalysis,
+                    });
+                    
                     return (
                       <div className={`p-4 rounded-lg border ${
                         isAllowed
@@ -613,7 +629,7 @@ export default function VaultsPage() {
                               ? 'text-green-400'
                               : 'text-red-400'
                           }`}>
-                            {riskAnalysis.score}/100
+                            {score}/100
                           </span>
                         </div>
                         {!isAllowed && (
