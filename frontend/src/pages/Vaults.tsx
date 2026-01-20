@@ -587,7 +587,23 @@ export default function VaultsPage() {
                     </div>
                   </div>
 
-                  {riskAnalysis && (() => {
+                  {isAnalyzingRisk ? (
+                    <div className="p-4 rounded-lg border bg-slate-800/50 border-slate-700">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="font-semibold">Risk Score</span>
+                        <div className="flex items-center gap-2">
+                          <svg className="animate-spin h-5 w-5 text-indigo-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                          </svg>
+                          <span className="text-slate-400">Analyzing...</span>
+                        </div>
+                      </div>
+                      <div className="text-sm text-slate-400 mt-2">
+                        Fetching on-chain data and calculating risk score...
+                      </div>
+                    </div>
+                  ) : riskAnalysis && (() => {
                     const maxAllowed = vaultInfo?.maxRiskScore ?? 30; // Default to 30 if not loaded
                     const isAllowed = riskAnalysis.score <= maxAllowed;
                     return (
