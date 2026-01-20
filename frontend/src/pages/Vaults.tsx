@@ -695,7 +695,16 @@ export default function VaultsPage() {
 
                     <button
                       onClick={handleExecuteProtectedTransaction}
-                      disabled={!isConnected || isProcessing || isExecutingProtectedTransaction || !riskAnalysis || !protectedTarget || !protectedValue || parseFloat(protectedValue) <= 0 || riskAnalysis.score > (vaultInfo?.maxRiskScore ?? 30)}
+                      disabled={
+                        !isConnected || 
+                        isProcessing || 
+                        isExecutingProtectedTransaction || 
+                        !riskAnalysis || 
+                        !protectedTarget || 
+                        !protectedValue || 
+                        parseFloat(protectedValue) <= 0 || 
+                        (riskAnalysis?.score ?? 101) > (vaultInfo?.maxRiskScore ?? 30)
+                      }
                       className="w-full py-4 bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-600 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg font-bold text-lg transition-all"
                     >
                       {isProcessing || isExecutingProtectedTransaction ? 'Processing...' : 'Execute Protected Transaction'}
