@@ -235,8 +235,9 @@ export default function VaultsPage() {
       return
     }
 
-    if (riskAnalysis.score > (vaultInfo?.maxRiskScore || 70)) {
-      setError(`Risk score (${riskAnalysis.score}) exceeds maximum allowed (${vaultInfo?.maxRiskScore || 70})`)
+    const maxAllowed = vaultInfo?.maxRiskScore ?? 30; // Default to 30 if not loaded
+    if (riskAnalysis.score > maxAllowed) {
+      setError(`Risk score (${riskAnalysis.score}) exceeds maximum allowed (${maxAllowed})`)
       return
     }
 
@@ -586,39 +587,43 @@ export default function VaultsPage() {
                     </div>
                   </div>
 
-                  {riskAnalysis && (
-                    <div className={`p-4 rounded-lg border ${
-                      riskAnalysis.score <= (vaultInfo?.maxRiskScore || 70)
-                        ? 'bg-green-950/20 border-green-900/30'
-                        : 'bg-red-950/20 border-red-900/30'
-                    }`}>
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="font-semibold">Risk Score</span>
-                        <span className={`font-bold text-lg ${
-                          riskAnalysis.score <= (vaultInfo?.maxRiskScore || 70)
-                            ? 'text-green-400'
-                            : 'text-red-400'
-                        }`}>
-                          {riskAnalysis.score}/100
-                        </span>
+                  {riskAnalysis && (() => {
+                    const maxAllowed = vaultInfo?.maxRiskScore ?? 30; // Default to 30 if not loaded
+                    const isAllowed = riskAnalysis.score <= maxAllowed;
+                    return (
+                      <div className={`p-4 rounded-lg border ${
+                        isAllowed
+                          ? 'bg-green-950/20 border-green-900/30'
+                          : 'bg-red-950/20 border-red-900/30'
+                      }`}>
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="font-semibold">Risk Score</span>
+                          <span className={`font-bold text-lg ${
+                            isAllowed
+                              ? 'text-green-400'
+                              : 'text-red-400'
+                          }`}>
+                            {riskAnalysis.score}/100
+                          </span>
+                        </div>
+                        {!isAllowed && (
+                          <div className="text-sm text-red-400 mt-2">
+                            ⚠️ Risk score exceeds maximum allowed ({maxAllowed}/100). Transaction will be blocked.
+                          </div>
+                        )}
+                        {riskAnalysis.details?.warnings && riskAnalysis.details.warnings.length > 0 && (
+                          <div className="mt-3">
+                            <div className="text-xs font-semibold text-slate-400 mb-1">Warnings:</div>
+                            <ul className="text-xs text-slate-300 space-y-1">
+                              {riskAnalysis.details.warnings.slice(0, 3).map((warning: string, idx: number) => (
+                                <li key={idx}>• {warning}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
                       </div>
-                      {riskAnalysis.score > (vaultInfo?.maxRiskScore || 70) && (
-                        <div className="text-sm text-red-400 mt-2">
-                          ⚠️ Risk score exceeds maximum allowed ({vaultInfo?.maxRiskScore || 70}/100). Transaction will be blocked.
-                        </div>
-                      )}
-                      {riskAnalysis.details?.warnings && riskAnalysis.details.warnings.length > 0 && (
-                        <div className="mt-3">
-                          <div className="text-xs font-semibold text-slate-400 mb-1">Warnings:</div>
-                          <ul className="text-xs text-slate-300 space-y-1">
-                            {riskAnalysis.details.warnings.slice(0, 3).map((warning: string, idx: number) => (
-                              <li key={idx}>• {warning}</li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
-                    </div>
-                  )}
+                    );
+                  })()}
 
                   {error && (
                     <div className="p-3 bg-red-900/50 border border-red-500 rounded-lg text-red-400 text-sm">
@@ -680,7 +685,7 @@ export default function VaultsPage() {
 
                     <button
                       onClick={handleExecuteProtectedTransaction}
-                      disabled={!isConnected || isProcessing || isExecutingProtectedTransaction || !riskAnalysis || !protectedTarget || !protectedValue || parseFloat(protectedValue) <= 0 || riskAnalysis.score > (vaultInfo?.maxRiskScore || 70)}
+                      disabled={!isConnected || isProcessing || isExecutingProtectedTransaction || !riskAnalysis || !protectedTarget || !protectedValue || parseFloat(protectedValue) <= 0 || riskAnalysis.score > (vaultInfo?.maxRiskScore ?? 30)}
                       className="w-full py-4 bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-600 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg font-bold text-lg transition-all"
                     >
                       {isProcessing || isExecutingProtectedTransaction ? 'Processing...' : 'Execute Protected Transaction'}

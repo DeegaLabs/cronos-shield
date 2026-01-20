@@ -9,6 +9,8 @@ import App from './App.tsx'
 // We suppress them globally to keep console clean
 if (typeof window !== 'undefined') {
   const originalError = console.error;
+  const originalWarn = console.warn;
+  
   console.error = (...args: any[]) => {
     const errorString = args.join(' ');
     // Suppress all evmAsk-related errors (they're harmless)
@@ -23,6 +25,18 @@ if (typeof window !== 'undefined') {
       return;
     }
     originalError.apply(console, args);
+  };
+
+  // Suppress zustand deprecation warning (comes from wagmi/rainbowkit dependencies)
+  // This is a known issue and doesn't affect functionality
+  console.warn = (...args: any[]) => {
+    const warnString = args.join(' ');
+    if (warnString.includes('[DEPRECATED] Default export is deprecated') && 
+        warnString.includes('zustand')) {
+      // Suppress zustand deprecation warning from dependencies
+      return;
+    }
+    originalWarn.apply(console, args);
   };
 }
 

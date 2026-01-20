@@ -110,6 +110,7 @@ export function useVault() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['vault-balance'] });
       queryClient.invalidateQueries({ queryKey: ['vault-info'] });
+      queryClient.invalidateQueries({ queryKey: ['vault-transactions'] });
     },
   });
 
@@ -128,6 +129,7 @@ export function useVault() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['vault-balance'] });
       queryClient.invalidateQueries({ queryKey: ['vault-info'] });
+      queryClient.invalidateQueries({ queryKey: ['vault-transactions'] });
     },
   });
 
@@ -173,6 +175,7 @@ export function useVault() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['vault-balance'] });
       queryClient.invalidateQueries({ queryKey: ['vault-info'] });
+      queryClient.invalidateQueries({ queryKey: ['vault-transactions'] });
     },
   });
 
