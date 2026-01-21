@@ -47,12 +47,33 @@ export class CryptoComService {
         }
       );
 
+      // Log full response structure for debugging
+      console.debug(`🔍 Crypto.com API response structure:`, {
+        hasResult: !!response.data?.result,
+        hasData: !!response.data?.result?.data,
+        dataType: typeof response.data?.result?.data,
+        isArray: Array.isArray(response.data?.result?.data),
+        dataLength: Array.isArray(response.data?.result?.data) ? response.data.result.data.length : 'N/A',
+        firstItemKeys: Array.isArray(response.data?.result?.data) && response.data.result.data.length > 0
+          ? Object.keys(response.data.result.data[0])
+          : [],
+        firstItem: Array.isArray(response.data?.result?.data) && response.data.result.data.length > 0
+          ? response.data.result.data[0]
+          : null,
+      });
+      
       // Response format: { result: { data: [{ instrument_name, last_price, ... }] } }
+      // Or: { result: { data: { [instrument_name]: { last_price, ... } } } } (object format)
       if (response.data?.result?.data) {
         const data = response.data.result.data;
         
         // Handle array response (multiple tickers)
         if (Array.isArray(data)) {
+          if (data.length === 0) {
+            console.warn(`⚠️  Crypto.com API returned empty tickers array`);
+            throw new Error('Empty tickers response');
+          }
+          
           // Convert pair to different formats to match instrument_name
           const [base, quote] = pair.split('-');
           const searchFormats = [
@@ -64,12 +85,12 @@ export class CryptoComService {
           
           // Find matching ticker
           const ticker = data.find((t: any) => {
-            const instrumentName = t.instrument_name?.toUpperCase();
-            return searchFormats.some(format => instrumentName === format);
+            const instrumentName = (t.instrument_name || t.i || t.symbol || t.name || '').toString().toUpperCase();
+            return searchFormats.some(format => instrumentName === format || instrumentName.includes(format));
           });
           
           if (ticker) {
-            const price = ticker.last_price || ticker.a || ticker.b || ticker.mark_price || ticker.index_price;
+            const price = ticker.last_price || ticker.l || ticker.a || ticker.b || ticker.mark_price || ticker.index_price || ticker.close;
             
             if (price) {
               return {
@@ -82,13 +103,49 @@ export class CryptoComService {
           }
           
           // Log available instruments for debugging
-          console.debug(`⚠️  Pair ${pair} not found. Available instruments (first 10):`, 
-            data.slice(0, 10).map((t: any) => t.instrument_name).join(', ')
+          const instrumentNames = data.slice(0, 20).map((t: any) => 
+            t.instrument_name || t.i || t.symbol || t.name || 'unknown'
+          ).filter(Boolean);
+          
+          console.warn(`⚠️  Pair ${pair} not found. Available instruments (first 20):`, 
+            instrumentNames.join(', ') || 'No instrument names found'
+          );
+        } else if (typeof data === 'object') {
+          // Object format: { "CRO_USDC": { last_price: ... }, ... }
+          const [base, quote] = pair.split('-');
+          const searchFormats = [
+            `${base}_${quote}`.toUpperCase(),
+            `${base}-${quote}`.toUpperCase(),
+            `${base}${quote}`.toUpperCase(),
+            `${base}USD`.toUpperCase(),
+          ];
+          
+          // Find matching key
+          const matchingKey = Object.keys(data).find(key => 
+            searchFormats.some(format => key.toUpperCase() === format)
+          );
+          
+          if (matchingKey) {
+            const ticker = data[matchingKey];
+            const price = ticker?.last_price || ticker?.l || ticker?.a || ticker?.b || ticker?.mark_price || ticker?.index_price || ticker?.close;
+            
+            if (price) {
+              return {
+                price: price.toString(),
+                timestamp: Date.now(),
+                source: 'CEX',
+                pair: pair,
+              };
+            }
+          }
+          
+          console.warn(`⚠️  Pair ${pair} not found in object format. Available keys (first 20):`, 
+            Object.keys(data).slice(0, 20).join(', ')
           );
         } else {
           // Single ticker response
           const ticker = data;
-          const price = ticker?.last_price || ticker?.a || ticker?.b || ticker?.mark_price || ticker?.index_price;
+          const price = ticker?.last_price || ticker?.l || ticker?.a || ticker?.b || ticker?.mark_price || ticker?.index_price || ticker?.close;
           
           if (price) {
             return {
