@@ -86,14 +86,11 @@ export default function DivergencePage() {
     setShowPaymentModal(false)
 
     try {
-      // Use the full pair (e.g., "ETH-USDT") instead of just token
-      // The backend will parse it correctly
-      const pairParts = selectedPair.split('-')
-      const token = pairParts[0] // Extract base token
+      // Send the full pair (e.g., "ETH-USDT") - backend will handle it
       const currentPaymentId = overridePaymentId || paymentId
 
       const result = await analyzeDivergence({
-        token,
+        token: selectedPair, // Send full pair, backend will parse it
         paymentId: currentPaymentId || undefined,
       })
 
