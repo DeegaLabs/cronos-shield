@@ -23,11 +23,12 @@ export class CryptoComService {
   }
 
   async getPrice(pair: string): Promise<PriceData> {
+    // Convert pair format: CRO-USDC -> CRO_USDC
+    // For spot trading, we might need CRO_USDC, for perpetuals: CROUSD-PERP
+    // Try spot first, then perpetual if needed
+    const normalizedPair = pair.replace('-', '_').toUpperCase();
+    
     try {
-      // Convert pair format: CRO-USDC -> CRO_USDC
-      // For spot trading, we might need CRO_USDC, for perpetuals: CROUSD-PERP
-      // Try spot first, then perpetual if needed
-      const normalizedPair = pair.replace('-', '_').toUpperCase();
       
       // Prepare headers with API key if available
       const headers: Record<string, string> = {};
