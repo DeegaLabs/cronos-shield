@@ -131,5 +131,80 @@ export function createDivergenceRoutes(divergenceController: DivergenceControlle
    */
   router.post('/pay', paymentRateLimiter, divergenceController.settlePayment.bind(divergenceController));
 
+  /**
+   * @swagger
+   * /api/divergence/history:
+   *   get:
+   *     summary: Get divergence history chart data
+   *     description: Returns historical divergence data for chart visualization
+   *     tags: [CEX-DEX Synergy]
+   *     parameters:
+   *       - in: query
+   *         name: token
+   *         schema:
+   *           type: string
+   *         description: Token symbol to filter (optional)
+   *       - in: query
+   *         name: days
+   *         schema:
+   *           type: integer
+   *           default: 7
+   *         description: Number of days to retrieve (1-90)
+   *     responses:
+   *       200:
+   *         description: Historical divergence data
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 data:
+   *                   type: array
+   *                   items:
+   *                     type: number
+   */
+  router.get('/history', divergenceController.getHistory.bind(divergenceController));
+
+  /**
+   * @swagger
+   * /api/divergence/alerts:
+   *   get:
+   *     summary: Get recent divergence alerts
+   *     description: Returns recent alerts for high divergence events
+   *     tags: [CEX-DEX Synergy]
+   *     parameters:
+   *       - in: query
+   *         name: limit
+   *         schema:
+   *           type: integer
+   *           default: 10
+   *         description: Maximum number of alerts to return (1-50)
+   *     responses:
+   *       200:
+   *         description: Recent alerts
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 alerts:
+   *                   type: array
+   *                   items:
+   *                     type: object
+   *                     properties:
+   *                       pair:
+   *                         type: string
+   *                       divergence:
+   *                         type: number
+   *                       severity:
+   *                         type: string
+   *                         enum: [high, medium, low]
+   *                       time:
+   *                         type: string
+   *                       description:
+   *                         type: string
+   */
+  router.get('/alerts', divergenceController.getRecentAlerts.bind(divergenceController));
+
   return router;
 }

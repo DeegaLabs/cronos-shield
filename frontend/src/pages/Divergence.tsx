@@ -3,7 +3,7 @@ import { useAccount, useWalletClient } from 'wagmi'
 import { GlassCard } from '../components/cards/GlassCard'
 import { DivergenceBar } from '../components/divergence/DivergenceBar'
 import { LineChart } from '../components/charts/LineChart'
-import { useDivergence } from '../hooks/useDivergence'
+import { useDivergence, useDivergenceHistory, useDivergenceAlerts } from '../hooks/useDivergence'
 import type { DivergenceResponse } from '../types/divergence.types'
 import type { PaymentChallenge } from '../types/x402.types'
 
@@ -22,9 +22,14 @@ export default function DivergencePage() {
   const [paymentId, setPaymentId] = useState<string | null>(null)
 
   const { analyzeDivergence, isAnalyzing } = useDivergence()
-
+  
   // Extract token from pair (e.g., "CRO/USDC" -> "CRO")
   const getTokenFromPair = (pair: string) => pair.split('/')[0]
+  const currentToken = getTokenFromPair(selectedPair)
+
+  // Fetch history and alerts
+  const { data: historyData, isLoading: isLoadingHistory } = useDivergenceHistory(currentToken, 7)
+  const { data: alertsData, isLoading: isLoadingAlerts } = useDivergenceAlerts(10)
 
   // Calculate divergence percentage from data
   const divergencePercentage = divergenceData
@@ -35,32 +40,12 @@ export default function DivergencePage() {
   const cexPrice = divergenceData ? parseFloat(divergenceData.cexPrice) : 0.0850
   const dexPrice = divergenceData ? parseFloat(divergenceData.dexPrice) : 0.0920
 
+  // Chart data - use real data if available, otherwise use empty array
   const chartLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
-  const divergenceChartData = [1.2, 2.3, 1.8, 4.5, 3.2, 6.7, 8.2] // Mock chart data
+  const divergenceChartData = historyData || Array(7).fill(0)
 
-  const recentAlerts = [
-    {
-      pair: 'CRO/USDC',
-      divergence: 8.2,
-      severity: 'high',
-      time: '2 minutes ago',
-      description: 'DEX price significantly higher than CEX',
-    },
-    {
-      pair: 'WETH/USDC',
-      divergence: 4.1,
-      severity: 'medium',
-      time: '1 hour ago',
-      description: 'Moderate price discrepancy detected',
-    },
-    {
-      pair: 'ATOM/USDC',
-      divergence: 1.2,
-      severity: 'low',
-      time: '3 hours ago',
-      description: 'Price divergence within normal range',
-    },
-  ]
+  // Recent alerts - use real data if available, otherwise use empty array
+  const recentAlerts = alertsData || []
 
   const handleAnalyze = async (overridePaymentId?: string) => {
     if (!isConnected || !address) {
@@ -418,12 +403,22 @@ export default function DivergencePage() {
           </div>
         </div>
         <div className="chart-container-large">
-          <LineChart
-            labels={chartLabels}
-            data={divergenceChartData}
-            color="#a855f7"
-            title="Divergence"
-          />
+          {isLoadingHistory ? (
+            <div className="flex items-center justify-center h-64">
+              <div className="text-slate-400">Loading chart data...</div>
+            </div>
+          ) : divergenceChartData.length > 0 && divergenceChartData.some((v: number) => v > 0) ? (
+            <LineChart
+              labels={chartLabels}
+              data={divergenceChartData}
+              color="#a855f7"
+              title="Divergence"
+            />
+          ) : (
+            <div className="flex items-center justify-center h-64">
+              <div className="text-slate-400">No historical data available. Analyze a token to see divergence history.</div>
+            </div>
+          )}
         </div>
       </GlassCard>
 
@@ -431,8 +426,17 @@ export default function DivergencePage() {
       <GlassCard className="rounded-2xl p-8">
         <h3 className="text-lg font-bold mb-6">Recent Divergence Alerts</h3>
         
-        <div className="space-y-3">
-          {recentAlerts.map((alert, index) => {
+        {isLoadingAlerts ? (
+          <div className="flex items-center justify-center py-8">
+            <div className="text-slate-400">Loading alerts...</div>
+          </div>
+        ) : recentAlerts.length === 0 ? (
+          <div className="flex items-center justify-center py-8">
+            <div className="text-slate-400">No recent alerts. Analyze tokens to see divergence alerts.</div>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {recentAlerts.map((alert, index) => {
             const colors = getSeverityColors(alert.severity)
             return (
               <div
@@ -457,11 +461,14 @@ export default function DivergencePage() {
               </div>
             )
           })}
-        </div>
+          </div>
+        )}
 
-        <button className="w-full mt-6 py-3 border border-slate-700 hover:border-slate-600 rounded-lg font-semibold transition-colors">
-          View All Alerts
-        </button>
+        {recentAlerts.length > 0 && (
+          <button className="w-full mt-6 py-3 border border-slate-700 hover:border-slate-600 rounded-lg font-semibold transition-colors">
+            View All Alerts
+          </button>
+        )}
       </GlassCard>
 
       {/* Payment Modal */}

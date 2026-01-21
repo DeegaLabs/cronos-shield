@@ -173,7 +173,8 @@ const cexService = new CryptoComService(
 
 const dexService = new DexService(
   process.env.RPC_URL || 'https://evm-t3.cronos.org',
-  process.env.DEX_ROUTER_ADDRESS || '0x145863Eb42Cf62847A6Ca784e6416C1682b1b2Ae'
+  process.env.DEX_ROUTER_ADDRESS || '0x145863Eb42Cf62847A6Ca784e6416C1682b1b2Ae',
+  process.env.VVS_FACTORY_ADDRESS
 );
 
 const divergenceService = new DivergenceService(cexService, dexService);
