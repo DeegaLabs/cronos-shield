@@ -37,12 +37,27 @@ export async function analyzeRisk(request: RiskAnalysisRequest): Promise<Omit<Ri
     const rpcUrl = process.env.RPC_URL || 'https://evm-t3.cronos.org';
     const provider = new ethers.JsonRpcProvider(rpcUrl);
     
-    logger.debug('Checking if address is a contract', { contract, rpcUrl });
-    const code = await provider.getCode(contract);
+    // Normalize address to checksum format for reliable RPC calls
+    // getAddress validates and normalizes the address
+    let normalizedAddress: string;
+    try {
+      normalizedAddress = ethers.getAddress(contract);
+    } catch (error) {
+      // If getAddress fails, try lowercase (for testnet addresses without checksum)
+      normalizedAddress = contract.toLowerCase();
+    }
+    
+    logger.debug('Checking if address is a contract', { 
+      originalContract: contract, 
+      normalizedAddress,
+      rpcUrl 
+    });
+    const code = await provider.getCode(normalizedAddress);
     const codeLength = code ? code.length : 0;
     
     logger.debug('Contract code check result', { 
-      contract, 
+      originalContract: contract,
+      normalizedAddress,
       hasCode: code && code !== '0x',
       codeLength,
       codePreview: code ? code.substring(0, 20) + '...' : 'none'
@@ -50,9 +65,10 @@ export async function analyzeRisk(request: RiskAnalysisRequest): Promise<Omit<Ri
     
     if (!code || code === '0x') {
       // Try to get balance to see if address exists at all
-      const balance = await provider.getBalance(contract).catch(() => null);
+      const balance = await provider.getBalance(normalizedAddress).catch(() => null);
       logger.warn('⚠️ Address is not a contract (no code found)', { 
-        contract,
+        originalContract: contract,
+        normalizedAddress,
         hasBalance: balance !== null,
         balance: balance ? ethers.formatEther(balance) : 'unknown',
         note: 'This address may be an EOA or may not exist on this network'
@@ -77,33 +93,37 @@ export async function analyzeRisk(request: RiskAnalysisRequest): Promise<Omit<Ri
     }
     
     logger.info('✅ Address is a valid contract', { 
-      contract, 
+      originalContract: contract,
+      normalizedAddress,
       codeLength: code.length,
       estimatedSize: `${Math.round(code.length / 2)} bytes`
     });
 
-    logger.info('🔍 Fetching real on-chain data...', { contract });
+    // Use normalized address for all subsequent calls
+    const contractAddress = normalizedAddress;
+
+    logger.info('🔍 Fetching real on-chain data...', { contract: contractAddress });
     
     // Fetch real on-chain data in parallel
     const [holders, contractAge, verified, liquidity, complexity, activity, totalSupply] = await Promise.all([
-      dataService.getHolders(contract).catch((err) => {
-        logger.warn('Failed to get holders', { error: err.message, contract });
+      dataService.getHolders(contractAddress).catch((err) => {
+        logger.warn('Failed to get holders', { error: err.message, contract: contractAddress });
         return 0;
       }),
-      dataService.getContractAge(contract).catch((err) => {
-        logger.warn('Failed to get contract age', { error: err.message, contract });
+      dataService.getContractAge(contractAddress).catch((err) => {
+        logger.warn('Failed to get contract age', { error: err.message, contract: contractAddress });
         return 0;
       }),
-      dataService.isContractVerified(contract).catch((err) => {
-        logger.warn('Failed to check verification', { error: err.message, contract });
+      dataService.isContractVerified(contractAddress).catch((err) => {
+        logger.warn('Failed to check verification', { error: err.message, contract: contractAddress });
         return false;
       }),
-      dataService.getLiquidity(contract).catch((err) => {
-        logger.warn('Failed to get liquidity', { error: err.message, contract });
+      dataService.getLiquidity(contractAddress).catch((err) => {
+        logger.warn('Failed to get liquidity', { error: err.message, contract: contractAddress });
         return { available: '0', depth: 'LOW', source: 'error' };
       }),
-      dataService.analyzeContractComplexity(contract).catch((err) => {
-        logger.warn('Failed to analyze complexity', { error: err.message, contract });
+      dataService.analyzeContractComplexity(contractAddress).catch((err) => {
+        logger.warn('Failed to analyze complexity', { error: err.message, contract: contractAddress });
         return {
           isProxy: false,
           hasSelfDestruct: false,
@@ -111,12 +131,12 @@ export async function analyzeRisk(request: RiskAnalysisRequest): Promise<Omit<Ri
           complexity: 'low' as const,
         };
       }),
-      dataService.getTransactionActivity(contract).catch((err) => {
-        logger.warn('Failed to get transaction activity', { error: err.message, contract });
+      dataService.getTransactionActivity(contractAddress).catch((err) => {
+        logger.warn('Failed to get transaction activity', { error: err.message, contract: contractAddress });
         return { total: 0, recent24h: 0 };
       }),
-      dataService.getTokenSupply(contract).catch((err) => {
-        logger.warn('Failed to get token supply', { error: err.message, contract });
+      dataService.getTokenSupply(contractAddress).catch((err) => {
+        logger.warn('Failed to get token supply', { error: err.message, contract: contractAddress });
         return '0';
       }),
     ]);
