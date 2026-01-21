@@ -25,12 +25,15 @@ export default function DivergencePage() {
   // Set initial selected pair
   const [selectedPair, setSelectedPair] = useState('ETH-USDT')
   
-  // Update selected pair when pairs are loaded
+  // Update selected pair when pairs are loaded (only if current selection is not in the list)
   useEffect(() => {
-    if (availablePairs && availablePairs.length > 0 && !selectedPair) {
-      setSelectedPair(availablePairs[0])
+    if (availablePairs && availablePairs.length > 0) {
+      // If current selection is not in available pairs, select first available
+      if (!availablePairs.includes(selectedPair)) {
+        setSelectedPair(availablePairs[0])
+      }
     }
-  }, [availablePairs, selectedPair])
+  }, [availablePairs]) // Only depend on availablePairs, not selectedPair
   
   const [divergenceData, setDivergenceData] = useState<DivergenceResponse | null>(null)
   const [error, setError] = useState<string | null>(null)
