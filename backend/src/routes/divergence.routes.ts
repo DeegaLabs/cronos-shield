@@ -206,5 +206,28 @@ export function createDivergenceRoutes(divergenceController: DivergenceControlle
    */
   router.get('/alerts', divergenceController.getRecentAlerts.bind(divergenceController));
 
+  /**
+   * @swagger
+   * /api/divergence/pairs:
+   *   get:
+   *     summary: Get available trading pairs from Crypto.com Exchange
+   *     description: Returns list of available trading pairs that can be analyzed. Public endpoint, no payment required.
+   *     tags: [CEX-DEX Synergy]
+   *     responses:
+   *       200:
+   *         description: List of available pairs
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 pairs:
+   *                   type: array
+   *                   items:
+   *                     type: string
+   *                   example: ["ETH-USDT", "BTC-USDT", "CRO-USDT"]
+   */
+  router.get('/pairs', divergenceController.getAvailablePairs.bind(divergenceController));
+
   return router;
 }

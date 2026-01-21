@@ -22,6 +22,55 @@ export class CryptoComService {
     this.apiKey = apiKey;
   }
 
+  async getAvailablePairs(): Promise<string[]> {
+    try {
+      // Prepare headers with API key if available
+      const headers: Record<string, string> = {};
+      if (this.apiKey) {
+        headers['X-API-KEY'] = this.apiKey;
+      }
+
+      // Get all tickers to extract available pairs
+      const response = await retry(
+        async () => {
+          return await axios.get(`${this.apiUrl}/public/get-tickers`, {
+            headers,
+            timeout: 10000,
+          });
+        },
+        {
+          maxRetries: 2,
+          delay: 1000,
+          retryCondition: (error) => isRetryableError(error),
+        }
+      );
+
+      if (response.data?.result?.data && Array.isArray(response.data.result.data)) {
+        // Extract instrument names and convert to pair format
+        const pairs: string[] = response.data.result.data
+          .map((ticker: any) => {
+            const instrumentName = (ticker.i || ticker.instrument_name || '').toString();
+            // Convert format: ETH_USDT -> ETH-USDT
+            // Skip perpetuals (USD-PERP) for now
+            if (instrumentName.includes('-PERP')) {
+              return null;
+            }
+            return instrumentName.replace('_', '-');
+          })
+          .filter((pair: string | null): pair is string => pair !== null && pair.length > 0)
+          .sort();
+
+        return [...new Set(pairs)]; // Remove duplicates
+      }
+
+      return [];
+    } catch (error: any) {
+      console.warn(`⚠️  Failed to fetch available pairs from Crypto.com API: ${error.message}`);
+      // Return empty array on error - frontend will handle fallback
+      return [];
+    }
+  }
+
   async getPrice(pair: string): Promise<PriceData> {
     try {
       // Prepare headers with API key if available

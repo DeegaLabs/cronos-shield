@@ -17,6 +17,15 @@ export class DivergenceController {
     private facilitatorService: FacilitatorService
   ) {}
 
+  async getAvailablePairs(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const pairs = await this.divergenceService.getAvailablePairs();
+      res.status(200).json({ pairs });
+    } catch (error) {
+      next(error);
+    }
+  }
+
   async analyzeDivergence(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { token, amount } = req.query;

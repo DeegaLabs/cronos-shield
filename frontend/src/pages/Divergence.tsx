@@ -1,9 +1,9 @@
-import { useState, lazy, Suspense } from 'react'
+import { useState, useEffect, lazy, Suspense } from 'react'
 import { useAccount, useWalletClient } from 'wagmi'
 import { GlassCard } from '../components/cards/GlassCard'
 import { DivergenceBar } from '../components/divergence/DivergenceBar'
 import { LineChart } from '../components/charts/LineChart'
-import { useDivergence, useDivergenceHistory, useDivergenceAlerts } from '../hooks/useDivergence'
+import { useDivergence, useDivergenceHistory, useDivergenceAlerts, useAvailablePairs } from '../hooks/useDivergence'
 import type { DivergenceResponse } from '../types/divergence.types'
 import type { PaymentChallenge } from '../types/x402.types'
 
@@ -13,7 +13,25 @@ const PaymentModalLazy = lazy(() => import('../components/common/PaymentModal'))
 export default function DivergencePage() {
   const { address, isConnected } = useAccount()
   const { data: walletClient } = useWalletClient()
-  const [selectedPair, setSelectedPair] = useState('CRO')
+  
+  // Fetch available pairs from API
+  const { data: availablePairs, isLoading: isLoadingPairs } = useAvailablePairs()
+  
+  // Use available pairs if loaded, otherwise fallback to default list
+  const pairsList = availablePairs && availablePairs.length > 0 
+    ? availablePairs 
+    : ['ETH-USDT', 'BTC-USDT', 'CRO-USDT', 'ATOM-USDT'] // Fallback
+  
+  // Set initial selected pair
+  const [selectedPair, setSelectedPair] = useState('ETH-USDT')
+  
+  // Update selected pair when pairs are loaded
+  useEffect(() => {
+    if (availablePairs && availablePairs.length > 0 && !selectedPair) {
+      setSelectedPair(availablePairs[0])
+    }
+  }, [availablePairs, selectedPair])
+  
   const [divergenceData, setDivergenceData] = useState<DivergenceResponse | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
@@ -23,8 +41,8 @@ export default function DivergencePage() {
 
   const { analyzeDivergence, isAnalyzing } = useDivergence()
   
-  // Extract token from pair (e.g., "CRO/USDC" -> "CRO")
-  const getTokenFromPair = (pair: string) => pair.split('/')[0]
+  // Extract token from pair (e.g., "ETH-USDT" -> "ETH")
+  const getTokenFromPair = (pair: string) => pair.split('-')[0]
   const currentToken = getTokenFromPair(selectedPair)
 
   // Fetch history and alerts
@@ -65,7 +83,10 @@ export default function DivergencePage() {
     setShowPaymentModal(false)
 
     try {
-      const token = getTokenFromPair(selectedPair)
+      // Use the full pair (e.g., "ETH-USDT") instead of just token
+      // The backend will parse it correctly
+      const pairParts = selectedPair.split('-')
+      const token = pairParts[0] // Extract base token
       const currentPaymentId = overridePaymentId || paymentId
 
       const result = await analyzeDivergence({
@@ -167,18 +188,28 @@ export default function DivergencePage() {
 
         <div className="flex gap-4">
           <div className="flex-1">
-            <label className="block text-sm font-semibold text-slate-300 mb-2">Token</label>
+            <label className="block text-sm font-semibold text-slate-300 mb-2">Trading Pair</label>
             <select
               value={selectedPair}
               onChange={(e) => setSelectedPair(e.target.value)}
               className="w-full px-4 py-3 bg-slate-900 border border-slate-700 rounded-lg focus:border-indigo-500 focus:outline-none transition-colors"
-              disabled={isAnalyzing}
+              disabled={isAnalyzing || isLoadingPairs}
             >
-              <option value="CRO">CRO</option>
-              <option value="WETH">WETH</option>
-              <option value="WBTC">WBTC</option>
-              <option value="ATOM">ATOM</option>
+              {isLoadingPairs ? (
+                <option value="">Loading pairs...</option>
+              ) : pairsList.length > 0 ? (
+                pairsList.map((pair) => (
+                  <option key={pair} value={pair}>
+                    {pair}
+                  </option>
+                ))
+              ) : (
+                <option value="">No pairs available</option>
+              )}
             </select>
+            {isLoadingPairs && (
+              <p className="text-xs text-slate-500 mt-1">Loading available pairs from Crypto.com...</p>
+            )}
           </div>
 
           <button

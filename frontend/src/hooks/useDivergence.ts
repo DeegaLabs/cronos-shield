@@ -79,3 +79,15 @@ export function useDivergenceAlerts(limit: number = 10) {
     refetchInterval: 30000, // Refetch every 30 seconds
   });
 }
+
+export function useAvailablePairs() {
+  return useQuery({
+    queryKey: ['divergence-pairs'],
+    queryFn: async () => {
+      const response = await apiClient.get('/api/divergence/pairs');
+      return response.data.pairs as string[];
+    },
+    staleTime: 5 * 60 * 1000, // Cache for 5 minutes (pairs don't change often)
+    refetchOnWindowFocus: false, // Don't refetch on window focus
+  });
+}

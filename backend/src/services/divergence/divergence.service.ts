@@ -22,7 +22,8 @@ export class DivergenceService {
 
   async calculateDivergence(request: DivergenceRequest): Promise<DivergenceResponse> {
     const { token, amount } = request;
-    const pair = `${token}-USDC`; // Default pair
+    // Try to extract pair from token if it contains '-', otherwise default to USDC
+    const pair = token.includes('-') ? token : `${token}-USDC`;
 
     const [cexPrice, dexPrice] = await Promise.all([
       this.cexService.getPrice(pair),
@@ -65,6 +66,10 @@ export class DivergenceService {
         },
       },
     };
+  }
+
+  async getAvailablePairs(): Promise<string[]> {
+    return await this.cexService.getAvailablePairs();
   }
 
   private generateRecommendation(
