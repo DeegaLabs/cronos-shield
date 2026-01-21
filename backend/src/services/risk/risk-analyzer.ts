@@ -242,12 +242,19 @@ export async function analyzeRisk(request: RiskAnalysisRequest): Promise<Omit<Ri
       marketCap: estimatedMarketCap !== '0' ? estimatedMarketCap : undefined,
     };
 
-    logger.info('Risk analysis completed', { contract, score, holders, contractAge, verified });
+    logger.info('Risk analysis completed', { 
+      originalContract: contract,
+      normalizedAddress: contractAddress,
+      score, 
+      holders, 
+      contractAge, 
+      verified 
+    });
 
     return {
       score,
       details,
-      contract,
+      contract: contractAddress, // Return normalized address
     };
   } catch (error: any) {
     logger.error('Risk analysis failed, using fallback', error, { contract });
