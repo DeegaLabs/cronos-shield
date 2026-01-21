@@ -75,27 +75,30 @@ export class CryptoComService {
           }
           
           // Convert pair to different formats to match instrument_name
+          // Based on API response, instrument_name is in property 'i' (e.g., 'ACH_USD')
           const [base, quote] = pair.split('-');
           const searchFormats = [
             `${base}_${quote}`.toUpperCase(), // CRO_USDC
+            `${base}_USD`.toUpperCase(), // CRO_USD (if quote is USDC/USDT, try USD)
             `${base}-${quote}`.toUpperCase(), // CRO-USDC
             `${base}${quote}`.toUpperCase(), // CROUSDC
-            `${base}USD`.toUpperCase(), // CROUSD (if quote is USDC/USDT)
+            `${base}USD`.toUpperCase(), // CROUSD
           ];
           
-          // Find matching ticker
+          // Find matching ticker - API uses 'i' for instrument_name
           const ticker = data.find((t: any) => {
-            const instrumentName = (t.instrument_name || t.i || t.symbol || t.name || '').toString().toUpperCase();
-            return searchFormats.some(format => instrumentName === format || instrumentName.includes(format));
+            const instrumentName = (t.i || t.instrument_name || t.symbol || t.name || '').toString().toUpperCase();
+            return searchFormats.some(format => instrumentName === format);
           });
           
           if (ticker) {
-            const price = ticker.last_price || ticker.l || ticker.a || ticker.b || ticker.mark_price || ticker.index_price || ticker.close;
+            // API uses 'l' for last_price, 'a' for ask, 'b' for bid
+            const price = ticker.l || ticker.last_price || ticker.a || ticker.b || ticker.mark_price || ticker.index_price || ticker.close;
             
             if (price) {
               return {
                 price: price.toString(),
-                timestamp: Date.now(),
+                timestamp: ticker.t || Date.now(), // API provides timestamp in 't'
                 source: 'CEX',
                 pair: pair,
               };
@@ -103,11 +106,11 @@ export class CryptoComService {
           }
           
           // Log available instruments for debugging
-          const instrumentNames = data.slice(0, 20).map((t: any) => 
-            t.instrument_name || t.i || t.symbol || t.name || 'unknown'
+          const instrumentNames = data.slice(0, 30).map((t: any) => 
+            (t.i || t.instrument_name || t.symbol || t.name || 'unknown').toString()
           ).filter(Boolean);
           
-          console.warn(`⚠️  Pair ${pair} not found. Available instruments (first 20):`, 
+          console.warn(`⚠️  Pair ${pair} not found. Available instruments (first 30):`, 
             instrumentNames.join(', ') || 'No instrument names found'
           );
         } else if (typeof data === 'object') {
