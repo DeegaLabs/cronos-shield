@@ -36,10 +36,15 @@ export class DexService {
   private factory: ethers.Contract;
   // Token addresses - can be overridden via environment variables
   // Testnet addresses (default)
+  // Note: Some tokens may not have pools on testnet, will fallback to mock data
   private tokenAddresses: Record<string, string> = {
     'CRO': process.env.CRO_TOKEN_ADDRESS || '0x5C7F8A570d578ED84E63fdFA7b1eE72dEae1AE23',
     'USDC': process.env.USDC_TOKEN_ADDRESS || '0xc01efAaF7C5C61bEbFAeb358E1161b537b8bC0e0',
     'USDT': process.env.USDT_TOKEN_ADDRESS || '0x66e428c3f67a68878562e79A0234c1F83c208770',
+    // Additional tokens - may not have pools on testnet
+    'WETH': process.env.WETH_TOKEN_ADDRESS || '0x0000000000000000000000000000000000000000', // Placeholder - may not exist on testnet
+    'WBTC': process.env.WBTC_TOKEN_ADDRESS || '0x0000000000000000000000000000000000000000', // Placeholder - may not exist on testnet
+    'ATOM': process.env.ATOM_TOKEN_ADDRESS || '0x0000000000000000000000000000000000000000', // Placeholder - may not exist on testnet
   };
 
   constructor(rpcUrl: string, routerAddress: string, factoryAddress?: string) {
@@ -97,12 +102,13 @@ export class DexService {
       const errorMessage = error.reason || error.message || 'Unknown error';
       const errorCode = error.code || 'UNKNOWN';
       
-      // Only log if it's not a common testnet issue (no liquidity, contract not found)
+      // Only log if it's not a common testnet issue (no liquidity, contract not found, token not found)
       const isExpectedError = 
         errorMessage.includes('0x') || 
         errorMessage.includes('BAD_DATA') ||
         errorMessage.includes('No liquidity') ||
-        errorMessage.includes('execution reverted');
+        errorMessage.includes('execution reverted') ||
+        errorMessage.includes('Token address not found');
       
       if (!isExpectedError) {
         console.warn(`⚠️  DEX query error: ${errorMessage} (code: ${errorCode}). Using mock data.`);
@@ -123,7 +129,8 @@ export class DexService {
 
   private getTokenAddress(symbol: string): string {
     const address = this.tokenAddresses[symbol];
-    if (!address) {
+    if (!address || address === '0x0000000000000000000000000000000000000000') {
+      // Token not configured or placeholder address - will fallback to mock
       throw new Error(`Token address not found for: ${symbol}`);
     }
     return address;
@@ -253,7 +260,8 @@ export class DexService {
         errorMessage.includes('0x') || 
         errorMessage.includes('BAD_DATA') ||
         errorMessage.includes('execution reverted') ||
-        errorMessage.includes('No pool found');
+        errorMessage.includes('No pool found') ||
+        errorMessage.includes('Token address not found');
       
       if (!isExpectedError) {
         console.warn(`⚠️  Failed to get liquidity for ${pair}: ${errorMessage}. Using mock data.`);
