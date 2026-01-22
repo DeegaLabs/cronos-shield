@@ -1,0 +1,35 @@
+{
+  "name": "@cronos-shield/sdk",
+  "version": "1.0.0",
+  "description": "TypeScript SDK for Cronos Shield - Risk Oracle, Shielded Vaults, CEX-DEX Synergy, and Observability",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "prepublishOnly": "pnpm run build"
+  },
+  "keywords": [
+    "cronos",
+    "x402",
+    "risk-oracle",
+    "shielded-vaults",
+    "cex-dex",
+    "observability",
+    "sdk"
+  ],
+  "author": "Cronos Shield",
+  "license": "MIT",
+  "packageManager": "pnpm@9.0.0",
+  "dependencies": {
+    "axios": "^1.7.7",
+    "ethers": "^6.15.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.10",
+    "typescript": "^5.6.0"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ]
+}
