@@ -102,19 +102,49 @@ export function sanitizeString(input: string, maxLength: number = 1000): string 
 }
 
 /**
- * Validates token symbol
+ * Validates token symbol or trading pair
+ * Accepts both single tokens (e.g., "ETH") and pairs (e.g., "ETH-USDT")
  */
 export function validateTokenSymbol(symbol: string): void {
   if (!symbol || typeof symbol !== 'string') {
     throw new Error('Token symbol is required');
   }
   
-  if (symbol.length > 10) {
-    throw new Error('Token symbol must be 10 characters or less');
-  }
-  
-  if (!/^[A-Z0-9]+$/.test(symbol)) {
-    throw new Error('Token symbol must contain only uppercase letters and numbers');
+  // Check if it's a trading pair (contains hyphen)
+  if (symbol.includes('-')) {
+    const parts = symbol.split('-');
+    if (parts.length !== 2) {
+      throw new Error('Trading pair must be in format TOKEN-QUOTE (e.g., ETH-USDT)');
+    }
+    
+    const [token, quote] = parts;
+    
+    // Validate token part
+    if (!token || token.length === 0 || token.length > 10) {
+      throw new Error('Token symbol must be between 1 and 10 characters');
+    }
+    
+    if (!/^[A-Z0-9]+$/.test(token)) {
+      throw new Error('Token symbol must contain only uppercase letters and numbers');
+    }
+    
+    // Validate quote part
+    if (!quote || quote.length === 0 || quote.length > 10) {
+      throw new Error('Quote symbol must be between 1 and 10 characters');
+    }
+    
+    if (!/^[A-Z0-9]+$/.test(quote)) {
+      throw new Error('Quote symbol must contain only uppercase letters and numbers');
+    }
+  } else {
+    // Single token validation
+    if (symbol.length > 10) {
+      throw new Error('Token symbol must be 10 characters or less');
+    }
+    
+    if (!/^[A-Z0-9]+$/.test(symbol)) {
+      throw new Error('Token symbol must contain only uppercase letters and numbers');
+    }
   }
 }
 
