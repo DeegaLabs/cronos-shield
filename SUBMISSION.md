@@ -285,9 +285,9 @@ For AI assistants (Claude Desktop, etc.):
 ## 📊 Technical Highlights
 
 ### Real-time Features
-- ✅ **REST API polling** for price updates (CEX-DEX Synergy) - works reliably
-- ✅ **WebSocket support** implemented (ready for production when infrastructure supports)
-- ✅ **Automatic fallback** to REST API when WebSocket unavailable
+- ✅ **REST API polling** for price updates (CEX-DEX Synergy) - **works reliably in production**
+- ✅ **WebSocket support** implemented (backend ready, requires infrastructure configuration)
+- ✅ **Automatic fallback** to REST API when WebSocket unavailable - **demonstrates resilience**
 - ✅ **Real-time metrics** in Observability Dashboard
 - ✅ **Live balance updates** in Shielded Vaults
 
