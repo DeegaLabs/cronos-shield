@@ -6,6 +6,7 @@
 
 import 'dotenv/config';
 import express from 'express';
+import { createServer } from 'http';
 import cors from 'cors';
 import swaggerJsdoc from 'swagger-jsdoc';
 import swaggerUi from 'swagger-ui-express';
@@ -13,6 +14,7 @@ import { runMigrations } from './lib/database/migrations';
 import { printEnvironmentStatus } from './lib/utils/env-validator';
 import { logger } from './lib/utils/logger';
 import { apiRateLimiter } from './lib/middlewares/rate-limit.middleware';
+import { CronosShieldWebSocketServer } from './lib/websocket/websocket.server';
 
 // Services
 import { RiskService } from './services/risk/risk.service';
@@ -39,6 +41,7 @@ import { createVaultRoutes } from './routes/vault.routes';
 import { FacilitatorService } from './lib/x402/facilitator.service';
 
 const app = express();
+const httpServer = createServer(app);
 
 // Trust proxy for Railway/Heroku (only trust first proxy for security)
 // This fixes rate limiting warnings while maintaining security
@@ -298,18 +301,55 @@ async function startServer() {
     logger.info('DATABASE_URL not set, using in-memory storage');
   }
 
-  // Start Server
-  app.listen(PORT, () => {
+  // Initialize WebSocket Server
+  let wsServer: CronosShieldWebSocketServer | null = null;
+  try {
+    wsServer = new CronosShieldWebSocketServer(httpServer);
+    logger.info('✅ WebSocket server initialized');
+  } catch (error: any) {
+    logger.error('Failed to initialize WebSocket server', error, {
+      message: 'Continuing without WebSocket support'
+    });
+  }
+
+  // Start HTTP Server (which includes WebSocket)
+  httpServer.listen(PORT, () => {
     logger.info('═══════════════════════════════════════');
     logger.info('🚀 Cronos Shield Backend');
     logger.info('═══════════════════════════════════════');
     logger.info(`📍 Server running on http://localhost:${PORT}`);
     logger.info(`📚 Swagger docs: http://localhost:${PORT}/api-doc`);
     logger.info(`📖 Redoc docs: http://localhost:${PORT}/docs`);
+    if (wsServer) {
+      logger.info(`🔌 WebSocket: ws://localhost:${PORT}/ws`);
+    }
     logger.info(`🌐 Network: ${network}`);
     logger.info(`✅ Risk Oracle: ${process.env.RISK_ORACLE_CONTRACT_ADDRESS || 'Not configured'}`);
     logger.info(`💾 Database: ${process.env.DATABASE_URL ? 'PostgreSQL' : 'In-Memory'}`);
     logger.info('═══════════════════════════════════════');
+  });
+
+  // Graceful shutdown
+  process.on('SIGTERM', () => {
+    logger.info('SIGTERM received, shutting down gracefully...');
+    if (wsServer) {
+      wsServer.shutdown();
+    }
+    httpServer.close(() => {
+      logger.info('HTTP server closed');
+      process.exit(0);
+    });
+  });
+
+  process.on('SIGINT', () => {
+    logger.info('SIGINT received, shutting down gracefully...');
+    if (wsServer) {
+      wsServer.shutdown();
+    }
+    httpServer.close(() => {
+      logger.info('HTTP server closed');
+      process.exit(0);
+    });
   });
 }
 

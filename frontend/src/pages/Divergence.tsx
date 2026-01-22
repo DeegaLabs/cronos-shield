@@ -5,6 +5,7 @@ import { GlassCard } from '../components/cards/GlassCard'
 import { DivergenceBar } from '../components/divergence/DivergenceBar'
 import { LineChart } from '../components/charts/LineChart'
 import { useDivergence, useDivergenceHistory, useDivergenceAlerts, useAvailablePairs } from '../hooks/useDivergence'
+import { useWebSocket } from '../hooks/useWebSocket'
 import type { DivergenceResponse } from '../types/divergence.types'
 import type { PaymentChallenge } from '../types/x402.types'
 
@@ -46,18 +47,42 @@ export default function DivergencePage() {
 
   const { analyzeDivergence, isAnalyzing } = useDivergence()
   
+  // WebSocket for real-time price updates
+  const [wsCexPrice, setWsCexPrice] = useState<number | null>(null)
+  const { isConnected: isWsConnected, isConnecting: isWsConnecting, getPrice: getWsPrice } = useWebSocket({
+    enabled: true,
+    onPriceUpdate: (pair, price) => {
+      // Update CEX price if it matches the selected pair
+      if (pair === selectedPair && price.source === 'CEX') {
+        setWsCexPrice(parseFloat(price.price))
+      }
+    },
+  })
+  
   // Use the full pair for history (backend saves with full pair)
   // Fetch history and alerts
   const { data: historyData, isLoading: isLoadingHistory, refetch: refetchHistory } = useDivergenceHistory(selectedPair, 7)
   const { data: alertsData, isLoading: isLoadingAlerts, refetch: refetchAlerts } = useDivergenceAlerts(10)
+  
+  // Update WebSocket price when selected pair changes
+  useEffect(() => {
+    const wsPrice = getWsPrice(selectedPair)
+    if (wsPrice && wsPrice.source === 'CEX') {
+      setWsCexPrice(parseFloat(wsPrice.price))
+    } else {
+      setWsCexPrice(null)
+    }
+  }, [selectedPair, getWsPrice])
 
   // Calculate divergence percentage from data
   const divergencePercentage = divergenceData
     ? parseFloat(divergenceData.divergence)
     : 0
 
-  // Use real data if available, otherwise use defaults
-  const cexPrice = divergenceData ? parseFloat(divergenceData.cexPrice) : 0.0850
+  // Use WebSocket price if available, otherwise use divergence data, otherwise defaults
+  const cexPrice = wsCexPrice !== null 
+    ? wsCexPrice 
+    : (divergenceData ? parseFloat(divergenceData.cexPrice) : 0.0850)
   const dexPrice = divergenceData ? parseFloat(divergenceData.dexPrice) : 0.0920
 
   // Chart data - use real data if available, otherwise use empty array
@@ -243,7 +268,13 @@ export default function DivergencePage() {
                 <div className="font-bold">CEX Price</div>
               </div>
             </div>
-            <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
+            <div className="flex items-center gap-2">
+              {/* WebSocket connection indicator */}
+              <div className={`w-2 h-2 rounded-full ${isWsConnected ? 'bg-green-500 animate-pulse' : isWsConnecting ? 'bg-yellow-500 animate-pulse' : 'bg-red-500'}`} title={isWsConnected ? 'WebSocket connected' : isWsConnecting ? 'Connecting...' : 'WebSocket disconnected'}></div>
+              {wsCexPrice !== null && (
+                <span className="text-xs text-green-400 font-semibold">LIVE</span>
+              )}
+            </div>
           </div>
 
           <div className="mb-6">
@@ -255,9 +286,12 @@ export default function DivergencePage() {
             ) : (
               <>
                 <div className="text-5xl font-bold mb-2 price-flash">
-                  {divergenceData ? `$${cexPrice.toFixed(4)}` : '$0.0000'}
+                  {wsCexPrice !== null || divergenceData ? `$${cexPrice.toFixed(4)}` : '$0.0000'}
                 </div>
-                {!divergenceData && (
+                {wsCexPrice !== null && (
+                  <div className="text-xs text-green-400 mb-1">🟢 Real-time price via WebSocket</div>
+                )}
+                {!divergenceData && wsCexPrice === null && (
                   <div className="text-sm text-slate-500">Connect wallet and analyze to see live prices</div>
                 )}
               </>

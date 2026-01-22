@@ -28,6 +28,7 @@
   "license": "MIT",
   "dependencies": {
     "@crypto.com/facilitator-client": "^1.0.1",
+    "@types/ws": "^8.18.1",
     "axios": "^1.7.7",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
@@ -37,7 +38,8 @@
     "iconv-lite": "^0.7.2",
     "pg": "^8.16.3",
     "swagger-jsdoc": "^6.2.8",
-    "swagger-ui-express": "^5.0.0"
+    "swagger-ui-express": "^5.0.0",
+    "ws": "^8.19.0"
   },
   "devDependencies": {
     "@types/cors": "^2.8.17",
