@@ -40,6 +40,7 @@ export interface TransactionResult {
   blocked?: boolean;
   riskScore?: number;
   reason?: string;
+  explanation?: string; // Human-readable explanation of the decision
 }
 
 export interface BlockedTransaction {

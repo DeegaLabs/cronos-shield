@@ -20,6 +20,7 @@ export interface RiskAnalysis {
   timestamp: number;
   contract: string;
   verified?: boolean;
+  explanation?: string; // Human-readable explanation of the decision
 }
 
 export interface DivergenceAnalysis {

@@ -6,6 +6,7 @@
 
 import { ethers } from 'ethers';
 import { RiskService } from '../risk/risk.service';
+import { DecisionExplainer } from '../ai/explainer.service';
 import { logTransactionBlocked, logTransactionAllowed } from '../../lib/utils/logger.util';
 import type {
   VaultBalance,
@@ -38,6 +39,7 @@ export class VaultService {
   private signer: ethers.Wallet | null = null;
   private vaultContract: ethers.Contract | null = null;
   private riskService: RiskService;
+  private explainer: DecisionExplainer;
 
   constructor(
     private vaultAddress: string,
@@ -47,6 +49,7 @@ export class VaultService {
   ) {
     this.provider = new ethers.JsonRpcProvider(rpcUrl);
     this.riskService = riskService;
+    this.explainer = new DecisionExplainer();
 
     if (privateKey) {
       this.signer = new ethers.Wallet(privateKey, this.provider);
@@ -204,18 +207,34 @@ export class VaultService {
       
       if (!wouldBeBlocked) {
         // Transaction would be blocked
+        const reason = `Risk score ${riskScore} exceeds maximum allowed threshold`;
+        
+        // Generate AI-powered explanation
+        let explanation: string | undefined;
+        try {
+          explanation = await this.explainer.explainDecision({
+            action: 'block',
+            riskScore,
+            contract: request.target,
+            reason,
+          });
+        } catch (error) {
+          console.warn('Failed to generate explanation:', error);
+        }
+
         await logTransactionBlocked('shielded-vault', {
           user: userAddress,
           target: request.target,
           score: riskScore,
-          reason: `Risk score ${riskScore} exceeds maximum allowed threshold`,
+          reason,
         });
 
         return {
           success: false,
           blocked: true,
           riskScore,
-          reason: `Risk score ${riskScore} exceeds maximum allowed threshold`,
+          reason,
+          explanation,
         };
       }
 
@@ -244,6 +263,19 @@ export class VaultService {
     } catch (error: any) {
       // Check if transaction was blocked
       if (error.message?.includes('Risk score exceeds')) {
+        // Generate AI-powered explanation
+        let explanation: string | undefined;
+        try {
+          explanation = await this.explainer.explainDecision({
+            action: 'block',
+            riskScore,
+            contract: request.target,
+            reason: error.message,
+          });
+        } catch (explainError) {
+          console.warn('Failed to generate explanation:', explainError);
+        }
+
         await logTransactionBlocked('shielded-vault', {
           user: userAddress,
           target: request.target,
@@ -256,6 +288,7 @@ export class VaultService {
           blocked: true,
           riskScore,
           reason: error.message,
+          explanation,
         };
       }
 

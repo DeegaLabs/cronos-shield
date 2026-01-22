@@ -10,6 +10,7 @@ import { FacilitatorService } from '../../lib/x402/facilitator.service';
 import { recordPayment } from '../../lib/x402/require-x402.middleware';
 import { logRiskAnalysis, logPayment } from '../../lib/utils/logger.util';
 import { logger } from '../../lib/utils/logger';
+import { DecisionExplainer } from '../ai/explainer.service';
 import type { 
   RiskAnalysisRequest, 
   RiskAnalysisResponse, 
@@ -36,6 +37,7 @@ export class RiskService {
   private facilitatorService: FacilitatorService;
   private signer: ethers.Wallet | null = null;
   private riskOracleContract: ethers.Contract | null = null;
+  private explainer: DecisionExplainer;
   // Cache for risk analysis results (5 minutes TTL)
   private analysisCache: Map<string, { result: RiskAnalysisResponse; timestamp: number }> = new Map();
   private readonly CACHE_TTL = 5 * 60 * 1000; // 5 minutes
@@ -47,6 +49,7 @@ export class RiskService {
     contractAddress?: string
   ) {
     this.facilitatorService = new FacilitatorService(network);
+    this.explainer = new DecisionExplainer();
 
     if (privateKey && rpcUrl) {
       const provider = new ethers.JsonRpcProvider(rpcUrl);
@@ -120,10 +123,32 @@ export class RiskService {
       // Don't fail the request if logging fails
     }
 
+    // Generate AI-powered explanation
+    let explanation: string | undefined;
+    try {
+      explanation = await this.explainer.explainDecision({
+        action: analysis.score > 70 ? 'block' : 'allow',
+        riskScore: analysis.score,
+        contract: request.contract,
+        reason: analysis.details.warnings?.join(', ') || 'Risk analysis completed',
+        details: {
+          holders: analysis.details.holders,
+          contractAge: analysis.details.contractAge ? parseInt(analysis.details.contractAge) : undefined,
+          verified: analysis.details.verified,
+          liquidity: analysis.details.liquidity,
+          transactionCount: analysis.details.transactionCount,
+        },
+      });
+    } catch (error) {
+      console.warn('Failed to generate explanation:', error);
+      // Continue without explanation
+    }
+
     const result: RiskAnalysisResponse = {
       ...analysis,
       proof,
       timestamp: timestamp * 1000,
+      explanation,
     };
     
     // Cache the result

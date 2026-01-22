@@ -15,6 +15,7 @@ export interface RiskAnalysisResponse {
   timestamp: number;
   contract: string;
   verified?: boolean; // On-chain verification status
+  explanation?: string; // Human-readable explanation of the decision
 }
 
 export interface RiskDetails {
