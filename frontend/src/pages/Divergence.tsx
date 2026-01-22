@@ -1,5 +1,6 @@
 import { useState, useEffect, lazy, Suspense } from 'react'
 import { useAccount, useWalletClient } from 'wagmi'
+import { useQueryClient } from '@tanstack/react-query'
 import { GlassCard } from '../components/cards/GlassCard'
 import { DivergenceBar } from '../components/divergence/DivergenceBar'
 import { LineChart } from '../components/charts/LineChart'
@@ -13,6 +14,7 @@ const PaymentModalLazy = lazy(() => import('../components/common/PaymentModal'))
 export default function DivergencePage() {
   const { address, isConnected } = useAccount()
   const { data: walletClient } = useWalletClient()
+  const queryClient = useQueryClient()
   
   // Fetch available pairs from API
   const { data: availablePairs, isLoading: isLoadingPairs } = useAvailablePairs()
@@ -44,13 +46,10 @@ export default function DivergencePage() {
 
   const { analyzeDivergence, isAnalyzing } = useDivergence()
   
-  // Extract token from pair (e.g., "ETH-USDT" -> "ETH")
-  const getTokenFromPair = (pair: string) => pair.split('-')[0]
-  const currentToken = getTokenFromPair(selectedPair)
-
+  // Use the full pair for history (backend saves with full pair)
   // Fetch history and alerts
-  const { data: historyData, isLoading: isLoadingHistory } = useDivergenceHistory(currentToken, 7)
-  const { data: alertsData, isLoading: isLoadingAlerts } = useDivergenceAlerts(10)
+  const { data: historyData, isLoading: isLoadingHistory, refetch: refetchHistory } = useDivergenceHistory(selectedPair, 7)
+  const { data: alertsData, isLoading: isLoadingAlerts, refetch: refetchAlerts } = useDivergenceAlerts(10)
 
   // Calculate divergence percentage from data
   const divergencePercentage = divergenceData
@@ -97,6 +96,12 @@ export default function DivergencePage() {
       setDivergenceData(result)
       setPaymentId(null) // Reset after successful request
       setSuccess(`Divergence analysis complete. ${result.divergence}% difference detected.`)
+      
+      // Invalidate and refetch history and alerts after successful analysis
+      queryClient.invalidateQueries({ queryKey: ['divergence-history'] })
+      queryClient.invalidateQueries({ queryKey: ['divergence-alerts'] })
+      refetchHistory()
+      refetchAlerts()
     } catch (err: any) {
       if (err.response?.status === 402) {
         const paymentData = err.response?.data as PaymentChallenge
@@ -242,11 +247,20 @@ export default function DivergencePage() {
           </div>
 
           <div className="mb-6">
-            <div className="text-5xl font-bold mb-2 price-flash">
-              {divergenceData ? `$${cexPrice.toFixed(4)}` : '$0.0000'}
-            </div>
-            {!divergenceData && (
-              <div className="text-sm text-slate-500">Connect wallet and analyze to see live prices</div>
+            {isAnalyzing ? (
+              <div className="text-center py-8">
+                <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-400 mb-2"></div>
+                <div className="text-sm text-slate-400">Loading price...</div>
+              </div>
+            ) : (
+              <>
+                <div className="text-5xl font-bold mb-2 price-flash">
+                  {divergenceData ? `$${cexPrice.toFixed(4)}` : '$0.0000'}
+                </div>
+                {!divergenceData && (
+                  <div className="text-sm text-slate-500">Connect wallet and analyze to see live prices</div>
+                )}
+              </>
             )}
           </div>
 
@@ -286,11 +300,20 @@ export default function DivergencePage() {
           </div>
 
           <div className="mb-6">
-            <div className="text-5xl font-bold mb-2 price-flash">
-              {divergenceData ? `$${dexPrice.toFixed(4)}` : '$0.0000'}
-            </div>
-            {!divergenceData && (
-              <div className="text-sm text-slate-500">Connect wallet and analyze to see live prices</div>
+            {isAnalyzing ? (
+              <div className="text-center py-8">
+                <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-400 mb-2"></div>
+                <div className="text-sm text-slate-400">Loading price...</div>
+              </div>
+            ) : (
+              <>
+                <div className="text-5xl font-bold mb-2 price-flash">
+                  {divergenceData ? `$${dexPrice.toFixed(4)}` : '$0.0000'}
+                </div>
+                {!divergenceData && (
+                  <div className="text-sm text-slate-500">Connect wallet and analyze to see live prices</div>
+                )}
+              </>
             )}
           </div>
 
