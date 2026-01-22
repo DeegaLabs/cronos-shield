@@ -34,11 +34,12 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
   const [isConnecting, setIsConnecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [prices, setPrices] = useState<Map<string, PriceData>>(new Map());
+  const [isDisabled, setIsDisabled] = useState(false); // Track if WebSocket should be disabled
   
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const reconnectAttemptsRef = useRef(0);
-  const maxReconnectAttempts = 10;
+  const maxReconnectAttempts = 3; // Reduced attempts
   const reconnectDelayRef = useRef(1000); // Start with 1 second
 
   const getWebSocketUrl = useCallback(() => {
@@ -49,7 +50,7 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
   }, []);
 
   const connect = useCallback(() => {
-    if (!enabled) {
+    if (!enabled || isDisabled) {
       return;
     }
 
@@ -117,9 +118,12 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
         }
       };
 
-      ws.onerror = (event) => {
-        console.error('❌ WebSocket error:', event);
-        setError('WebSocket connection error');
+      ws.onerror = () => {
+        // Don't log errors repeatedly - only log once
+        if (reconnectAttemptsRef.current === 0) {
+          console.warn('⚠️ WebSocket connection error (will use fallback)');
+        }
+        setError('WebSocket not available');
         setIsConnecting(false);
       };
 
@@ -131,7 +135,8 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
         wsRef.current = null;
 
         // Attempt to reconnect if not a normal closure and enabled
-        if (enabled && event.code !== 1000 && reconnectAttemptsRef.current < maxReconnectAttempts) {
+        // Only reconnect if it's not a 1006 error (abnormal closure usually means server not available)
+        if (enabled && event.code !== 1000 && event.code !== 1006 && reconnectAttemptsRef.current < maxReconnectAttempts) {
           reconnectAttemptsRef.current++;
           const delay = Math.min(reconnectDelayRef.current * reconnectAttemptsRef.current, 30000);
           reconnectDelayRef.current = delay;
@@ -141,8 +146,12 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
           reconnectTimeoutRef.current = setTimeout(() => {
             connect();
           }, delay);
-        } else if (reconnectAttemptsRef.current >= maxReconnectAttempts) {
-          setError('Max reconnection attempts reached. Please refresh the page.');
+        } else if (event.code === 1006 || reconnectAttemptsRef.current >= maxReconnectAttempts) {
+          // 1006 = Abnormal closure (server not available)
+          // Stop trying to reconnect after max attempts
+          setIsDisabled(true);
+          setError(null); // Clear error to avoid showing it repeatedly
+          console.warn('WebSocket not available, disabled. Using fallback polling.');
         }
       };
 
@@ -172,7 +181,7 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
 
   // Connect on mount and when enabled changes
   useEffect(() => {
-    if (enabled) {
+    if (enabled && !isDisabled) {
       connect();
     } else {
       disconnect();
@@ -181,7 +190,7 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
     return () => {
       disconnect();
     };
-  }, [enabled, connect, disconnect]);
+  }, [enabled, isDisabled, connect, disconnect]);
 
   // Cleanup on unmount
   useEffect(() => {
