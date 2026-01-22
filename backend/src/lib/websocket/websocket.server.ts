@@ -5,6 +5,7 @@
 
 import { Server as HTTPServer } from 'http';
 import { WebSocketServer, WebSocket } from 'ws';
+import { IncomingMessage } from 'http';
 import { CryptoComWebSocketService } from '../../services/divergence/websocket.service';
 
 export interface WebSocketMessage {
@@ -26,6 +27,19 @@ export class CronosShieldWebSocketServer {
       server, 
       path: '/ws',
       perMessageDeflate: false, // Disable compression for better performance
+      // Verify client origin (optional, for security)
+      verifyClient: (info: { origin?: string; secure?: boolean; req: IncomingMessage }) => {
+        // Allow all origins in development, check in production
+        if (process.env.NODE_ENV === 'production') {
+          const origin = info.origin;
+          const frontendUrl = process.env.FRONTEND_URL || '';
+          if (frontendUrl && origin && !origin.startsWith(frontendUrl)) {
+            console.warn(`⚠️ WebSocket connection rejected from origin: ${origin}`);
+            return false;
+          }
+        }
+        return true;
+      },
     });
     
     this.cryptoComService = new CryptoComWebSocketService();

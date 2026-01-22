@@ -44,11 +44,12 @@
 - **Real-time balance tracking**
 
 ### 3. 📈 CEX-DEX Synergy
-- **Real-time price divergence** detection via WebSocket
+- **Real-time price divergence** detection via REST API (with WebSocket support implemented for future)
 - **Arbitrage opportunity** identification
 - **Integration with Crypto.com Exchange** (real API)
 - **VVS Finance DEX** integration
 - **Dynamic trading pair** discovery
+- **Resilient architecture**: Automatic fallback to REST API when WebSocket unavailable
 
 ### 4. 📊 Observability Dashboard
 - **Real-time metrics** and KPIs
@@ -284,7 +285,9 @@ For AI assistants (Claude Desktop, etc.):
 ## 📊 Technical Highlights
 
 ### Real-time Features
-- ✅ **WebSocket** for live price updates (CEX-DEX Synergy)
+- ✅ **REST API polling** for price updates (CEX-DEX Synergy) - works reliably
+- ✅ **WebSocket support** implemented (ready for production when infrastructure supports)
+- ✅ **Automatic fallback** to REST API when WebSocket unavailable
 - ✅ **Real-time metrics** in Observability Dashboard
 - ✅ **Live balance updates** in Shielded Vaults
 
