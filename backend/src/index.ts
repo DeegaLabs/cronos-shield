@@ -241,18 +241,15 @@ app.get('/health', async (_req, res) => {
     const health = await performHealthCheck();
     const wsServer = (global as any).wsServer as CronosShieldWebSocketServer | null;
     
-    const healthResponse = {
+    const healthResponse: any = {
       ...health,
-      services: {
-        ...health.services,
-        websocket: wsServer ? {
-          enabled: true,
-          path: '/ws',
-          clients: wsServer.getClientCount(),
-        } : {
-          enabled: false,
-          reason: 'WebSocket server not initialized',
-        },
+      websocket: wsServer ? {
+        enabled: true,
+        path: '/ws',
+        clients: wsServer.getClientCount(),
+      } : {
+        enabled: false,
+        reason: 'WebSocket server not initialized',
       },
     };
     
