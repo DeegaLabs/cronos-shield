@@ -292,7 +292,11 @@ export default function DivergencePage() {
                   <div className="text-xs text-green-400 mb-1">🟢 Real-time price via WebSocket</div>
                 )}
                 {!divergenceData && wsCexPrice === null && (
-                  <div className="text-sm text-slate-500">Connect wallet and analyze to see live prices</div>
+                  <div className="text-sm text-slate-500">
+                    {isConnected 
+                      ? 'Click "Analyze Divergence" to see live prices' 
+                      : 'Connect wallet and analyze to see live prices'}
+                  </div>
                 )}
               </>
             )}

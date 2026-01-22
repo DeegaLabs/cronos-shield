@@ -239,8 +239,25 @@ const startTime = Date.now();
 app.get('/health', async (_req, res) => {
   try {
     const health = await performHealthCheck();
+    const wsServer = (global as any).wsServer as CronosShieldWebSocketServer | null;
+    
+    const healthResponse = {
+      ...health,
+      services: {
+        ...health.services,
+        websocket: wsServer ? {
+          enabled: true,
+          path: '/ws',
+          clients: wsServer.getClientCount(),
+        } : {
+          enabled: false,
+          reason: 'WebSocket server not initialized',
+        },
+      },
+    };
+    
     const statusCode = health.status === 'healthy' ? 200 : health.status === 'degraded' ? 200 : 503;
-    res.status(statusCode).json(health);
+    res.status(statusCode).json(healthResponse);
   } catch (error: any) {
     logger.error('Health check failed', error);
     res.status(503).json({
@@ -252,6 +269,27 @@ app.get('/health', async (_req, res) => {
       uptime: Math.floor((Date.now() - startTime) / 1000),
     });
   }
+});
+
+// WebSocket status endpoint
+app.get('/ws/status', (_req, res) => {
+  const wsServer = (global as any).wsServer as CronosShieldWebSocketServer | null;
+  
+  if (!wsServer) {
+    return res.json({
+      enabled: false,
+      available: false,
+      reason: 'WebSocket server not initialized',
+    });
+  }
+
+  res.json({
+    enabled: true,
+    available: true,
+    path: '/ws',
+    clients: wsServer.getClientCount(),
+    cryptoComConnected: wsServer.isCryptoComConnected(),
+  });
 });
 
 // Error handling middleware (must be after all routes)
@@ -311,6 +349,9 @@ async function startServer() {
       message: 'Continuing without WebSocket support'
     });
   }
+
+  // Store wsServer reference for health check
+  (global as any).wsServer = wsServer;
 
   // Start HTTP Server (which includes WebSocket)
   httpServer.listen(PORT, () => {
