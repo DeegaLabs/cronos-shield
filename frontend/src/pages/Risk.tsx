@@ -172,6 +172,26 @@ export default function RiskPage() {
             </div>
           )}
 
+          {/* Contract Status Info */}
+          {analysisResult.details?.warnings && analysisResult.details.warnings.some((w: string) => 
+            w.includes('not a smart contract') || w.includes('no code found') || w.includes('EOA')
+          ) ? (
+            <div className="mb-8 p-4 bg-yellow-950/20 border border-yellow-900/30 rounded-lg">
+              <div className="flex items-start gap-3">
+                <svg className="w-5 h-5 text-yellow-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                </svg>
+                <div>
+                  <h4 className="text-sm font-bold text-yellow-400 mb-1">Note: Address Analysis</h4>
+                  <p className="text-sm text-slate-300">
+                    This address may not be a smart contract (could be an EOA or may not exist on this network). 
+                    Risk analysis for non-contract addresses returns maximum risk score (100/100) as a safety measure.
+                  </p>
+                </div>
+              </div>
+            </div>
+          ) : null}
+
           {/* Issues Found */}
           {getIssuesFromAnalysis(analysisResult).length > 0 && (
             <div className="mb-8">

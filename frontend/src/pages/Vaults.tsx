@@ -633,17 +633,31 @@ export default function VaultsPage() {
                       }`}>
                         <div className="flex items-center justify-between mb-2">
                           <span className="font-semibold">Risk Score</span>
-                          <span className={`font-bold text-lg ${
-                            isAllowed
-                              ? 'text-green-400'
-                              : 'text-red-400'
-                          }`}>
-                            {score}/100
-                          </span>
+                          <div className="flex items-center gap-2">
+                            <span className={`font-bold text-lg ${
+                              isAllowed
+                                ? 'text-green-400'
+                                : 'text-red-400'
+                            }`}>
+                              {score}/100
+                            </span>
+                            {isAllowed && (
+                              <span className="px-2 py-1 bg-green-500/10 text-green-400 rounded text-xs font-bold">
+                                {maxAllowed}-100 Safe
+                              </span>
+                            )}
+                          </div>
                         </div>
                         {!isAllowed && (
                           <div className="text-sm text-red-400 mt-2">
-                            ⚠️ Risk score exceeds maximum allowed ({maxAllowed}/100). Transaction will be blocked.
+                            ⚠️ Risk score ({score}/100) exceeds maximum allowed ({maxAllowed}-100). Transaction will be blocked.
+                          </div>
+                        )}
+                        {score === 100 && riskAnalysis.details?.warnings?.some((w: string) => 
+                          !w.includes('not a smart contract') && !w.includes('no code found') && !w.includes('EOA')
+                        ) && (
+                          <div className="text-xs text-slate-400 mt-2">
+                            ℹ️ Contract exists on testnet but has maximum risk score due to security concerns.
                           </div>
                         )}
                         {riskAnalysis.details?.warnings && riskAnalysis.details.warnings.length > 0 && (

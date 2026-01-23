@@ -41,9 +41,9 @@ export const RiskScoreBar = ({ score }: RiskScoreBarProps) => {
       </div>
 
       <div className="flex justify-between text-xs text-slate-500 mt-2">
-        <span>0 - Safe</span>
-        <span>50 - Medium</span>
-        <span>100 - High Risk</span>
+        <span>0-30 - Safe</span>
+        <span>31-70 - Medium</span>
+        <span>71-100 - High Risk</span>
       </div>
     </div>
   )
