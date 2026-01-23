@@ -33,7 +33,7 @@ function getLogger(): LogService {
 export async function logEvent(logData: LogData): Promise<void> {
   try {
     const logger = getLogger();
-    logger.addLog(logData.type, logData.service, logData.data);
+    await logger.addLog(logData.type, logData.service, logData.data);
   } catch (error) {
     // Silently fail to avoid breaking the main flow
     console.error('Failed to log event:', error);
