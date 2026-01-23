@@ -181,31 +181,10 @@ export async function analyzeRisk(request: RiskAnalysisRequest): Promise<Omit<Ri
       totalSupply,
     });
 
-    // Check if we have meaningful data or if most data sources failed
-    const hasMinimalData = holders > 0 || contractAge > 0 || liquidity.available !== '0' || verified;
-    const dataQuality = {
-      holders: holders > 0,
-      age: contractAge > 0,
-      verified: verified,
-      liquidity: parseFloat(liquidity.available) > 0,
-      complexity: complexity.bytecodeSize > 0,
-    };
-    const dataQualityScore = Object.values(dataQuality).filter(Boolean).length;
-    
-    logger.info('📊 Data quality assessment', {
-      contract: contractAddress,
-      hasMinimalData,
-      dataQualityScore: `${dataQualityScore}/5`,
-      dataQuality,
-      holders,
-      contractAge: `${contractAge} days`,
-      verified,
-      liquidity: liquidity.available,
-      liquiditySource: liquidity.source,
-    });
-    
-    // Calculate risk score based on real data
-    let score = calculateRiskScore({
+    // Calculate risk score based on REAL data (no artificial caps)
+    // If data fetch failed, the fallback values (0 holders, 0 age, false verified, 0 liquidity)
+    // will naturally result in a high risk score, which is correct behavior
+    const score = calculateRiskScore({
       holders,
       contractAge,
       verified,
@@ -215,31 +194,30 @@ export async function analyzeRisk(request: RiskAnalysisRequest): Promise<Omit<Ri
       hasSelfDestruct: complexity.hasSelfDestruct,
     });
     
-    // If we have very little data, use a more conservative approach
-    // This prevents legitimate contracts from getting score 100 just because data fetch failed
-    if (dataQualityScore < 2) {
-      if (hasMinimalData) {
-        // Contract exists but we couldn't get much data - use moderate uncertainty score
-        // Cap at 75 to allow some differentiation from truly high-risk contracts
-        score = Math.min(75, Math.max(score, 60));
-        logger.warn('⚠️ Limited data available, using conservative score', {
-          contract: contractAddress,
-          calculatedScore: score,
-          dataQualityScore,
-          note: 'Score capped at 75 due to data uncertainty'
-        });
-      } else {
-        // No meaningful data at all - use high but not maximum uncertainty score
-        // This distinguishes from contracts that are definitely high risk
-        score = Math.min(85, Math.max(score, 70));
-        logger.warn('⚠️ No meaningful data found, using high uncertainty score', {
-          contract: contractAddress,
-          calculatedScore: score,
-          dataQualityScore,
-          note: 'Score capped at 85 due to complete data absence - contract may not exist on this network'
-        });
-      }
-    }
+    // Log data quality for debugging
+    const dataQuality = {
+      holders: holders > 0,
+      age: contractAge > 0,
+      verified: verified,
+      liquidity: parseFloat(liquidity.available) > 0,
+      complexity: complexity.bytecodeSize > 0,
+    };
+    const dataQualityScore = Object.values(dataQuality).filter(Boolean).length;
+    
+    logger.info('📊 Risk score calculated from real data', {
+      contract: contractAddress,
+      score,
+      dataQualityScore: `${dataQualityScore}/5`,
+      dataQuality,
+      holders,
+      contractAge: `${contractAge} days`,
+      verified,
+      liquidity: liquidity.available,
+      liquiditySource: liquidity.source,
+      complexity: complexity.complexity,
+      isProxy: complexity.isProxy,
+      hasSelfDestruct: complexity.hasSelfDestruct,
+    });
 
     // Generate warnings based on real data
     const warnings: string[] = [];

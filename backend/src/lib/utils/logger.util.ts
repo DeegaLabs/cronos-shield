@@ -81,20 +81,25 @@ export function logRiskAnalysis(service: LogData['service'], data: {
 /**
  * Log transaction blocked event
  */
-export function logTransactionBlocked(service: LogData['service'], data: {
+export async function logTransactionBlocked(service: LogData['service'], data: {
   user?: string;
   target: string;
   contract?: string;
   score: number;
   reason: string;
-}): void {
-  logEvent({
-    type: 'transaction_blocked',
-    service,
-    data,
-  }).catch(err => {
-    console.error('Failed to log transaction blocked:', err);
-  });
+}): Promise<void> {
+  // Make this async and await to ensure it's saved
+  try {
+    await logEvent({
+      type: 'transaction_blocked',
+      service,
+      data,
+    });
+    console.log('✅ Transaction blocked event logged', { service, target: data.target, score: data.score });
+  } catch (err) {
+    console.error('❌ Failed to log transaction blocked:', err);
+    throw err; // Re-throw to ensure caller knows it failed
+  }
 }
 
 /**

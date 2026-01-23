@@ -202,12 +202,33 @@ export class VaultService {
     }
 
     try {
+      // Get maxRiskScore from vault to log it
+      const vaultInfo = await this.getVaultInfo();
+      const maxRiskScore = vaultInfo.maxRiskScore;
+      
       // Check if transaction would be blocked
+      // checkRiskScore returns true if score <= maxRiskScore (acceptable), false if score > maxRiskScore (blocked)
       const wouldBeBlocked = await this.vaultContract.checkRiskScore(riskScore);
       
+      console.log('🔍 Risk check result', {
+        contract: request.target,
+        riskScore,
+        maxRiskScore,
+        wouldBeBlocked,
+        willBlock: !wouldBeBlocked,
+      });
+      
       if (!wouldBeBlocked) {
-        // Transaction would be blocked
-        const reason = `Risk score ${riskScore} exceeds maximum allowed threshold`;
+        // Transaction would be blocked (riskScore > maxRiskScore)
+        const reason = `Risk score ${riskScore} exceeds maximum allowed threshold (${maxRiskScore})`;
+        
+        console.log('🚫 Transaction blocked', {
+          user: userAddress,
+          target: request.target,
+          riskScore,
+          maxRiskScore,
+          reason,
+        });
         
         // Generate AI-powered explanation
         let explanation: string | undefined;
@@ -222,13 +243,18 @@ export class VaultService {
           console.warn('Failed to generate explanation:', error);
         }
 
-        // Log transaction blocked (fire-and-forget)
-        logTransactionBlocked('shielded-vault', {
-          user: userAddress,
-          target: request.target,
-          score: riskScore,
-          reason,
-        });
+        // Log transaction blocked - this will save to blocked_transactions table
+        try {
+          await logTransactionBlocked('shielded-vault', {
+            user: userAddress,
+            target: request.target,
+            score: riskScore,
+            reason,
+          });
+          console.log('✅ Transaction blocked logged successfully');
+        } catch (logError) {
+          console.error('❌ Failed to log transaction blocked:', logError);
+        }
 
         return {
           success: false,
@@ -277,13 +303,18 @@ export class VaultService {
           console.warn('Failed to generate explanation:', explainError);
         }
 
-        // Log transaction blocked (fire-and-forget)
-        logTransactionBlocked('shielded-vault', {
-          user: userAddress,
-          target: request.target,
-          score: riskScore,
-          reason: error.message,
-        });
+        // Log transaction blocked - await to ensure it's saved
+        try {
+          await logTransactionBlocked('shielded-vault', {
+            user: userAddress,
+            target: request.target,
+            score: riskScore,
+            reason: error.message,
+          });
+          console.log('✅ Transaction blocked logged successfully (from error handler)');
+        } catch (logError) {
+          console.error('❌ Failed to log transaction blocked:', logError);
+        }
 
         return {
           success: false,
