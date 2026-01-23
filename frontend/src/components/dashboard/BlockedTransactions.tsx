@@ -1,21 +1,40 @@
 import { useQuery } from '@tanstack/react-query'
 import apiClient from '../../lib/api/client'
-import type { BlockedTransaction } from '../../types'
+import type { BlockedTransaction, Metrics } from '../../types'
 import { formatDistanceToNow } from 'date-fns'
 
 export default function BlockedTransactions() {
-  const { data: blocks, isLoading } = useQuery<BlockedTransaction[]>({
+  const { data: blocks, isLoading, error } = useQuery<BlockedTransaction[]>({
     queryKey: ['blocked-transactions'],
     queryFn: async () => {
       const response = await apiClient.get('/api/observability/blocked-transactions', {
         params: { limit: 3 },
       })
-      return response.data || []
+      // Ensure we return an array
+      const data = response.data
+      if (Array.isArray(data)) {
+        return data
+      }
+      // Handle case where API might return { blockedTransactions: [...] }
+      if (data && typeof data === 'object' && 'blockedTransactions' in data && Array.isArray(data.blockedTransactions)) {
+        return data.blockedTransactions
+      }
+      return []
     },
     refetchInterval: 30000, // Refetch every 30 seconds (reduced from 3s)
   })
 
-  const blocksCount = Array.isArray(blocks) ? blocks.length : 0
+  // Get total count from metrics
+  const { data: metrics } = useQuery<Metrics>({
+    queryKey: ['metrics'],
+    queryFn: async () => {
+      const response = await apiClient.get('/api/observability/metrics')
+      return response.data
+    },
+    refetchInterval: 30000,
+  })
+
+  const blocksCount = metrics?.totalBlocks || (Array.isArray(blocks) ? blocks.length : 0)
 
   if (isLoading) {
     return (
@@ -46,13 +65,20 @@ export default function BlockedTransactions() {
           Blocked Transactions
         </h3>
         <span className="px-3 py-1 bg-red-500/10 text-red-400 rounded-full text-sm font-semibold">
-          {blocksCount || 89} Total
+          {blocksCount} Total
         </span>
       </div>
 
+      {error && (
+        <div className="mb-4 p-3 bg-red-500/10 border border-red-500/30 rounded-lg text-sm text-red-400">
+          Error loading blocked transactions: {error instanceof Error ? error.message : 'Unknown error'}
+        </div>
+      )}
       <div className="space-y-3">
         {!blocks || blocks.length === 0 ? (
-          <div className="text-center py-8 text-slate-400">No blocked transactions</div>
+          <div className="text-center py-8 text-slate-400">
+            {isLoading ? 'Loading blocked transactions...' : 'No blocked transactions'}
+          </div>
         ) : (
           blocks.map((block) => {
             const timeAgo = formatDistanceToNow(new Date(block.timestamp), { addSuffix: true })
