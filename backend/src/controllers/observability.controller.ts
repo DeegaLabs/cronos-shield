@@ -3,6 +3,7 @@
  */
 
 import type { Request, Response, NextFunction } from 'express';
+import * as crypto from 'node:crypto';
 import { LogService } from '../services/observability/log.service';
 import { MetricsService } from '../services/observability/metrics.service';
 import { PostgresStore } from '../lib/storage/postgres.store';
