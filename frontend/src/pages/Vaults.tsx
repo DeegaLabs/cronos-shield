@@ -242,10 +242,11 @@ export default function VaultsPage() {
       return
     }
 
+    // Allow execution even if score is high - let backend decide and log to blocked_transactions
     const maxAllowed = vaultInfo?.maxRiskScore ?? 30; // Default to 30 if not loaded
     if (riskAnalysis.score > maxAllowed) {
-      setError(`Risk score (${riskAnalysis.score}) exceeds maximum allowed (${maxAllowed})`)
-      return
+      // Show warning but don't block - backend will handle the blocking and logging
+      console.warn(`⚠️ Risk score (${riskAnalysis.score}) exceeds maximum allowed (${maxAllowed}). Backend will block and log this transaction.`)
     }
 
     if (!protectedTarget || !protectedValue || parseFloat(protectedValue) <= 0) {
@@ -282,7 +283,15 @@ export default function VaultsPage() {
       setProtectedCallData('')
       setRiskAnalysis(null)
     } catch (err: any) {
-      setError(err.message || 'Transaction execution failed')
+      // Check if transaction was blocked (this is expected behavior)
+      const errorMessage = err.message || 'Transaction execution failed'
+      if (errorMessage.includes('blocked') || errorMessage.includes('exceeds maximum')) {
+        // Transaction was blocked - this is logged to blocked_transactions table
+        setError(`🚫 ${errorMessage}`)
+        setSuccess('Transaction was blocked and logged to the system. Check the Dashboard to see blocked transactions.')
+      } else {
+        setError(errorMessage)
+      }
     } finally {
       setIsProcessing(false)
     }
@@ -718,12 +727,21 @@ export default function VaultsPage() {
                         !riskAnalysis || 
                         !protectedTarget || 
                         !protectedValue || 
-                        parseFloat(protectedValue) <= 0 || 
-                        (riskAnalysis?.score ?? 101) > (vaultInfo?.maxRiskScore ?? 30)
+                        parseFloat(protectedValue) <= 0
+                        // Removed: (riskAnalysis?.score ?? 101) > (vaultInfo?.maxRiskScore ?? 30)
+                        // Now allowing execution even with high scores - backend will block and log to blocked_transactions
                       }
-                      className="w-full py-4 bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-600 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg font-bold text-lg transition-all"
+                      className={`w-full py-4 rounded-lg font-bold text-lg transition-all ${
+                        riskAnalysis && (riskAnalysis.score ?? 101) > (vaultInfo?.maxRiskScore ?? 30)
+                          ? 'bg-red-600 hover:bg-red-500' // Red button when score is high
+                          : 'bg-indigo-600 hover:bg-indigo-500' // Normal indigo button
+                      } disabled:bg-slate-600 disabled:opacity-50 disabled:cursor-not-allowed`}
                     >
-                      {isProcessing || isExecutingProtectedTransaction ? 'Processing...' : 'Execute Protected Transaction'}
+                      {isProcessing || isExecutingProtectedTransaction 
+                        ? 'Processing...' 
+                        : riskAnalysis && (riskAnalysis.score ?? 101) > (vaultInfo?.maxRiskScore ?? 30)
+                        ? '⚠️ Execute (Will Be Blocked)'
+                        : 'Execute Protected Transaction'}
                     </button>
                   </div>
                 </div>

@@ -136,6 +136,7 @@ export function useVault() {
   });
 
   // Execute protected transaction mutation
+  // Now uses backend API to ensure blocked transactions are logged to database
   const executeProtectedTransactionMutation = useMutation({
     mutationFn: async (params: {
       target: string;
@@ -144,35 +145,44 @@ export function useVault() {
       riskScore: number;
       proof: string;
     }) => {
-      const contract = getVaultContract();
-      if (!contract) throw new Error('Contract not available');
       if (!address) throw new Error('Wallet not connected');
 
-      const valueWei = parseEther(params.value);
+      // Use backend API endpoint instead of calling contract directly
+      // This ensures blocked transactions are logged to blocked_transactions table
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'https://cronos-shield-backend-production.up.railway.app';
+      const response = await fetch(`${backendUrl}/api/vault/execute`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-user-address': address,
+        },
+        body: JSON.stringify({
+          userAddress: address,
+          target: params.target,
+          callData: params.callData || '0x',
+          value: params.value || '0',
+          contractAddress: params.target, // Use target as contract to analyze
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ message: 'Unknown error' }));
+        throw new Error(error.message || `HTTP ${response.status}`);
+      }
+
+      const result = await response.json();
       
-      // Convert callData and proof to bytes
-      // Ensure they start with 0x, otherwise add it
-      const callDataBytes = params.callData.trim() === '' || params.callData.trim() === '0x'
-        ? '0x'
-        : params.callData.startsWith('0x')
-        ? params.callData
-        : '0x' + params.callData;
-      
-      const proofBytes = params.proof.trim() === '' || params.proof.trim() === '0x'
-        ? '0x'
-        : params.proof.startsWith('0x')
-        ? params.proof
-        : '0x' + params.proof;
-      
-      const tx = await contract.executeWithRiskCheck(
-        params.target,
-        callDataBytes,
-        valueWei,
-        params.riskScore,
-        proofBytes
-      );
-      await tx.wait();
-      return tx.hash;
+      // If transaction was blocked, throw error with blocked info
+      if (result.blocked) {
+        throw new Error(result.reason || `Transaction blocked: Risk score ${result.riskScore} exceeds maximum allowed`);
+      }
+
+      // If transaction was successful, return txHash
+      if (result.success && result.txHash) {
+        return result.txHash;
+      }
+
+      throw new Error(result.message || 'Transaction execution failed');
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['vault-balance'] });
