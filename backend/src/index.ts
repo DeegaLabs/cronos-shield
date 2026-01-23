@@ -13,7 +13,7 @@ import swaggerUi from 'swagger-ui-express';
 import { runMigrations } from './lib/database/migrations';
 import { printEnvironmentStatus } from './lib/utils/env-validator';
 import { logger } from './lib/utils/logger';
-import { apiRateLimiter, observabilityRateLimiter } from './lib/middlewares/rate-limit.middleware';
+import { apiRateLimiter } from './lib/middlewares/rate-limit.middleware';
 import { CronosShieldWebSocketServer } from './lib/websocket/websocket.server';
 
 // Services
@@ -63,10 +63,7 @@ const corsOptions = {
 app.use(cors(corsOptions));
 app.use(express.json());
 
-// Apply more permissive rate limiting to observability endpoints (must be before general rate limiter)
-app.use('/api/observability', observabilityRateLimiter);
-
-// Apply rate limiting to all other API routes
+// Apply rate limiting to all API routes
 app.use('/api', apiRateLimiter);
 
 // Swagger Configuration

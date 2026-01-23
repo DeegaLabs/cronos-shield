@@ -8,8 +8,12 @@
 
 import express from 'express';
 import { ObservabilityController } from '../controllers/observability.controller';
+import { observabilityRateLimiter } from '../lib/middlewares/rate-limit.middleware';
 
 const router = express.Router();
+
+// Apply rate limiting to all observability routes
+router.use(observabilityRateLimiter);
 
 export function createObservabilityRoutes(observabilityController: ObservabilityController) {
   /**
