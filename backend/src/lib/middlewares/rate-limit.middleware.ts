@@ -55,3 +55,10 @@ export const analysisRateLimiter = createRateLimiter({
   max: 20, // 20 requests per minute
   message: 'Too many analysis requests, please try again later.',
 });
+
+// More permissive rate limiter for observability endpoints (public, no x402)
+export const observabilityRateLimiter = createRateLimiter({
+  windowMs: 60 * 1000, // 1 minute
+  max: 60, // 60 requests per minute (allows for dashboard polling)
+  message: 'Too many observability requests, please try again later.',
+});

@@ -12,7 +12,7 @@ export default function DecisionLog() {
       })
       return response.data
     },
-    refetchInterval: 3000,
+    refetchInterval: 30000, // Refetch every 30 seconds (reduced from 3s)
   })
 
   const getLogIcon = (type: string) => {

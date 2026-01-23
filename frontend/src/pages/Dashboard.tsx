@@ -16,7 +16,7 @@ export default function DashboardPage() {
       const response = await apiClient.get('/api/observability/metrics')
       return response.data
     },
-    refetchInterval: 5000,
+    refetchInterval: 30000, // Refetch every 30 seconds (reduced from 5s)
   })
 
   // Mock data for sparklines (will be replaced with real data)

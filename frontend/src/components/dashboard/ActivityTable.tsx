@@ -99,7 +99,7 @@ export const ActivityTable = () => {
       const start = (page - 1) * pageSize
       return filtered.slice(start, start + pageSize)
     },
-    refetchInterval: 10000,
+    refetchInterval: 30000, // Refetch every 30 seconds (reduced from 10s)
   })
 
   const getTypeBadge = (type: Activity['type']) => {
