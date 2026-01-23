@@ -99,7 +99,7 @@ export const Landing = () => {
                 🔍 Risk Oracle
               </h3>
               
-              <p className="text-slate-400 mb-6">
+              <p className="text-slate-200 mb-6">
                 Analyze smart contracts with AI-powered risk scoring. Get instant insights on liquidity, 
                 verification status, and security vulnerabilities.
               </p>
@@ -133,7 +133,7 @@ export const Landing = () => {
                 🔒 Shielded Vaults
               </h3>
               
-              <p className="text-slate-400 mb-6">
+              <p className="text-slate-200 mb-6">
                 Protected vaults with programmable circuit breakers. Automatically blocks dangerous 
                 transactions based on real-time risk analysis.
               </p>
@@ -167,7 +167,7 @@ export const Landing = () => {
                 📊 CEX-DEX Synergy
               </h3>
               
-              <p className="text-slate-400 mb-6">
+              <p className="text-slate-200 mb-6">
                 Real-time price divergence detection between Crypto.com and DEXs. 
                 Prevent arbitrage attacks and protect your liquidity.
               </p>
@@ -201,7 +201,7 @@ export const Landing = () => {
                 👁️ Observability
               </h3>
               
-              <p className="text-slate-400 mb-6">
+              <p className="text-slate-200 mb-6">
                 Transparent AI decision monitoring. See every decision your AI makes, 
                 with full logs, metrics, and explainability.
               </p>
@@ -294,7 +294,7 @@ export const Landing = () => {
                 📦 TypeScript SDK
               </h3>
               
-              <p className="text-slate-400 mb-6">
+              <p className="text-slate-200 mb-6">
                 Complete TypeScript SDK for easy integration. One line of code to access all Cronos Shield features: risk analysis, vault operations, divergence detection, and more.
               </p>
 
@@ -341,7 +341,7 @@ export const Landing = () => {
                 🤖 MCP Server
               </h3>
               
-              <p className="text-slate-400 mb-6">
+              <p className="text-slate-200 mb-6">
                 Model Context Protocol server with 8 tools for AI assistants. Claude, GPT-4, or any AI agent can analyze risks, check vaults, and monitor divergences natively.
               </p>
 
@@ -373,20 +373,37 @@ export const Landing = () => {
             </AnimatedBorder>
           </div>
 
-          {/* API Documentation Link */}
-          <div className="mt-12 text-center">
-            <GlassCard className="rounded-2xl p-8 inline-block">
-              <h3 className="text-xl font-bold mb-3">📚 API Documentation</h3>
-              <p className="text-slate-400 mb-4">Interactive Swagger UI with full API reference</p>
-              <a
-                href="https://cronos-shield-backend-production.up.railway.app/api-doc"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-block px-6 py-3 bg-indigo-600 hover:bg-indigo-500 rounded-lg font-semibold transition-all"
-              >
-                Open Swagger Docs →
-              </a>
-            </GlassCard>
+          {/* API Documentation Links */}
+          <div className="mt-12">
+            <div className="grid md:grid-cols-2 gap-6 max-w-4xl mx-auto">
+              {/* Swagger UI */}
+              <GlassCard className="rounded-2xl p-8 text-center">
+                <h3 className="text-xl font-bold mb-3">📚 Swagger UI</h3>
+                <p className="text-slate-200 mb-4">Interactive API documentation with testing capabilities</p>
+                <a
+                  href="https://cronos-shield-backend-production.up.railway.app/api-doc"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-block px-6 py-3 bg-indigo-600 hover:bg-indigo-500 rounded-lg font-semibold transition-all"
+                >
+                  Open Swagger →
+                </a>
+              </GlassCard>
+
+              {/* Redoc */}
+              <GlassCard className="rounded-2xl p-8 text-center">
+                <h3 className="text-xl font-bold mb-3">📖 Redoc</h3>
+                <p className="text-slate-200 mb-4">Beautiful, responsive API documentation</p>
+                <a
+                  href="https://cronos-shield-backend-production.up.railway.app/docs"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-block px-6 py-3 bg-purple-600 hover:bg-purple-500 rounded-lg font-semibold transition-all"
+                >
+                  Open Redoc →
+                </a>
+              </GlassCard>
+            </div>
           </div>
         </div>
       </section>
