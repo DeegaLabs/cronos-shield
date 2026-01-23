@@ -315,7 +315,7 @@ export const Landing = () => {
               </div>
 
               <a
-                href="https://github.com/DeegaLabs/cronos-shield/tree/main/cronos-shield/sdk"
+                href="https://github.com/DeegaLabs/cronos-shield/tree/main/sdk"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="block w-full py-3 bg-cyan-600/10 hover:bg-cyan-600 border border-cyan-500/30 hover:border-cyan-500 rounded-lg font-semibold transition-all group-hover:translate-x-2 text-center"
@@ -363,7 +363,7 @@ export const Landing = () => {
               </div>
 
               <a
-                href="https://github.com/DeegaLabs/cronos-shield/tree/main/cronos-shield/mcp-server"
+                href="https://github.com/DeegaLabs/cronos-shield/tree/main/mcp-server"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="block w-full py-3 bg-purple-600/10 hover:bg-purple-600 border border-purple-500/30 hover:border-purple-500 rounded-lg font-semibold transition-all group-hover:translate-x-2 text-center"
