@@ -7,19 +7,34 @@ export default function BlockedTransactions() {
   const { data: blocks, isLoading, error } = useQuery<BlockedTransaction[]>({
     queryKey: ['blocked-transactions'],
     queryFn: async () => {
-      const response = await apiClient.get('/api/observability/blocked-transactions', {
-        params: { limit: 3 },
-      })
-      // Ensure we return an array
-      const data = response.data
-      if (Array.isArray(data)) {
-        return data
+      try {
+        const response = await apiClient.get('/api/observability/blocked-transactions', {
+          params: { limit: 3 },
+        })
+        // Ensure we return an array
+        const data = response.data
+        console.log('Blocked transactions API response:', data)
+        
+        if (Array.isArray(data)) {
+          // Ensure timestamps are numbers
+          return data.map(block => ({
+            ...block,
+            timestamp: typeof block.timestamp === 'string' ? parseInt(block.timestamp) : block.timestamp
+          }))
+        }
+        // Handle case where API might return { blockedTransactions: [...] }
+        if (data && typeof data === 'object' && 'blockedTransactions' in data && Array.isArray(data.blockedTransactions)) {
+          return data.blockedTransactions.map((block: any) => ({
+            ...block,
+            timestamp: typeof block.timestamp === 'string' ? parseInt(block.timestamp) : block.timestamp
+          }))
+        }
+        console.warn('Unexpected blocked transactions response format:', data)
+        return []
+      } catch (err) {
+        console.error('Error fetching blocked transactions:', err)
+        throw err
       }
-      // Handle case where API might return { blockedTransactions: [...] }
-      if (data && typeof data === 'object' && 'blockedTransactions' in data && Array.isArray(data.blockedTransactions)) {
-        return data.blockedTransactions
-      }
-      return []
     },
     refetchInterval: 30000, // Refetch every 30 seconds (reduced from 3s)
   })
@@ -29,12 +44,23 @@ export default function BlockedTransactions() {
     queryKey: ['metrics'],
     queryFn: async () => {
       const response = await apiClient.get('/api/observability/metrics')
+      console.log('Metrics API response:', response.data)
       return response.data
     },
     refetchInterval: 30000,
   })
 
-  const blocksCount = metrics?.totalBlocks || (Array.isArray(blocks) ? blocks.length : 0)
+  const blocksCount = metrics?.totalBlocks ?? (Array.isArray(blocks) ? blocks.length : 0)
+  
+  // Debug logging
+  console.log('BlockedTransactions component state:', {
+    blocksCount,
+    metricsTotalBlocks: metrics?.totalBlocks,
+    blocksLength: blocks?.length,
+    blocks,
+    isLoading,
+    error
+  })
 
   if (isLoading) {
     return (
@@ -78,11 +104,25 @@ export default function BlockedTransactions() {
         {!blocks || blocks.length === 0 ? (
           <div className="text-center py-8 text-slate-400">
             {isLoading ? 'Loading blocked transactions...' : 'No blocked transactions'}
+            {error && (
+              <div className="mt-2 text-xs text-red-400">
+                Error: {error instanceof Error ? error.message : 'Unknown error'}
+              </div>
+            )}
           </div>
         ) : (
           blocks.map((block) => {
-            const timeAgo = formatDistanceToNow(new Date(block.timestamp), { addSuffix: true })
-            const addressShort = `${block.target.slice(0, 6)}...${block.target.slice(-4)}`
+            // Handle timestamp - could be number or string
+            const timestamp = typeof block.timestamp === 'number' 
+              ? block.timestamp 
+              : typeof block.timestamp === 'string' 
+                ? parseInt(block.timestamp) 
+                : Date.now()
+            
+            const timeAgo = formatDistanceToNow(new Date(timestamp), { addSuffix: true })
+            const addressShort = block.target 
+              ? `${block.target.slice(0, 6)}...${block.target.slice(-4)}`
+              : 'N/A'
 
             return (
               <div
