@@ -5,6 +5,7 @@
  */
 
 import rateLimit from 'express-rate-limit';
+import express from 'express';
 import { logger } from '../utils/logger';
 
 export const createRateLimiter = (options: {
@@ -12,6 +13,7 @@ export const createRateLimiter = (options: {
   max?: number;
   message?: string;
   skipSuccessfulRequests?: boolean;
+  skip?: (req: express.Request) => boolean;
 }) => {
   return rateLimit({
     windowMs: options.windowMs || 15 * 60 * 1000, // 15 minutes
@@ -20,6 +22,7 @@ export const createRateLimiter = (options: {
     standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
     legacyHeaders: false, // Disable the `X-RateLimit-*` headers
     skipSuccessfulRequests: options.skipSuccessfulRequests || false,
+    skip: options.skip,
     handler: (req, res) => {
       logger.warn('Rate limit exceeded', {
         ip: req.ip,
@@ -35,11 +38,15 @@ export const createRateLimiter = (options: {
   });
 };
 
-// General API rate limiter
+// General API rate limiter (skips observability routes which have their own limiter)
 export const apiRateLimiter = createRateLimiter({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 100, // 100 requests per 15 minutes
   message: 'Too many API requests, please try again later.',
+  skip: (req) => {
+    // Skip rate limiting for observability routes (they have their own limiter)
+    return req.path.startsWith('/api/observability');
+  },
 });
 
 // Strict rate limiter for payment endpoints
