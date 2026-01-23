@@ -22,8 +22,8 @@ export const Header = () => {
             <a href="#about" className="text-slate-400 hover:text-indigo-400 transition-colors">
               About
             </a>
-            <a href="#docs" className="text-slate-400 hover:text-indigo-400 transition-colors">
-              Docs
+            <a href="#developers" className="text-slate-400 hover:text-indigo-400 transition-colors">
+              For Developers
             </a>
             <ConnectButton />
           </div>

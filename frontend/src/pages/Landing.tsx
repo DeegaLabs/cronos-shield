@@ -264,6 +264,133 @@ export const Landing = () => {
         </div>
       </section>
 
+      {/* For Developers Section */}
+      <section id="developers" className="py-24 px-6 relative">
+        <div className="max-w-7xl mx-auto">
+          <div className="text-center mb-16">
+            <h2 className="orbitron text-4xl md:text-5xl font-bold mb-4">
+              <GradientText>For Developers</GradientText>
+            </h2>
+            <p className="text-slate-400 text-lg max-w-2xl mx-auto">
+              Integrate Cronos Shield into your applications with our TypeScript SDK and MCP Server
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-2 gap-8">
+            {/* SDK */}
+            <AnimatedBorder className="rounded-2xl p-8 glass-card group">
+              <div className="flex items-start justify-between mb-6">
+                <div className="p-3 bg-cyan-500/10 rounded-xl">
+                  <svg className="w-8 h-8 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"/>
+                  </svg>
+                </div>
+                <span className="text-xs px-3 py-1 bg-indigo-500/10 border border-indigo-500/30 rounded-full text-indigo-300 uppercase tracking-wide">
+                  Track 4
+                </span>
+              </div>
+              
+              <h3 className="text-2xl font-bold mb-3 group-hover:text-cyan-400 transition-colors">
+                📦 TypeScript SDK
+              </h3>
+              
+              <p className="text-slate-400 mb-6">
+                Complete TypeScript SDK for easy integration. One line of code to access all Cronos Shield features: risk analysis, vault operations, divergence detection, and more.
+              </p>
+
+              <div className="bg-slate-900/50 rounded-lg p-4 mb-6 font-mono text-sm">
+                <div className="text-slate-500">import</div>
+                <div className="text-cyan-400"> {'{ CronosShieldClient }'} </div>
+                <div className="text-slate-500">from</div>
+                <div className="text-green-400"> '@cronos-shield/sdk'</div>
+                <div className="mt-2 text-slate-300">
+                  const client = <span className="text-cyan-400">new</span> CronosShieldClient()
+                </div>
+              </div>
+
+              <div className="flex flex-wrap gap-2 mb-6">
+                <span className="px-3 py-1 bg-slate-800 rounded-full text-xs text-slate-300">TypeScript</span>
+                <span className="px-3 py-1 bg-slate-800 rounded-full text-xs text-slate-300">x402 Support</span>
+                <span className="px-3 py-1 bg-slate-800 rounded-full text-xs text-slate-300">Full API</span>
+              </div>
+
+              <a
+                href="https://github.com/DeegaLabs/cronos-shield/tree/main/cronos-shield/sdk"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block w-full py-3 bg-cyan-600/10 hover:bg-cyan-600 border border-cyan-500/30 hover:border-cyan-500 rounded-lg font-semibold transition-all group-hover:translate-x-2 text-center"
+              >
+                View SDK Docs →
+              </a>
+            </AnimatedBorder>
+
+            {/* MCP Server */}
+            <AnimatedBorder className="rounded-2xl p-8 glass-card group">
+              <div className="flex items-start justify-between mb-6">
+                <div className="p-3 bg-purple-500/10 rounded-xl">
+                  <svg className="w-8 h-8 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
+                  </svg>
+                </div>
+                <span className="text-xs px-3 py-1 bg-indigo-500/10 border border-indigo-500/30 rounded-full text-indigo-300 uppercase tracking-wide">
+                  Track 4
+                </span>
+              </div>
+              
+              <h3 className="text-2xl font-bold mb-3 group-hover:text-purple-400 transition-colors">
+                🤖 MCP Server
+              </h3>
+              
+              <p className="text-slate-400 mb-6">
+                Model Context Protocol server with 8 tools for AI assistants. Claude, GPT-4, or any AI agent can analyze risks, check vaults, and monitor divergences natively.
+              </p>
+
+              <div className="bg-slate-900/50 rounded-lg p-4 mb-6 font-mono text-sm">
+                <div className="text-slate-500">8 Tools Available:</div>
+                <div className="mt-2 text-slate-300 space-y-1">
+                  <div>• analyzeRisk</div>
+                  <div>• getVaultBalance</div>
+                  <div>• analyzeDivergence</div>
+                  <div>• getMetrics</div>
+                  <div className="text-slate-500">+ 4 more...</div>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap gap-2 mb-6">
+                <span className="px-3 py-1 bg-slate-800 rounded-full text-xs text-slate-300">MCP Protocol</span>
+                <span className="px-3 py-1 bg-slate-800 rounded-full text-xs text-slate-300">AI Agents</span>
+                <span className="px-3 py-1 bg-slate-800 rounded-full text-xs text-slate-300">8 Tools</span>
+              </div>
+
+              <a
+                href="https://github.com/DeegaLabs/cronos-shield/tree/main/cronos-shield/mcp-server"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block w-full py-3 bg-purple-600/10 hover:bg-purple-600 border border-purple-500/30 hover:border-purple-500 rounded-lg font-semibold transition-all group-hover:translate-x-2 text-center"
+              >
+                View MCP Docs →
+              </a>
+            </AnimatedBorder>
+          </div>
+
+          {/* API Documentation Link */}
+          <div className="mt-12 text-center">
+            <GlassCard className="rounded-2xl p-8 inline-block">
+              <h3 className="text-xl font-bold mb-3">📚 API Documentation</h3>
+              <p className="text-slate-400 mb-4">Interactive Swagger UI with full API reference</p>
+              <a
+                href="https://cronos-shield-backend-production.up.railway.app/api-doc"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-block px-6 py-3 bg-indigo-600 hover:bg-indigo-500 rounded-lg font-semibold transition-all"
+              >
+                Open Swagger Docs →
+              </a>
+            </GlassCard>
+          </div>
+        </div>
+      </section>
+
       <Footer />
     </>
   )

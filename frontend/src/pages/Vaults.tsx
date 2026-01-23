@@ -365,7 +365,7 @@ export default function VaultsPage() {
                     ></div>
                   </div>
                   <span className="font-bold text-green-400">
-                    {vaultInfo?.maxRiskScore ?? '...'}/100
+                    {vaultInfo?.maxRiskScore ?? 30}-100
                   </span>
                   <span className="px-2 py-1 bg-green-500/10 text-green-400 rounded text-xs font-bold">🟢 Safe</span>
                 </div>

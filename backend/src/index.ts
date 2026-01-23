@@ -128,7 +128,10 @@ if (process.env.SWAGGER_ENABLED !== 'false') {
   });
   
   // Serve Swagger UI (interactive testing)
-  app.use('/api-doc', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+  app.use('/api-doc', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
+    customCss: '.swagger-ui .topbar { display: none }',
+    customSiteTitle: 'Cronos Shield API Documentation',
+  }));
 
   // Serve Redocly (visual documentation)
   app.get('/docs', (_req, res) => {
