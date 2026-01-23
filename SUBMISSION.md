@@ -6,7 +6,7 @@
 
 ## 📋 Quick Links
 
-- **🌐 Live Demo**: [https://frontend-seven-mu-53.vercel.app](https://frontend-seven-mu-53.vercel.app)
+- **🌐 Live Demo**: [https://cronosshield.vercel.app](https://cronosshield.vercel.app)
 - **🔌 API Backend**: [https://cronos-shield-backend-production.up.railway.app](https://cronos-shield-backend-production.up.railway.app)
 - **📚 API Documentation**: [https://cronos-shield-backend-production.up.railway.app/api-doc](https://cronos-shield-backend-production.up.railway.app/api-doc)
 - **📖 Redoc Docs**: [https://cronos-shield-backend-production.up.railway.app/docs](https://cronos-shield-backend-production.up.railway.app/docs)
@@ -91,7 +91,7 @@ cronos-shield/
 
 ### 1. Access Live Demo
 
-Visit: [https://frontend-seven-mu-53.vercel.app](https://frontend-seven-mu-53.vercel.app)
+Visit: [https://cronosshield.vercel.app](https://cronosshield.vercel.app)
 
 ### 2. Connect Wallet
 
@@ -453,7 +453,7 @@ MIT License - see [LICENSE](./LICENSE) file for details
 
 ## 🔗 Links
 
-- **Live Demo**: [https://frontend-seven-mu-53.vercel.app](https://frontend-seven-mu-53.vercel.app)
+- **Live Demo**: [https://cronosshield.vercel.app](https://cronosshield.vercel.app)
 - **API Backend**: [https://cronos-shield-backend-production.up.railway.app](https://cronos-shield-backend-production.up.railway.app)
 - **API Docs**: [https://cronos-shield-backend-production.up.railway.app/api-doc](https://cronos-shield-backend-production.up.railway.app/api-doc)
 - **Cronos Documentation**: [https://docs.cronos.org](https://docs.cronos.org)
