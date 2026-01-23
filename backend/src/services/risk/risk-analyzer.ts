@@ -104,26 +104,39 @@ export async function analyzeRisk(request: RiskAnalysisRequest): Promise<Omit<Ri
 
     logger.info('🔍 Fetching real on-chain data...', { contract: contractAddress });
     
+    // Track which data sources failed
+    const dataErrors: string[] = [];
+    
     // Fetch real on-chain data in parallel
     const [holders, contractAge, verified, liquidity, complexity, activity, totalSupply] = await Promise.all([
       dataService.getHolders(contractAddress).catch((err) => {
+        const errorMsg = `Holders: ${err.message}`;
         logger.warn('Failed to get holders', { error: err.message, contract: contractAddress });
+        dataErrors.push(errorMsg);
         return 0;
       }),
       dataService.getContractAge(contractAddress).catch((err) => {
+        const errorMsg = `ContractAge: ${err.message}`;
         logger.warn('Failed to get contract age', { error: err.message, contract: contractAddress });
+        dataErrors.push(errorMsg);
         return 0;
       }),
       dataService.isContractVerified(contractAddress).catch((err) => {
+        const errorMsg = `Verification: ${err.message}`;
         logger.warn('Failed to check verification', { error: err.message, contract: contractAddress });
+        dataErrors.push(errorMsg);
         return false;
       }),
       dataService.getLiquidity(contractAddress).catch((err) => {
+        const errorMsg = `Liquidity: ${err.message}`;
         logger.warn('Failed to get liquidity', { error: err.message, contract: contractAddress });
+        dataErrors.push(errorMsg);
         return { available: '0', depth: 'LOW', source: 'error' };
       }),
       dataService.analyzeContractComplexity(contractAddress).catch((err) => {
+        const errorMsg = `Complexity: ${err.message}`;
         logger.warn('Failed to analyze complexity', { error: err.message, contract: contractAddress });
+        dataErrors.push(errorMsg);
         return {
           isProxy: false,
           hasSelfDestruct: false,
@@ -132,14 +145,27 @@ export async function analyzeRisk(request: RiskAnalysisRequest): Promise<Omit<Ri
         };
       }),
       dataService.getTransactionActivity(contractAddress).catch((err) => {
+        const errorMsg = `Activity: ${err.message}`;
         logger.warn('Failed to get transaction activity', { error: err.message, contract: contractAddress });
+        dataErrors.push(errorMsg);
         return { total: 0, recent24h: 0 };
       }),
       dataService.getTokenSupply(contractAddress).catch((err) => {
+        const errorMsg = `TokenSupply: ${err.message}`;
         logger.warn('Failed to get token supply', { error: err.message, contract: contractAddress });
+        dataErrors.push(errorMsg);
         return '0';
       }),
     ]);
+    
+    // Log data fetch results
+    if (dataErrors.length > 0) {
+      logger.warn(`⚠️ Some on-chain data failed to fetch (${dataErrors.length}/7)`, {
+        contract: contractAddress,
+        errors: dataErrors,
+        note: 'Using fallback values which may result in higher risk scores'
+      });
+    }
 
     logger.info('✅ On-chain data fetched successfully', {
       holders,
@@ -155,8 +181,31 @@ export async function analyzeRisk(request: RiskAnalysisRequest): Promise<Omit<Ri
       totalSupply,
     });
 
+    // Check if we have meaningful data or if most data sources failed
+    const hasMinimalData = holders > 0 || contractAge > 0 || liquidity.available !== '0' || verified;
+    const dataQuality = {
+      holders: holders > 0,
+      age: contractAge > 0,
+      verified: verified,
+      liquidity: parseFloat(liquidity.available) > 0,
+      complexity: complexity.bytecodeSize > 0,
+    };
+    const dataQualityScore = Object.values(dataQuality).filter(Boolean).length;
+    
+    logger.info('📊 Data quality assessment', {
+      contract: contractAddress,
+      hasMinimalData,
+      dataQualityScore: `${dataQualityScore}/5`,
+      dataQuality,
+      holders,
+      contractAge: `${contractAge} days`,
+      verified,
+      liquidity: liquidity.available,
+      liquiditySource: liquidity.source,
+    });
+    
     // Calculate risk score based on real data
-    const score = calculateRiskScore({
+    let score = calculateRiskScore({
       holders,
       contractAge,
       verified,
@@ -165,6 +214,32 @@ export async function analyzeRisk(request: RiskAnalysisRequest): Promise<Omit<Ri
       isProxy: complexity.isProxy,
       hasSelfDestruct: complexity.hasSelfDestruct,
     });
+    
+    // If we have very little data, use a more conservative approach
+    // This prevents legitimate contracts from getting score 100 just because data fetch failed
+    if (dataQualityScore < 2) {
+      if (hasMinimalData) {
+        // Contract exists but we couldn't get much data - use moderate uncertainty score
+        // Cap at 75 to allow some differentiation from truly high-risk contracts
+        score = Math.min(75, Math.max(score, 60));
+        logger.warn('⚠️ Limited data available, using conservative score', {
+          contract: contractAddress,
+          calculatedScore: score,
+          dataQualityScore,
+          note: 'Score capped at 75 due to data uncertainty'
+        });
+      } else {
+        // No meaningful data at all - use high but not maximum uncertainty score
+        // This distinguishes from contracts that are definitely high risk
+        score = Math.min(85, Math.max(score, 70));
+        logger.warn('⚠️ No meaningful data found, using high uncertainty score', {
+          contract: contractAddress,
+          calculatedScore: score,
+          dataQualityScore,
+          note: 'Score capped at 85 due to complete data absence - contract may not exist on this network'
+        });
+      }
+    }
 
     // Generate warnings based on real data
     const warnings: string[] = [];
