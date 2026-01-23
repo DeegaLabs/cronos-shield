@@ -147,7 +147,7 @@ export default function RiskPage() {
               </span>
             </h3>
             <a
-              href={`https://cronoscan.com/address/${analysisResult.contract}`}
+              href={`https://explorer.cronos.org/testnet/address/${analysisResult.contract}`}
               target="_blank"
               rel="noopener noreferrer"
               className="text-sm text-indigo-400 hover:text-indigo-300 transition-colors"
