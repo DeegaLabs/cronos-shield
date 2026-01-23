@@ -63,9 +63,27 @@ export class ObservabilityController {
       const usePostgres = !!process.env.DATABASE_URL;
       const postgresStore = usePostgres ? new PostgresStore() : null;
       
-      const transactions = usePostgres && postgresStore
+      let transactions = usePostgres && postgresStore
         ? await postgresStore.getBlockedTransactions(limit ? parseInt(limit as string) : undefined)
         : store.getBlockedTransactions(limit ? parseInt(limit as string) : undefined);
+      
+      // If no transactions in dedicated store, try to get from logs
+      if (!transactions || transactions.length === 0) {
+        const logs = usePostgres && postgresStore
+          ? await postgresStore.getLogs(limit ? parseInt(limit as string) : undefined, 'transaction_blocked')
+          : store.getLogs(limit ? parseInt(limit as string) : undefined, 'transaction_blocked');
+        
+        // Convert logs to blocked transactions format
+        transactions = logs.map(log => ({
+          id: log.id,
+          timestamp: log.timestamp,
+          user: log.data?.user || 'unknown',
+          target: log.data?.target || log.data?.contract || 'unknown',
+          riskScore: log.data?.score || 0,
+          reason: log.data?.reason || 'Risk detected',
+          service: log.service as 'risk-oracle' | 'shielded-vault',
+        }));
+      }
       
       res.status(200).json(transactions);
     } catch (error) {
