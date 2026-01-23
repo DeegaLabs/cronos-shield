@@ -278,7 +278,7 @@ export const Landing = () => {
 
           <div className="grid md:grid-cols-2 gap-8">
             {/* SDK */}
-            <AnimatedBorder className="rounded-2xl p-8 glass-card group">
+            <AnimatedBorder className="rounded-2xl p-8 glass-card group flex flex-col h-full">
               <div className="flex items-start justify-between mb-6">
                 <div className="p-3 bg-cyan-500/10 rounded-xl">
                   <svg className="w-8 h-8 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -318,14 +318,14 @@ export const Landing = () => {
                 href="https://github.com/DeegaLabs/cronos-shield/tree/main/sdk"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="block w-full py-3 bg-cyan-600/10 hover:bg-cyan-600 border border-cyan-500/30 hover:border-cyan-500 rounded-lg font-semibold transition-all group-hover:translate-x-2 text-center"
+                className="block w-full py-3 bg-cyan-600/10 hover:bg-cyan-600 border border-cyan-500/30 hover:border-cyan-500 rounded-lg font-semibold transition-all group-hover:translate-x-2 text-center mt-auto"
               >
                 View SDK Docs →
               </a>
             </AnimatedBorder>
 
             {/* MCP Server */}
-            <AnimatedBorder className="rounded-2xl p-8 glass-card group">
+            <AnimatedBorder className="rounded-2xl p-8 glass-card group flex flex-col h-full">
               <div className="flex items-start justify-between mb-6">
                 <div className="p-3 bg-purple-500/10 rounded-xl">
                   <svg className="w-8 h-8 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -366,7 +366,7 @@ export const Landing = () => {
                 href="https://github.com/DeegaLabs/cronos-shield/tree/main/mcp-server"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="block w-full py-3 bg-purple-600/10 hover:bg-purple-600 border border-purple-500/30 hover:border-purple-500 rounded-lg font-semibold transition-all group-hover:translate-x-2 text-center"
+                className="block w-full py-3 bg-purple-600/10 hover:bg-purple-600 border border-purple-500/30 hover:border-purple-500 rounded-lg font-semibold transition-all group-hover:translate-x-2 text-center mt-auto"
               >
                 View MCP Docs →
               </a>
