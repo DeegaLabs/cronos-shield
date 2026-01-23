@@ -178,5 +178,27 @@ export function createObservabilityRoutes(observabilityController: Observability
    */
   router.get('/blocked-transactions', observabilityController.getBlockedTransactions.bind(observabilityController));
 
+  /**
+   * @swagger
+   * /api/observability/seed-blocked-transactions:
+   *   post:
+   *     summary: Seed test blocked transactions
+   *     description: Creates test blocked transactions for demo purposes
+   *     tags: [Observability]
+   *     requestBody:
+   *       content:
+   *         application/json:
+   *           schema:
+   *             type: object
+   *             properties:
+   *               count:
+   *                 type: integer
+   *                 default: 10
+   *     responses:
+   *       201:
+   *         description: Test transactions created
+   */
+  router.post('/seed-blocked-transactions', observabilityController.seedBlockedTransactions.bind(observabilityController));
+
   return router;
 }

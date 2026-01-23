@@ -103,4 +103,67 @@ export class ObservabilityController {
       next(error);
     }
   }
+
+  /**
+   * Seed test blocked transactions for demo purposes
+   * POST /api/observability/seed-blocked-transactions
+   */
+  async seedBlockedTransactions(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const count = parseInt(req.body.count as string) || 10;
+      const usePostgres = !!process.env.DATABASE_URL;
+      const postgresStore = usePostgres ? new PostgresStore() : null;
+      
+      const testTransactions = [];
+      const now = Date.now();
+      const testTargets = [
+        '0xc01efAaF7C5C61bEbFAeb358E1161b537b8bC0e0', // High risk contract from checklist
+        '0x1234567890123456789012345678901234567890',
+        '0x0987654321098765432109876543210987654321',
+        '0xabcdefabcdefabcdefabcdefabcdefabcdefabcd',
+        '0xfedcbafedcbafedcbafedcbafedcbafedcbafedc',
+      ];
+      const testReasons = [
+        'High risk score detected',
+        'Unverified contract',
+        'Suspicious activity',
+        'Low liquidity',
+        'New contract with no history',
+        'Risk score exceeds threshold',
+        'Contract not verified on Cronoscan',
+      ];
+      const testUsers = [
+        '0x1111111111111111111111111111111111111111',
+        '0x2222222222222222222222222222222222222222',
+        '0x3333333333333333333333333333333333333333',
+      ];
+
+      for (let i = 0; i < count; i++) {
+        const transaction = {
+          id: crypto.randomUUID(),
+          timestamp: now - (i * 60000), // Spread over time (1 minute apart)
+          user: testUsers[i % testUsers.length],
+          target: testTargets[i % testTargets.length],
+          riskScore: 70 + Math.floor(Math.random() * 30), // Risk score between 70-100
+          reason: testReasons[i % testReasons.length],
+          service: (i % 2 === 0 ? 'shielded-vault' : 'risk-oracle') as 'risk-oracle' | 'shielded-vault',
+        };
+        testTransactions.push(transaction);
+
+        if (usePostgres && postgresStore) {
+          await postgresStore.addBlockedTransaction(transaction);
+        } else {
+          store.addBlockedTransaction(transaction);
+        }
+      }
+
+      res.status(201).json({
+        message: `Created ${count} test blocked transactions`,
+        count: testTransactions.length,
+        transactions: testTransactions,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
 }
