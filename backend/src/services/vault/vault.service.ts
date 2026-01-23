@@ -222,14 +222,12 @@ export class VaultService {
           console.warn('Failed to generate explanation:', error);
         }
 
-        // Log transaction blocked (fire-and-forget, but ensure it's called)
+        // Log transaction blocked (fire-and-forget)
         logTransactionBlocked('shielded-vault', {
           user: userAddress,
           target: request.target,
           score: riskScore,
           reason,
-        }).catch(err => {
-          console.error('Failed to log transaction blocked:', err);
         });
 
         return {
@@ -279,14 +277,12 @@ export class VaultService {
           console.warn('Failed to generate explanation:', explainError);
         }
 
-        // Log transaction blocked (fire-and-forget, but ensure it's called)
+        // Log transaction blocked (fire-and-forget)
         logTransactionBlocked('shielded-vault', {
           user: userAddress,
           target: request.target,
           score: riskScore,
           reason: error.message,
-        }).catch(err => {
-          console.error('Failed to log transaction blocked:', err);
         });
 
         return {
