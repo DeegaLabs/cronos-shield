@@ -63,11 +63,11 @@ const corsOptions = {
 app.use(cors(corsOptions));
 app.use(express.json());
 
-// Apply rate limiting to all API routes (except observability which has its own)
-app.use('/api', apiRateLimiter);
-
-// Apply more permissive rate limiting to observability endpoints
+// Apply more permissive rate limiting to observability endpoints (must be before general rate limiter)
 app.use('/api/observability', observabilityRateLimiter);
+
+// Apply rate limiting to all other API routes
+app.use('/api', apiRateLimiter);
 
 // Swagger Configuration
 const swaggerOptions = {
