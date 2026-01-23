@@ -83,6 +83,19 @@ export class ObservabilityController {
           reason: log.data?.reason || 'Risk detected',
           service: log.service as 'risk-oracle' | 'shielded-vault',
         }));
+        
+        // If we found transactions from logs, save them to the dedicated store for future queries
+        if (transactions.length > 0) {
+          for (const tx of transactions) {
+            if (usePostgres && postgresStore) {
+              await postgresStore.addBlockedTransaction(tx).catch(() => {
+                // Ignore errors (might already exist)
+              });
+            } else {
+              store.addBlockedTransaction(tx);
+            }
+          }
+        }
       }
       
       res.status(200).json(transactions);
