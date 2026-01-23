@@ -95,7 +95,7 @@ CRYPTO_COM_API_KEY=your_api_key_here
 DEX_ROUTER_ADDRESS=0x145863Eb42Cf62847A6Ca784e6416C1682b1b2Ae
 
 # Frontend
-FRONTEND_URL=https://your-frontend-domain.com
+FRONTEND_URL=https://cronosshield.vercel.app
 
 # Observability
 SWAGGER_ENABLED=true

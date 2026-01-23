@@ -32,7 +32,8 @@ export class CronosShieldWebSocketServer {
         // Allow all origins in development, check in production
         if (process.env.NODE_ENV === 'production') {
           const origin = info.origin;
-          const frontendUrl = process.env.FRONTEND_URL || '';
+          // Normalize FRONTEND_URL by removing trailing slash
+          const frontendUrl = (process.env.FRONTEND_URL || '').replace(/\/$/, '');
           if (frontendUrl && origin && !origin.startsWith(frontendUrl)) {
             console.warn(`⚠️ WebSocket connection rejected from origin: ${origin}`);
             return false;

@@ -48,7 +48,8 @@ const httpServer = createServer(app);
 app.set('trust proxy', 1);
 
 const PORT = process.env.PORT || 3000;
-const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
+// Normalize FRONTEND_URL by removing trailing slash
+const FRONTEND_URL = (process.env.FRONTEND_URL || 'http://localhost:5173').replace(/\/$/, '');
 
 // Middleware
 // CORS: Allow frontend URL or all origins in development
